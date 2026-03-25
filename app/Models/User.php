@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Dojo;
 
 class User extends Authenticatable
 {
@@ -41,6 +42,18 @@ class User extends Authenticatable
         return $this->belongsTo(Athlete::class);
     }
 
+    public function dojo()
+    {
+        return $this->belongsTo(Dojo::class);
+    }
+
+    public function senseiAthletes()
+    {
+        return $this->belongsToMany(Athlete::class, 'sensei_athlete', 'sensei_id', 'athlete_id')
+            ->withPivot(['dojo_id', 'assigned_by'])
+            ->withTimestamps();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';
@@ -54,6 +67,11 @@ class User extends Authenticatable
     public function isSensei(): bool
     {
         return $this->role === 'sensei';
+    }
+
+    public function isDojoAdmin(): bool
+    {
+        return $this->role === 'dojo_admin';
     }
 
     public function isMurid(): bool

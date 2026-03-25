@@ -28,7 +28,6 @@ export default function Index({ auth, athletes, flash, filters }) {
             athlete.athlete_code,
             athlete.category,
             athlete.class_note,
-            athlete.birth_place,
         ]
             .filter(Boolean)
             .map((value) => value.toString().toLowerCase());
@@ -142,7 +141,6 @@ export default function Index({ auth, athletes, flash, filters }) {
                                                 {athlete.class_note || '-'}
                                             </td>
                                             <td className="px-6 py-4 text-neutral-500">
-                                                {athlete.birth_place ? `${athlete.birth_place}, ` : ''}
                                                 {formatDate(athlete.dob)}
                                             </td>
                                             <td className="px-6 py-4">
@@ -193,7 +191,7 @@ export default function Index({ auth, athletes, flash, filters }) {
                                     </div>
                                     <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
                                         <div className="text-xs text-neutral-500 leading-relaxed">
-                                            Tanggal Lahir: <span className="font-bold text-neutral-900 ">{athlete.birth_place ? `${athlete.birth_place}, ` : ''}{formatDate(athlete.dob)}</span>
+                                            Tanggal Lahir: <span className="font-bold text-neutral-900 ">{formatDate(athlete.dob)}</span>
                                         </div>
                                         <Link href={route('athletes.show', athlete.id)}>
                                             <Button variant="outline" size="sm" className="h-8 text-xs font-bold">Lihat Rapor</Button>

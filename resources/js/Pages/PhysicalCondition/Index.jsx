@@ -1,17 +1,28 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ruler, Weight, Activity, Search, ChevronRight, Zap, TrendingUp } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Skeleton } from '@/Components/ui/skeleton';
 
-export default function Index({ auth, athletes }) {
+export default function Index({ auth, athletes, dojos = [], selectedDojoId = null }) {
     const [search, setSearch] = useState('');
     const initialAthleteId = athletes?.[0]?.id ?? null;
     const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId);
     const isLoading = !athletes;
+    const [dojoId, setDojoId] = useState(selectedDojoId || '');
+
+    useEffect(() => {
+        setDojoId(selectedDojoId || '');
+    }, [selectedDojoId]);
+
+    useEffect(() => {
+        if (athletes && athletes.length > 0) {
+            setSelectedAthleteId(athletes[0].id);
+        }
+    }, [athletes]);
 
     if (isLoading) {
         return (
@@ -73,6 +84,25 @@ export default function Index({ auth, athletes }) {
 
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">Ringkasan Kondisi</h3>
+                        {dojos.length > 0 && (
+                            <select
+                                className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                value={dojoId || ''}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setDojoId(next);
+                                    router.get(route('physical-condition.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                                }}
+                            >
+                                {dojos.map((dojo) => (
+                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         {/* Athlete List Side */}
                         <div className="lg:col-span-4 space-y-4 animate-fade-in-up fill-both">

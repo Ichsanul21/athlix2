@@ -16,10 +16,23 @@ class AttendanceController extends Controller
 
     public function index()
     {
-        $dojoQr = $this->buildDojoQrPayload();
+        $user = auth()->user();
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
+        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
+            $selectedDojoId = Dojo::query()->value('id');
+        }
+
+        $dojoQr = $this->buildDojoQrPayload($selectedDojoId);
+
+        $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user);
+        if ($user?->isSuperAdmin() && $selectedDojoId) {
+            $athleteQuery->where('dojo_id', $selectedDojoId);
+        }
 
         $attendances = Attendance::query()
             ->with('athlete.belt')
+            ->whereIn('athlete_id', $athleteQuery->select('id'))
             ->whereDate('recorded_at', now()->toDateString())
             ->latest('recorded_at')
             ->get();
@@ -27,6 +40,8 @@ class AttendanceController extends Controller
         return Inertia::render('Attendance/Index', [
             'attendances' => Inertia::defer(fn () => $attendances),
             'dojoQr' => Inertia::defer(fn () => $dojoQr),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
     }
 
@@ -37,7 +52,15 @@ class AttendanceController extends Controller
 
     public function dojoQr()
     {
-        return response()->json($this->buildDojoQrPayload());
+        $user = auth()->user();
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
+
+        if ($requestedDojoId && ! $user?->isSuperAdmin() && (int) $user?->dojo_id !== (int) $requestedDojoId) {
+            abort(403);
+        }
+
+        return response()->json($this->buildDojoQrPayload($selectedDojoId));
     }
 
     public function store(Request $request)
@@ -47,6 +70,10 @@ class AttendanceController extends Controller
         ]);
 
         $athlete = $this->resolveAthleteByCode($request->athlete_code);
+        $user = auth()->user();
+        if ($user?->isSensei() && (int) $athlete->dojo_id !== (int) $user->dojo_id) {
+            abort(403);
+        }
         $this->recordAttendance($athlete, 'checkin');
 
         return back()->with('success', 'Check-in berhasil dicatat untuk ' . $athlete->full_name);
@@ -54,6 +81,7 @@ class AttendanceController extends Controller
 
     public function scanDojo(Request $request)
     {
+        $user = auth()->user();
         $validated = $request->validate([
             'athlete_code' => 'required|string',
             'dojo_payload' => 'required|string',
@@ -63,6 +91,20 @@ class AttendanceController extends Controller
         ]);
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
+        if ($user?->isMurid()) {
+            if ((int) $user->athlete_id !== (int) $athlete->id) {
+                throw ValidationException::withMessages([
+                    'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
+                ]);
+            }
+        } elseif ($user?->isSensei()) {
+            $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
+            if (! $allowed) {
+                throw ValidationException::withMessages([
+                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar murid Anda.',
+                ]);
+            }
+        }
 
         $payload = $this->parseDojoPayload($validated['dojo_payload']);
         if (!$payload) {
@@ -110,6 +152,19 @@ class AttendanceController extends Controller
 
     public function senseiFeedback(Request $request, Attendance $attendance)
     {
+        $user = auth()->user();
+        if (! $user) {
+            abort(403);
+        }
+        if (! $user->isSuperAdmin()) {
+            $allowed = $user->isSensei()
+                ? $user->senseiAthletes()->whereKey($attendance->athlete_id)->exists()
+                : false;
+            if (! $allowed) {
+                abort(403);
+            }
+        }
+
         $validated = $request->validate([
             'sensei_feedback' => 'nullable|string|max:1000',
             'sensei_mood_assessment' => 'nullable|string|max:30',
@@ -194,9 +249,9 @@ class AttendanceController extends Controller
         ]);
     }
 
-    private function buildDojoQrPayload(): array
+    private function buildDojoQrPayload(?int $dojoId = null): array
     {
-        $dojoId = auth()->user()?->dojo_id;
+        $dojoId = $dojoId ?? auth()->user()?->dojo_id;
         $dojo = $dojoId ? Dojo::find($dojoId) : Dojo::first();
 
         if (!$dojo) {

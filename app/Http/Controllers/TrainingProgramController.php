@@ -13,8 +13,16 @@ class TrainingProgramController extends Controller
 {
     public function index()
     {
+        $user = auth()->user();
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
+        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
+            $selectedDojoId = Dojo::query()->value('id');
+        }
+
         $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
         $programs = TrainingProgram::query()
+            ->when($selectedDojoId, fn ($query) => $query->where('dojo_id', $selectedDojoId))
             ->orderBy('start_time')
             ->get()
             ->groupBy('day');
@@ -27,6 +35,7 @@ class TrainingProgramController extends Controller
                 return [
                     'id' => $p->id,
                     'title' => $p->title,
+                    'dojo_id' => $p->dojo_id,
                     'day' => $p->day,
                     'start_time' => substr($p->start_time, 0, 5),
                     'end_time' => substr($p->end_time, 0, 5),
@@ -50,11 +59,15 @@ class TrainingProgramController extends Controller
 
         return Inertia::render('TrainingPrograms/Index', [
             'weeklySchedule' => Inertia::defer(fn () => $structuredPrograms),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
     }
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'day' => 'required|string',
@@ -68,20 +81,22 @@ class TrainingProgramController extends Controller
             'agenda_items.*.end_time' => 'required_with:agenda_items|date_format:H:i',
             'agenda_items.*.title' => 'required_with:agenda_items|string|max:255',
             'agenda_items.*.description' => 'nullable|string|max:500',
+            'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
         ]);
 
         $validated['agenda_items'] = $this->sanitizeAgendaItems($validated['agenda_items'] ?? []);
         $this->validateAgendaItemsWithinProgram($validated['agenda_items'], $validated['start_time'], $validated['end_time']);
-        $this->ensureNoOverlappingSchedule($validated);
 
-        // Default ke dojo pertama karena pemilihan dojo belum dibuka di form.
-        $dojoId = Dojo::query()->value('id');
-        if (!$dojoId) {
-            throw ValidationException::withMessages([
-                'day' => 'Dojo belum tersedia. Silakan buat data dojo terlebih dahulu.',
-            ]);
+        if (! $user?->isSuperAdmin()) {
+            if (! $user?->dojo_id) {
+                throw ValidationException::withMessages([
+                    'day' => 'Dojo belum tersedia. Silakan hubungi super admin.',
+                ]);
+            }
+            $validated['dojo_id'] = $user->dojo_id;
         }
-        $validated['dojo_id'] = $dojoId;
+
+        $this->ensureNoOverlappingSchedule($validated);
 
         TrainingProgram::create($validated);
 
@@ -90,6 +105,12 @@ class TrainingProgramController extends Controller
 
     public function update(Request $request, TrainingProgram $trainingProgram)
     {
+        $user = auth()->user();
+
+        if (! $user?->isSuperAdmin() && (int) $trainingProgram->dojo_id !== (int) $user?->dojo_id) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'day' => 'required|string',
@@ -107,6 +128,7 @@ class TrainingProgramController extends Controller
 
         $validated['agenda_items'] = $this->sanitizeAgendaItems($validated['agenda_items'] ?? []);
         $this->validateAgendaItemsWithinProgram($validated['agenda_items'], $validated['start_time'], $validated['end_time']);
+        $validated['dojo_id'] = $trainingProgram->dojo_id;
         $this->ensureNoOverlappingSchedule($validated, $trainingProgram->id);
 
         $trainingProgram->update($validated);
@@ -116,6 +138,12 @@ class TrainingProgramController extends Controller
 
     public function destroy(TrainingProgram $trainingProgram)
     {
+        $user = auth()->user();
+
+        if (! $user?->isSuperAdmin() && (int) $trainingProgram->dojo_id !== (int) $user?->dojo_id) {
+            abort(403);
+        }
+
         $trainingProgram->delete();
 
         return redirect()->back()->with('success', 'Program latihan berhasil dihapus.');
@@ -124,6 +152,7 @@ class TrainingProgramController extends Controller
     private function ensureNoOverlappingSchedule(array $payload, ?int $ignoreId = null): void
     {
         $hasConflict = TrainingProgram::query()
+            ->where('dojo_id', $payload['dojo_id'])
             ->where('day', $payload['day'])
             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
             ->where('start_time', '<', $payload['end_time'])

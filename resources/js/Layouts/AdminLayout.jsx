@@ -39,6 +39,9 @@ export default function AdminLayout({ user, header, children }) {
                   { name: 'Asisten Gemini AI', href: route('ai-assistant.index'), icon: Sparkles, current: 'ai-assistant.*' },
               ]
             : []),
+        ...(role === 'dojo_admin'
+            ? [{ name: 'Manajemen Sensei', href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' }]
+            : []),
         ...(role === 'super_admin' || role === 'landing_admin'
             ? [
                   { name: 'CMS Artikel', href: route('cms.articles.index'), icon: Newspaper, current: 'cms.articles.*' },
@@ -47,7 +50,10 @@ export default function AdminLayout({ user, header, children }) {
               ]
             : []),
         ...(role === 'super_admin'
-            ? [{ name: 'Master Akun', href: route('super-admin.users.index'), icon: ShieldCheck, current: 'super-admin.users.*' }]
+            ? [
+                  { name: 'Master Akun', href: route('super-admin.users.index'), icon: ShieldCheck, current: 'super-admin.users.*' },
+                  { name: 'Master Dojo', href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
+              ]
             : []),
     ];
 

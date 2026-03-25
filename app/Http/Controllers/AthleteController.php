@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Athlete;
 use App\Models\AthleteAchievement;
 use App\Models\Belt;
+use App\Models\Dojo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -14,11 +15,14 @@ class AthleteController extends Controller
     public function index()
     {
         $search = trim((string) request('search', ''));
+        $user = auth()->user();
 
-        $athletes = Athlete::with([
+        $athleteQuery = Athlete::with([
                 'belt',
                 'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
-            ])
+            ]);
+
+        $athleteQuery = $this->scopeAthletesForUser($athleteQuery, $user)
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
                     $nested
@@ -27,8 +31,9 @@ class AthleteController extends Controller
                         ->orWhere('class_note', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('full_name')
-            ->get()
+            ->orderBy('full_name');
+
+        $athletes = $athleteQuery->get()
             ->map(function ($athlete) {
                 $athlete->age = \Carbon\Carbon::parse($athlete->dob)->age;
                 $latestMetric = $athlete->physicalMetrics->first();
@@ -58,14 +63,19 @@ class AthleteController extends Controller
 
     public function create()
     {
+        $user = auth()->user();
+
         return Inertia::render('Athletes/Create', [
             'belts' => Inertia::defer(fn () => Belt::all()),
             'suggestedAthleteCode' => $this->generateAthleteCode(),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
         ]);
     }
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             'athlete_code' => 'nullable|string|max:20|alpha_num|unique:athletes,athlete_code',
@@ -77,23 +87,41 @@ class AthleteController extends Controller
             'latest_height' => 'nullable|numeric|min:50|max:260',
             'latest_weight' => 'nullable|numeric',
             'class_note' => 'nullable|string|max:255',
+            'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
         ]);
 
         $validated['athlete_code'] = strtoupper($validated['athlete_code'] ?? $this->generateAthleteCode());
-        $validated['dojo_id'] = auth()->user()->dojo_id;
+        if (! $user?->isSuperAdmin()) {
+            if (! $user?->dojo_id) {
+                return back()->with('error', 'Dojo belum terhubung ke akun ini.');
+            }
+            $validated['dojo_id'] = $user->dojo_id;
+        }
         $validated['class_note'] = $validated['class_note'] ?: 'Umum';
 
-        Athlete::create($validated);
+        $athlete = Athlete::create($validated);
+
+        if ($user?->isSensei()) {
+            $user->senseiAthletes()->syncWithoutDetaching([
+                $athlete->id => [
+                    'dojo_id' => $athlete->dojo_id,
+                    'assigned_by' => $user->id,
+                ],
+            ]);
+        }
 
         return redirect()->route('athletes.index')->with('success', 'Athlete created successfully.');
     }
 
     public function show(Athlete $athlete)
     {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+
         $athlete->load([
             'belt',
             'dojo',
             'achievements',
+            'attendances',
             'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
         ]);
         $athlete->age = \Carbon\Carbon::parse($athlete->dob)->age;
@@ -126,31 +154,38 @@ class AthleteController extends Controller
                     'certificate_url' => $achievement->certificate_path ? Storage::url($achievement->certificate_path) : null,
                 ];
             });
-        
-        // Mock Performance Data for Charts
+
+        $attendanceTotal = $athlete->attendances->count();
+        $attendancePresent = $athlete->attendances->where('status', 'present')->count();
+        $attendanceRate = $attendanceTotal > 0 ? round(($attendancePresent / $attendanceTotal) * 100) : 0;
+
+        $bmi = $latestMetric?->bmi;
+        $bmiScore = 0;
+        if ($bmi) {
+            if ($bmi >= 18.5 && $bmi <= 24.9) {
+                $bmiScore = 92;
+            } elseif ($bmi < 18.5) {
+                $bmiScore = max(55, 82 - (18.5 - $bmi) * 6);
+            } else {
+                $bmiScore = max(50, 82 - ($bmi - 24.9) * 4);
+            }
+        }
+
+        $conditionScore = (int) round((($bmiScore * 0.6) + ($attendanceRate * 0.4)));
+        $conditionScore = max(0, min(100, $conditionScore));
+
         $performance = [
             'condition' => [
-                ['name' => 'Condition Athlet', 'value' => 79, 'fill' => '#DC2626'],
-                ['name' => 'Kekurangan Athlet', 'value' => 21, 'fill' => '#404040'],
+                ['label' => 'Kondisi Ideal', 'value' => $conditionScore],
+                ['label' => 'Perlu Perbaikan', 'value' => 100 - $conditionScore],
             ],
             'categories' => [
-                ['subject' => 'POWER', 'A' => 80, 'fullMark' => 100],
-                ['subject' => 'STRENGTH', 'A' => 88, 'fullMark' => 100],
-                ['subject' => 'ENDURANCE', 'A' => 95, 'fullMark' => 100],
-                ['subject' => 'SPEED', 'A' => 60, 'fullMark' => 100],
-                ['subject' => 'AGILITY', 'A' => 75, 'fullMark' => 100],
-                ['subject' => 'CORE', 'A' => 85, 'fullMark' => 100],
-                ['subject' => 'FLEXIBILITY', 'A' => 70, 'fullMark' => 100],
+                ['label' => 'Stamina', 'score' => max(0, min(100, $attendanceRate))],
+                ['label' => 'Keseimbangan', 'score' => max(0, min(100, $bmiScore))],
+                ['label' => 'Kecepatan', 'score' => max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2)))],
+                ['label' => 'Kekuatan', 'score' => max(0, min(100, (int) round(($attendanceRate * 0.4) + ($bmiScore * 0.6))))],
+                ['label' => 'Kelincahan', 'score' => max(0, min(100, (int) round(($attendanceRate * 0.5) + ($bmiScore * 0.5))))],
             ],
-            'detailed' => [
-                ['name' => 'FLEXIBILITY', 'presentase' => 70, 'target' => 30],
-                ['name' => 'CORE', 'presentase' => 70, 'target' => 30],
-                ['name' => 'AGILITY', 'presentase' => 60, 'target' => 40],
-                ['name' => 'SPEED', 'presentase' => 50, 'target' => 50],
-                ['name' => 'ENDURANCE + SPEED', 'presentase' => 60, 'target' => 40],
-                ['name' => 'ENDURANCE (Mid)', 'presentase' => 100, 'target' => 0],
-                ['name' => 'POWER (Lw)', 'presentase' => 80, 'target' => 20],
-            ]
         ];
 
         return Inertia::render('Athletes/Show', [
@@ -162,6 +197,8 @@ class AthleteController extends Controller
 
     public function storeAchievement(Request $request, Athlete $athlete)
     {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+
         $validated = $request->validate([
             'competition_name' => 'required|string|max:255',
             'competition_level' => 'required|string|max:255',
@@ -187,6 +224,8 @@ class AthleteController extends Controller
 
     public function destroyAchievement(Athlete $athlete, AthleteAchievement $achievement)
     {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+
         if ($achievement->athlete_id !== $athlete->id) {
             abort(404);
         }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Athlete;
+use App\Models\Dojo;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
@@ -10,16 +11,33 @@ class PhysicalConditionController extends Controller
 {
     public function index()
     {
+        $user = auth()->user();
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
+        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
+            $selectedDojoId = Dojo::query()->value('id');
+        }
+
+        $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user);
+        if ($user?->isSuperAdmin() && $selectedDojoId) {
+            $athleteQuery->where('dojo_id', $selectedDojoId);
+        }
+
         return Inertia::render('PhysicalCondition/Index', [
-            'athletes' => Inertia::defer(fn () => Athlete::with(['belt', 'physicalMetrics' => function($q) {
-                $q->orderBy('recorded_at', 'asc');
-            }])->get()->map(function($athlete) {
-                $athlete->age = Carbon::parse($athlete->dob)->age;
-                // Latest is still needed for quick display
-                $athlete->latest_metrics = $athlete->physicalMetrics->last();
-                $athlete->bmi_detail = $this->resolveBmiDetail($athlete->latest_metrics?->bmi);
-                return $athlete;
-            }))
+            'athletes' => Inertia::defer(fn () => $athleteQuery
+                ->with(['belt', 'physicalMetrics' => function($q) {
+                    $q->orderBy('recorded_at', 'asc');
+                }])
+                ->get()
+                ->map(function($athlete) {
+                    $athlete->age = Carbon::parse($athlete->dob)->age;
+                    // Latest is still needed for quick display
+                    $athlete->latest_metrics = $athlete->physicalMetrics->last();
+                    $athlete->bmi_detail = $this->resolveBmiDetail($athlete->latest_metrics?->bmi);
+                    return $athlete;
+                })),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
     }
 

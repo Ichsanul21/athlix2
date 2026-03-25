@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Athlete;
 use App\Models\Attendance;
 use App\Models\Belt;
+use App\Models\Dojo;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,11 +16,24 @@ class StatisticsController extends Controller
 {
     public function index()
     {
+        $user = auth()->user();
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
+        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
+            $selectedDojoId = Dojo::query()->value('id');
+        }
+
+        $athleteScope = $this->scopeAthletesForUser(Athlete::query(), $user);
+        if ($user?->isSuperAdmin() && $selectedDojoId) {
+            $athleteScope->where('dojo_id', $selectedDojoId);
+        }
+        $athleteIdSubquery = (clone $athleteScope)->select('id');
+
         // 1. Athlete Growth (Last 6 Months)
         $growthData = [];
         for ($i = 5; $i >= 0; $i--) {
             $month = Carbon::now()->subMonths($i);
-            $count = Athlete::where('created_at', '<=', $month->endOfMonth())->count();
+            $count = (clone $athleteScope)->where('created_at', '<=', $month->endOfMonth())->count();
             $growthData[] = [
                 'month' => $month->format('M'),
                 'total' => $count
@@ -32,6 +46,7 @@ class StatisticsController extends Controller
                 DB::raw('COUNT(*) as total'),
                 DB::raw("SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present")
             )
+            ->whereIn('athlete_id', $athleteIdSubquery)
             ->where('recorded_at', '>=', Carbon::now()->subDays(30))
             ->groupBy('date')
             ->orderBy('date')
@@ -45,10 +60,11 @@ class StatisticsController extends Controller
             });
 
         // 3. Belt Distribution
-        $beltDistribution = Belt::withCount('athletes')->get()->map(function($belt) {
+        $athleteBelts = (clone $athleteScope)->select('current_belt_id')->get();
+        $beltDistribution = Belt::all()->map(function($belt) use ($athleteBelts) {
             return [
                 'name' => $belt->name,
-                'value' => $belt->athletes_count,
+                'value' => $athleteBelts->where('current_belt_id', $belt->id)->count(),
             ];
         });
 
@@ -56,19 +72,32 @@ class StatisticsController extends Controller
             'growthData' => Inertia::defer(fn () => $growthData),
             'attendanceData' => Inertia::defer(fn () => $attendanceData),
             'beltDistribution' => Inertia::defer(fn () => $beltDistribution),
-            'athletes' => Inertia::defer(fn () => Athlete::select('id', 'full_name')->orderBy('full_name')->get()),
+            'athletes' => Inertia::defer(fn () => (clone $athleteScope)->select('id', 'full_name')->orderBy('full_name')->get()),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
     }
 
     public function ppaPreview(Request $request)
     {
+        $user = auth()->user();
         $validated = $request->validate([
             'scope' => 'required|in:dojo,athlete',
             'format' => 'required|in:pdf,excel',
             'athlete_id' => 'nullable|exists:athletes,id',
+            'dojo_id' => $user?->isSuperAdmin() ? 'nullable|exists:dojos,id' : 'nullable',
         ]);
 
-        $query = Athlete::query()->with(['belt', 'dojo', 'physicalMetrics' => fn ($metricQuery) => $metricQuery->latest('recorded_at')]);
+        $selectedDojoId = $this->resolveDojoId($user, $validated['dojo_id'] ?? null);
+        $query = $this->scopeAthletesForUser(
+            Athlete::query()->with(['belt', 'dojo', 'physicalMetrics' => fn ($metricQuery) => $metricQuery->latest('recorded_at')]),
+            $user
+        );
+
+        if ($selectedDojoId) {
+            $query->where('dojo_id', $selectedDojoId);
+        }
+
         if ($validated['scope'] === 'athlete') {
             $query->whereKey($validated['athlete_id']);
         }

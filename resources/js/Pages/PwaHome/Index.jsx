@@ -20,8 +20,10 @@ export default function Index({ auth, athlete, todaySession, stats, upcomingPaym
     useEffect(() => {
         const todayKey = new Date().toISOString().slice(0, 10);
         const doneKey = `athlix_morning_review_${todayKey}`;
+        const hour = new Date().getHours();
+        const isMorning = hour >= 5 && hour <= 10;
 
-        if (!localStorage.getItem(doneKey)) {
+        if (isMorning && !localStorage.getItem(doneKey)) {
             setShowMorningReview(true);
         }
     }, []);

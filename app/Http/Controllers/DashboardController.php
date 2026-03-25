@@ -14,18 +14,37 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $dojo = Dojo::first();
-        $totalAthletes = Athlete::count();
-        $unpaidCount = FinanceRecord::where('status', 'unpaid')->count();
+        $user = auth()->user();
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
+        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
+            $selectedDojoId = Dojo::query()->value('id');
+        }
+
+        $dojo = $selectedDojoId ? Dojo::find($selectedDojoId) : null;
+
+        $athleteScope = $this->scopeAthletesForUser(Athlete::query(), $user);
+        if ($user?->isSuperAdmin() && $selectedDojoId) {
+            $athleteScope->where('dojo_id', $selectedDojoId);
+        }
+        $athleteIdSubquery = (clone $athleteScope)->select('id');
+
+        $totalAthletes = (clone $athleteScope)->count();
+        $unpaidCount = FinanceRecord::query()
+            ->whereIn('athlete_id', $athleteIdSubquery)
+            ->where('status', 'unpaid')
+            ->count();
 
         $dayMap = [
             'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
             'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu',
         ];
         $todayIndo = $dayMap[now()->englishDayOfWeek] ?? 'Senin';
-        $todayTrainingCount = TrainingProgram::where('day', $todayIndo)->count();
+        $programQuery = TrainingProgram::query()
+            ->when($selectedDojoId, fn ($query) => $query->where('dojo_id', $selectedDojoId));
+        $todayTrainingCount = (clone $programQuery)->where('day', $todayIndo)->count();
 
-        $atletPantauan = Athlete::whereHas('physicalMetrics', function ($query) {
+        $atletPantauan = (clone $athleteScope)->whereHas('physicalMetrics', function ($query) {
             $query->where('bmi', '>', 25);
         })->count();
 
@@ -37,8 +56,7 @@ class DashboardController extends Controller
         ];
 
         $now = Carbon::now();
-        $scheduledPrograms = TrainingProgram::query()
-            ->orderBy('day')
+        $scheduledPrograms = $programQuery->orderBy('day')
             ->orderBy('start_time')
             ->get()
             ->map(function ($program) use ($now) {
@@ -54,7 +72,7 @@ class DashboardController extends Controller
                     'title' => $program->title,
                     'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
                     'desc' => trim(($program->coach_name ?? '-') . ' | ' . ucfirst($program->type), ' |'),
-                    'status' => $nextStart->isToday() ? 'Latihan hari ini' : 'Latihan terdekat',
+                    'status' => $nextStart->isToday() ? 'Latihan hari ini' : 'Latihan berikutnya',
                     'day' => $program->day,
                     'coach' => $program->coach_name,
                     'type' => $program->type,
@@ -67,17 +85,25 @@ class DashboardController extends Controller
             ->sortBy('starts_at')
             ->values();
 
-        $nearestDate = $scheduledPrograms->first()['next_date'] ?? null;
-        $nearestPrograms = $scheduledPrograms
-            ->filter(fn ($program) => $program['next_date'] === $nearestDate)
+        $todayPrograms = $scheduledPrograms
+            ->filter(fn ($program) => Carbon::parse($program['starts_at'])->isToday())
             ->values();
 
-        $nextTrainingReminder = $nearestPrograms->first()
-            ? 'Reminder latihan terdekat: ' . $nearestPrograms->first()['next_date']
+        $nextProgram = $scheduledPrograms->first(function ($program) use ($now) {
+            return Carbon::parse($program['starts_at'])->gt($now);
+        }) ?? $scheduledPrograms->first();
+
+        $trainingPrograms = $todayPrograms->isNotEmpty()
+            ? $todayPrograms
+            : ($nextProgram ? $scheduledPrograms->filter(fn ($program) => $program['next_date'] === $nextProgram['next_date'])->values() : collect());
+
+        $nextTrainingReminder = $nextProgram
+            ? 'Reminder latihan terdekat: ' . $nextProgram['next_date']
             : 'Belum ada program latihan terjadwal.';
 
         $todayAttendances = Attendance::query()
             ->with('athlete')
+            ->whereIn('athlete_id', $athleteIdSubquery)
             ->whereDate('recorded_at', now()->toDateString())
             ->orderByDesc('recorded_at')
             ->get();
@@ -103,11 +129,13 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'stats' => Inertia::defer(fn () => $stats),
-            'trainingPrograms' => Inertia::defer(fn () => $nearestPrograms),
+            'trainingPrograms' => Inertia::defer(fn () => $trainingPrograms),
             'nextTrainingReminder' => Inertia::defer(fn () => $nextTrainingReminder),
             'attendanceSummary' => Inertia::defer(fn () => $attendanceSummary),
             'recentAttendances' => Inertia::defer(fn () => $recentAttendances),
             'dojoName' => Inertia::defer(fn () => $dojo->name ?? 'Dojo Utama'),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
     }
 

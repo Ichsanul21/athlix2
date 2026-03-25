@@ -66,6 +66,7 @@ export default function Users({ auth, users = [], dojos = [], athletes = [], fla
                         <select className="border rounded-lg px-3 py-2 text-sm" value={form.data.role} onChange={(e) => form.setData('role', e.target.value)}>
                             <option value="super_admin">Super Admin</option>
                             <option value="landing_admin">Landing Admin</option>
+                            <option value="dojo_admin">Admin Dojo</option>
                             <option value="sensei">Sensei</option>
                             <option value="murid">Murid (Atlet)</option>
                         </select>

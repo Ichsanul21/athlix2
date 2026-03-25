@@ -46,4 +46,11 @@ class Athlete extends Model
     {
         return $this->hasMany(Attendance::class);
     }
+
+    public function senseis()
+    {
+        return $this->belongsToMany(User::class, 'sensei_athlete', 'athlete_id', 'sensei_id')
+            ->withPivot(['dojo_id', 'assigned_by'])
+            ->withTimestamps();
+    }
 }

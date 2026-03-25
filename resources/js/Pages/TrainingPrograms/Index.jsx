@@ -1,5 +1,5 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import {
@@ -14,19 +14,20 @@ import {
     X,
     Calendar,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '@/Components/Modal';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { Skeleton } from '@/Components/ui/skeleton';
 
-export default function Index({ auth, weeklySchedule }) {
+export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null }) {
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState(null);
     const [expandedProgramId, setExpandedProgramId] = useState(null);
+    const [dojoId, setDojoId] = useState(selectedDojoId || '');
 
     const { data, setData, post, patch, delete: destroy, processing, errors, reset, clearErrors } = useForm({
         title: '',
@@ -37,7 +38,13 @@ export default function Index({ auth, weeklySchedule }) {
         type: 'teknik',
         description: '',
         agenda_items: [],
+        dojo_id: selectedDojoId || '',
     });
+
+    useEffect(() => {
+        setDojoId(selectedDojoId || '');
+        setData('dojo_id', selectedDojoId || '');
+    }, [selectedDojoId]);
 
     const openModal = (program = null) => {
         clearErrors();
@@ -57,11 +64,13 @@ export default function Index({ auth, weeklySchedule }) {
                     title: item.title || '',
                     description: item.description || '',
                 })),
+                dojo_id: program.dojo_id || dojoId || '',
             });
         } else {
             setEditingProgram(null);
             reset();
             setData('agenda_items', []);
+            setData('dojo_id', dojoId || '');
         }
         setIsModalOpen(true);
     };
@@ -151,9 +160,26 @@ export default function Index({ auth, weeklySchedule }) {
                             <p className="text-sm font-bold uppercase tracking-widest text-neutral-500">Program Mingguan</p>
                         </div>
                         <div className="flex items-center gap-3">
+                            {dojos.length > 0 && (
+                                <select
+                                    className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                    value={dojoId || ''}
+                                    onChange={(e) => {
+                                        const next = e.target.value;
+                                        setDojoId(next);
+                                        setData('dojo_id', next);
+                                        router.get(route('training-programs.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                                    }}
+                                >
+                                    {dojos.map((dojo) => (
+                                        <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                    ))}
+                                </select>
+                            )}
                             <Button
                                 onClick={() => openModal()}
                                 className="h-10 px-6 rounded-xl font-black uppercase tracking-widest gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-athlix-red/20 transition-all active:scale-95"
+                                disabled={dojos.length > 0 && !dojoId}
                             >
                                 <Plus size={16} />
                                 <span className="hidden sm:inline">Tambah Program</span>
@@ -304,6 +330,24 @@ export default function Index({ auth, weeklySchedule }) {
                                 <TextInput id="title" type="text" className="mt-1 block w-full" value={data.title} onChange={(e) => setData('title', e.target.value)} required />
                                 <InputError message={errors.title} className="mt-2" />
                             </div>
+
+                            {dojos.length > 0 && (
+                                <div className="col-span-1 sm:col-span-2">
+                                    <InputLabel htmlFor="dojo_id" value="Dojo" />
+                                    <select
+                                        id="dojo_id"
+                                        className="mt-1 block w-full border-neutral-300 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm"
+                                        value={data.dojo_id || ''}
+                                        onChange={(e) => setData('dojo_id', e.target.value)}
+                                        required
+                                    >
+                                        {dojos.map((dojo) => (
+                                            <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors.dojo_id} className="mt-2" />
+                                </div>
+                            )}
 
                             <div>
                                 <InputLabel htmlFor="day" value="Hari" />

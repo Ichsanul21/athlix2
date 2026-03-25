@@ -37,6 +37,7 @@ class AuthenticatedSessionController extends Controller
         $target = match ($user?->role) {
             'murid' => route('pwa.home', absolute: false),
             'landing_admin' => route('cms.index', absolute: false),
+            'dojo_admin' => route('dojo-admin.sensei.index', absolute: false),
             default => route('dashboard', absolute: false),
         };
 

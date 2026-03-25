@@ -1,9 +1,9 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { Users, Dumbbell, Activity, CreditCard, Sparkles, ChevronRight, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Dashboard({
     auth,
@@ -13,8 +13,15 @@ export default function Dashboard({
     attendanceSummary,
     recentAttendances = [],
     dojoName,
+    dojos = [],
+    selectedDojoId = null,
 }) {
     const [expandedProgramId, setExpandedProgramId] = useState(null);
+    const [dojoId, setDojoId] = useState(selectedDojoId || '');
+
+    useEffect(() => {
+        setDojoId(selectedDojoId || '');
+    }, [selectedDojoId]);
 
     const icons = {
         users: Users,
@@ -85,6 +92,23 @@ export default function Dashboard({
                     <p className="text-sm text-neutral-500 ">
                         Selamat datang kembali, Sensei. Berikut ringkasan hari ini.
                     </p>
+                    {dojos.length > 0 && (
+                        <div className="pt-2">
+                            <select
+                                className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                value={dojoId || ''}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setDojoId(next);
+                                    router.get(route('dashboard'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                                }}
+                            >
+                                {dojos.map((dojo) => (
+                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
             }
         >
@@ -122,14 +146,16 @@ export default function Dashboard({
                             <div className="flex items-center justify-between px-1">
                                 <h3 className="text-lg font-bold flex items-center gap-2">
                                     <Sparkles className="text-athlix-red" size={20} />
-                                    Program Latihan Hari Ini
+                                    Latihan Hari Ini
                                 </h3>
                                 <Link href={route('training-programs.index')} className="text-sm font-medium text-athlix-red hover:underline flex items-center gap-1 group">
                                     Lihat Semua
                                     <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
                                 </Link>
                             </div>
-                            <p className="text-xs text-neutral-500 px-1">{nextTrainingReminder}</p>
+                            {nextTrainingReminder && (
+                                <p className="text-xs text-neutral-500 px-1">{nextTrainingReminder}</p>
+                            )}
 
                             <div className="space-y-3">
                                 {trainingPrograms.length > 0 ? trainingPrograms.map((program, idx) => (

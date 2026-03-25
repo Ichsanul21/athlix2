@@ -1,0 +1,182 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Athlete;
+use App\Models\Dojo;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+
+class DojoAdminController extends Controller
+{
+    public function senseiIndex()
+    {
+        $user = auth()->user();
+        $dojoId = $user?->dojo_id;
+
+        $senseis = User::query()
+            ->where('role', 'sensei')
+            ->where('dojo_id', $dojoId)
+            ->with(['senseiAthletes:id,full_name,athlete_code'])
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $sensei) {
+                return [
+                    'id' => $sensei->id,
+                    'name' => $sensei->name,
+                    'email' => $sensei->email,
+                    'phone_number' => $sensei->phone_number,
+                    'profile_photo_path' => $sensei->profile_photo_path,
+                    'athlete_ids' => $sensei->senseiAthletes->pluck('id')->values(),
+                    'athletes' => $sensei->senseiAthletes->map(function ($athlete) {
+                        return [
+                            'id' => $athlete->id,
+                            'full_name' => $athlete->full_name,
+                            'athlete_code' => $athlete->athlete_code,
+                        ];
+                    })->values(),
+                ];
+            });
+
+        $athletes = Athlete::query()
+            ->where('dojo_id', $dojoId)
+            ->orderBy('full_name')
+            ->get(['id', 'full_name', 'athlete_code']);
+
+        $dojo = $dojoId ? Dojo::find($dojoId) : null;
+
+        return Inertia::render('DojoAdmin/Sensei', [
+            'senseis' => Inertia::defer(fn () => $senseis),
+            'athletes' => Inertia::defer(fn () => $athletes),
+            'dojo' => Inertia::defer(fn () => $dojo),
+        ]);
+    }
+
+    public function storeSensei(Request $request)
+    {
+        $dojoId = auth()->user()?->dojo_id;
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone_number' => 'required|string|max:20',
+            'password' => 'required|string|min:8',
+            'profile_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+        ]);
+
+        if (!$dojoId) {
+            return back()->with('error', 'Dojo belum terhubung. Hubungi super admin.');
+        }
+
+        $validated['dojo_id'] = $dojoId;
+        $validated['role'] = 'sensei';
+
+        if ($request->hasFile('profile_photo')) {
+            $validated['profile_photo_path'] = $request->file('profile_photo')->store('profiles', 'public');
+        }
+        unset($validated['profile_photo']);
+        $validated['password'] = Hash::make($validated['password']);
+
+        User::create($validated);
+
+        return back()->with('success', 'Sensei berhasil ditambahkan.');
+    }
+
+    public function updateSensei(Request $request, User $sensei)
+    {
+        $dojoId = auth()->user()?->dojo_id;
+
+        if ($sensei->role !== 'sensei' || $sensei->dojo_id !== $dojoId) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $sensei->id,
+            'phone_number' => 'required|string|max:20',
+            'password' => 'nullable|string|min:8',
+            'profile_photo' => [
+                Rule::requiredIf(fn () => empty($sensei->profile_photo_path)),
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+        ]);
+
+        if ($request->hasFile('profile_photo')) {
+            if ($sensei->profile_photo_path) {
+                Storage::disk('public')->delete($sensei->profile_photo_path);
+            }
+            $validated['profile_photo_path'] = $request->file('profile_photo')->store('profiles', 'public');
+        }
+        unset($validated['profile_photo']);
+
+        if (!empty($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
+
+        $sensei->update($validated);
+
+        return back()->with('success', 'Data sensei berhasil diperbarui.');
+    }
+
+    public function destroySensei(User $sensei)
+    {
+        $dojoId = auth()->user()?->dojo_id;
+
+        if ($sensei->role !== 'sensei' || $sensei->dojo_id !== $dojoId) {
+            abort(403);
+        }
+
+        if ($sensei->profile_photo_path) {
+            Storage::disk('public')->delete($sensei->profile_photo_path);
+        }
+
+        $sensei->delete();
+
+        return back()->with('success', 'Sensei berhasil dihapus.');
+    }
+
+    public function updateAssignments(Request $request, User $sensei)
+    {
+        $dojoId = auth()->user()?->dojo_id;
+
+        if ($sensei->role !== 'sensei' || $sensei->dojo_id !== $dojoId) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'athlete_ids' => 'array',
+            'athlete_ids.*' => 'exists:athletes,id',
+        ]);
+
+        $athleteIds = collect($validated['athlete_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $validAthletes = Athlete::query()
+            ->whereIn('id', $athleteIds)
+            ->where('dojo_id', $dojoId)
+            ->pluck('id');
+
+        $syncPayload = [];
+        foreach ($validAthletes as $athleteId) {
+            $syncPayload[$athleteId] = [
+                'dojo_id' => $dojoId,
+                'assigned_by' => auth()->id(),
+            ];
+        }
+
+        $sensei->senseiAthletes()->sync($syncPayload);
+
+        return back()->with('success', 'Penugasan murid berhasil diperbarui.');
+    }
+}

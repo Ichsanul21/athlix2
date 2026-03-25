@@ -4,6 +4,8 @@ use App\Http\Controllers\AiAssistantController;
 use App\Http\Controllers\AthleteController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DojoAdminController;
+use App\Http\Controllers\DojoController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\LandingCmsController;
 use App\Http\Controllers\LandingController;
@@ -74,6 +76,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/super-admin/users', [SuperAdminController::class, 'storeUser'])->name('super-admin.users.store');
         Route::patch('/super-admin/users/{user}', [SuperAdminController::class, 'updateUser'])->name('super-admin.users.update');
         Route::delete('/super-admin/users/{user}', [SuperAdminController::class, 'destroyUser'])->name('super-admin.users.destroy');
+
+        Route::get('/super-admin/dojos', [DojoController::class, 'index'])->name('super-admin.dojos.index');
+        Route::post('/super-admin/dojos', [DojoController::class, 'store'])->name('super-admin.dojos.store');
+        Route::patch('/super-admin/dojos/{dojo}', [DojoController::class, 'update'])->name('super-admin.dojos.update');
+        Route::delete('/super-admin/dojos/{dojo}', [DojoController::class, 'destroy'])->name('super-admin.dojos.destroy');
+    });
+
+    Route::middleware('role:dojo_admin,super_admin')->group(function () {
+        Route::get('/dojo-admin/sensei', [DojoAdminController::class, 'senseiIndex'])->name('dojo-admin.sensei.index');
+        Route::post('/dojo-admin/sensei', [DojoAdminController::class, 'storeSensei'])->name('dojo-admin.sensei.store');
+        Route::patch('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'updateSensei'])->name('dojo-admin.sensei.update');
+        Route::delete('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'destroySensei'])->name('dojo-admin.sensei.destroy');
+        Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
     });
 
     Route::middleware('role:super_admin,sensei,murid')->group(function () {

@@ -35,13 +35,15 @@ class DatabaseSeeder extends Seeder
         $dojos = $this->seedDojos();
         $belts = $this->seedBelts();
         [$superAdmin, $landingAdmin] = $this->seedAdminUsers($dojos, $profilePhotoPath);
+        $dojoAdmins = $this->seedDojoAdmins($dojos, $profilePhotoPath);
         $senseis = $this->seedSenseis($dojos, $profilePhotoPath);
         $athletes = $this->seedAthletes($dojos, $belts);
         $this->seedAthleteUsers($athletes, $profilePhotoPath);
+        $this->seedSenseiAssignments($senseis, $athletes, $dojoAdmins, $superAdmin);
         $programs = $this->seedTrainingPrograms($dojos, $senseis);
         $latestMetrics = $this->seedPhysicalMetrics($athletes);
         $financeRecords = $this->seedFinanceRecords($athletes, $latestMetrics);
-        $this->seedFinanceAdjustments($financeRecords, $athletes, collect([$superAdmin, $landingAdmin])->merge($senseis));
+        $this->seedFinanceAdjustments($financeRecords, $athletes, collect([$superAdmin, $landingAdmin])->merge($dojoAdmins)->merge($senseis));
         $this->seedAttendances($athletes, $programs);
         $this->seedAchievements($athletes, $certificatePath);
         $this->seedLandingContent($articleThumbPath, $galleryImagePath);
@@ -147,6 +149,43 @@ class DatabaseSeeder extends Seeder
                 'email_verified_at' => now(),
             ]);
         });
+    }
+
+    private function seedDojoAdmins(Collection $dojos, string $profilePhotoPath): Collection
+    {
+        return $dojos->values()->map(function (Dojo $dojo, int $index) use ($profilePhotoPath) {
+            return User::create([
+                'name' => 'Admin Dojo ' . $dojo->name,
+                'email' => 'dojo.admin' . ($index + 1) . '@athlix.test',
+                'phone_number' => '62811111112' . str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT),
+                'profile_photo_path' => $profilePhotoPath,
+                'password' => Hash::make(self::DEFAULT_PASSWORD),
+                'role' => 'dojo_admin',
+                'dojo_id' => $dojo->id,
+                'email_verified_at' => now(),
+            ]);
+        });
+    }
+
+    private function seedSenseiAssignments(Collection $senseis, Collection $athletes, Collection $dojoAdmins, User $fallbackAssigner): void
+    {
+        $senseiByDojo = $senseis->keyBy('dojo_id');
+        $adminByDojo = $dojoAdmins->keyBy('dojo_id');
+
+        foreach ($athletes as $athlete) {
+            $sensei = $senseiByDojo->get($athlete->dojo_id);
+            if (! $sensei) {
+                continue;
+            }
+
+            $assignerId = $adminByDojo->get($athlete->dojo_id)?->id ?? $fallbackAssigner->id;
+            $sensei->senseiAthletes()->syncWithoutDetaching([
+                $athlete->id => [
+                    'dojo_id' => $athlete->dojo_id,
+                    'assigned_by' => $assignerId,
+                ],
+            ]);
+        }
     }
 
     private function seedAthletes(Collection $dojos, Collection $belts): Collection
@@ -356,11 +395,7 @@ class DatabaseSeeder extends Seeder
             ]);
 
             $currentBucket = ($index * 7) % 10;
-            $currentStatus = match (true) {
-                $currentBucket <= 2 => 'paid',
-                $currentBucket <= 6 => 'pending',
-                default => 'unpaid',
-            };
+            $currentStatus = $currentBucket <= 2 ? 'paid' : 'unpaid';
             $currentDueDate = $currentMonth->copy()->endOfMonth();
             $records[] = FinanceRecord::create([
                 'athlete_id' => $athlete->id,

@@ -6,12 +6,13 @@ import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { Button } from '@/Components/ui/button';
 import Modal from '@/Components/Modal';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-export default function Index({ auth, records, filters, adminFee = 5000, flash, athletes = [] }) {
+export default function Index({ auth, records, filters, adminFee = 5000, flash, athletes = [], dojos = [], selectedDojoId = null }) {
     const [search, setSearch] = useState(filters?.search || '');
     const [confirmationModal, setConfirmationModal] = useState({ show: false, action: null, record: null });
     const [customModal, setCustomModal] = useState({ show: false, record: null });
+    const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const {
         data: customForm,
         setData: setCustomForm,
@@ -24,6 +25,10 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
 
     const isLoading = !records;
     const sourceRecords = records ?? [];
+
+    useEffect(() => {
+        setDojoId(selectedDojoId || '');
+    }, [selectedDojoId]);
 
     const filteredRecords = useMemo(() => {
         const normalized = search.trim().toLowerCase();
@@ -61,7 +66,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
 
     const totalRevenue = filteredRecords.filter((r) => r.status === 'paid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
     const totalOutstanding = filteredRecords.filter((r) => r.status === 'unpaid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
-    const pendingCount = filteredRecords.filter((r) => r.status === 'unpaid').length;
+    const unpaidCount = filteredRecords.filter((r) => r.status === 'unpaid').length;
 
     const formatIDR = (amount) => new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -73,7 +78,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
 
     const confirmAction = () => {
         if (confirmationModal.action === 'generate') {
-            router.post(route('finance.generate'), {}, { onFinish: closeModal });
+            router.post(route('finance.generate'), dojoId ? { dojo_id: dojoId } : {}, { onFinish: closeModal });
             return;
         }
 
@@ -151,7 +156,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Tagihan Belum Bayar</p>
-                                        <h3 className="text-xl sm:text-2xl font-black mt-1">{pendingCount} Atlet</h3>
+                                        <h3 className="text-xl sm:text-2xl font-black mt-1">{unpaidCount} Atlet</h3>
                                     </div>
                                     <div className="p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
                                         <CreditCard size={20} />
@@ -175,12 +180,29 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                                         onChange={(e) => setSearch(e.target.value)}
                                     />
                                 </div>
-                                <button
+                                {dojos.length > 0 && (
+                                    <select
+                                        className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                        value={dojoId || ''}
+                                        onChange={(e) => {
+                                            const next = e.target.value;
+                                            setDojoId(next);
+                                            router.get(route('finance.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                                        }}
+                                    >
+                                        {dojos.map((dojo) => (
+                                            <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <Button
                                     onClick={() => setConfirmationModal({ show: true, action: 'generate', record: null })}
-                                    className="w-full sm:w-auto h-9 px-4 rounded-xl font-bold text-xs uppercase tracking-widest bg-athlix-black dark:bg-white text-white "
+                                    className="w-full sm:w-auto bg-athlix-black text-white hover:bg-athlix-black/90 text-xs font-bold uppercase tracking-widest whitespace-normal leading-tight"
+                                    size="sm"
+                                    disabled={dojos.length > 0 && !dojoId}
                                 >
                                     Buat Tagihan Bulanan
-                                </button>
+                                </Button>
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -217,7 +239,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                                                             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 '
                                                             : 'bg-red-100 text-athlix-red dark:bg-athlix-red/10 '
                                                     }`}>
-                                                        {rec.status}
+                                                        {rec.status === 'paid' ? 'Lunas' : 'Belum Lunas'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-xs font-mono text-neutral-500 whitespace-nowrap">{rec.due_date}</td>
@@ -309,8 +331,8 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
 
             <Modal show={customModal.show} onClose={() => setCustomModal({ show: false, record: null })} maxWidth="lg">
                 <div className="p-6 space-y-4">
-                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900 ">Custom Nominal Per Athlete</h3>
-                    <p className="text-sm text-neutral-700 ">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Custom Nominal Per Athlete</h3>
+                    <p className="text-sm text-neutral-700">
                         Gunakan form ini untuk skema cross-subsidi. Semua perubahan akan tercatat otomatis pada audit log.
                     </p>
                     <div className="grid md:grid-cols-2 gap-4">
@@ -328,7 +350,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                         <div className="space-y-1">
                             <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sumber Cross-Subsidi</label>
                             <select
-                                className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 "
+                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
                                 value={customForm.source_athlete_id}
                                 onChange={(e) => setCustomForm('source_athlete_id', e.target.value)}
                             >
@@ -343,7 +365,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                     <div className="space-y-1">
                         <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alasan Penyesuaian</label>
                         <textarea
-                            className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm min-h-24 text-neutral-900 "
+                            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm min-h-24 text-neutral-900"
                             value={customForm.reason}
                             onChange={(e) => setCustomForm('reason', e.target.value)}
                             placeholder="Contoh: subsidi silang dari atlet sponsor internal dojo"

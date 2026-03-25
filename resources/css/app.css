@@ -27,10 +27,14 @@
         resize: vertical;
     }
 
+    button {
+        @apply whitespace-normal break-words text-center leading-tight;
+    }
+
     input,
     select,
     textarea {
-        @apply text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500;
+        @apply text-neutral-900 placeholder:text-neutral-400;
     }
 
     /* Dark-mode fallback: auto-flip dark text tokens when component has no explicit dark text color */

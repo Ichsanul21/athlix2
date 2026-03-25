@@ -7,13 +7,15 @@ import { Skeleton } from '@/Components/ui/skeleton';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 
-export default function Create({ auth, belts, suggestedAthleteCode }) {
+export default function Create({ auth, belts, suggestedAthleteCode, dojos = [] }) {
     const isLoading = !belts;
     const initialBeltId = belts?.[0]?.id ?? '';
+    const initialDojoId = dojos?.[0]?.id ?? '';
     const { data, setData, post, processing, errors } = useForm({
         full_name: '',
         athlete_code: suggestedAthleteCode || '',
         current_belt_id: initialBeltId,
+        dojo_id: initialDojoId,
         birth_place: '',
         dob: '',
         gender: 'M',
@@ -28,6 +30,12 @@ export default function Create({ auth, belts, suggestedAthleteCode }) {
             setData('current_belt_id', belts[0].id);
         }
     }, [belts, data.current_belt_id, setData]);
+
+    useEffect(() => {
+        if (dojos?.length > 0 && !data.dojo_id) {
+            setData('dojo_id', dojos[0].id);
+        }
+    }, [dojos, data.dojo_id, setData]);
 
     useEffect(() => {
         if (suggestedAthleteCode && !data.athlete_code) {
@@ -101,6 +109,22 @@ export default function Create({ auth, belts, suggestedAthleteCode }) {
                                         <p className="text-xs text-neutral-500">Kode atlet otomatis, hanya huruf dan angka (tanpa simbol).</p>
                                         {errors.athlete_code && <p className="text-xs text-athlix-red">{errors.athlete_code}</p>}
                                     </div>
+
+                                    {dojos.length > 0 && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium">Dojo</label>
+                                            <select
+                                                className="w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-athlix-red"
+                                                value={data.dojo_id}
+                                                onChange={e => setData('dojo_id', e.target.value)}
+                                            >
+                                                {dojos.map((dojo) => (
+                                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                                ))}
+                                            </select>
+                                            {errors.dojo_id && <p className="text-xs text-athlix-red">{errors.dojo_id}</p>}
+                                        </div>
+                                    )}
 
                                     <div className="space-y-1">
                                         <label className="text-sm font-medium">Belt Level</label>

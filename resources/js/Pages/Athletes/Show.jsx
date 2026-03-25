@@ -12,8 +12,8 @@ export default function Show({ auth, athlete, performance, achievementHistory })
     const isLoading = !athlete || !performance || !achievementHistory;
     const conditionScore = performance?.condition?.[0]?.value ?? 0;
     const categorySeries = (performance?.categories || []).map((item) => ({
-        subject: item.subject,
-        score: item.A,
+        label: item.label,
+        score: item.score,
     }));
     const averageScore = categorySeries.length > 0
         ? Math.round(categorySeries.reduce((acc, item) => acc + Number(item.score || 0), 0) / categorySeries.length)
@@ -194,15 +194,15 @@ export default function Show({ auth, athlete, performance, achievementHistory })
                                 </ResponsiveContainer>
                                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                     <div className="text-center">
-                                        <div className="text-3xl font-black text-athlix-red">{conditionScore}%</div>
-                                        <div className="text-xs uppercase tracking-widest text-neutral-500  font-bold">Condition Score</div>
+                                        <div className="text-4xl font-black text-athlix-red">{conditionScore}%</div>
+                                        <div className="text-[11px] uppercase tracking-widest text-neutral-500  font-bold mt-1">Skor Kondisi</div>
                                     </div>
                                 </div>
                                 <div className="absolute bottom-3 left-0 right-0 px-6 flex flex-wrap justify-center gap-3">
                                     {performance.condition.map((item, index) => (
                                         <span key={`legend-${index}`} className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-600 ">
                                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
-                                            {item.name}
+                                            {item.label}
                                         </span>
                                     ))}
                                 </div>
@@ -217,7 +217,7 @@ export default function Show({ auth, athlete, performance, achievementHistory })
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={categorySeries} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
-                                        <XAxis dataKey="subject" fontSize={10} axisLine={false} tickLine={false} />
+                                        <XAxis dataKey="label" fontSize={10} axisLine={false} tickLine={false} />
                                         <YAxis fontSize={10} domain={[0, 100]} axisLine={false} tickLine={false} />
                                         <Tooltip cursor={{ fill: 'transparent' }} />
                                         <Bar dataKey="score" fill="#DC2626" radius={[6, 6, 0, 0]} barSize={20} />

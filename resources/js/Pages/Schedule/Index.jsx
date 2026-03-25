@@ -13,6 +13,7 @@ export default function Index({ auth, todaySessions, upcomingSessions, allAgenda
         teknik: 'bg-blue-500',
     };
     const [expandedId, setExpandedId] = useState(null);
+    const [expandedTodayId, setExpandedTodayId] = useState(null);
 
     const isLoading = todaySessions === undefined && upcomingSessions === undefined && allAgenda === undefined;
 
@@ -45,8 +46,10 @@ export default function Index({ auth, todaySessions, upcomingSessions, allAgenda
 
                     {todaySessions && todaySessions.length > 0 ? (
                         <div className="space-y-3">
-                            {todaySessions.map((session, idx) => (
-                                <Card key={idx} className="border-neutral-200/80 dark:border-neutral-800 card-hover overflow-hidden relative animate-fade-in-up fill-both" style={{ animationDelay: `${idx * 80}ms` }}>
+                            {todaySessions.map((session, idx) => {
+                                const sessionKey = session.id ?? `today-${idx}`;
+                                return (
+                                <Card key={sessionKey} className="border-neutral-200/80 dark:border-neutral-800 card-hover overflow-hidden relative animate-fade-in-up fill-both" style={{ animationDelay: `${idx * 80}ms` }}>
                                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${typeColors[session.type] || 'bg-blue-500'}`}></div>
                                     <CardContent className="p-4 pl-5">
                                         <div className="flex justify-between items-start">
@@ -62,19 +65,30 @@ export default function Index({ auth, todaySessions, upcomingSessions, allAgenda
                                                     <span className="flex items-center gap-1"><User size={12} />{session.coach}</span>
                                                 </div>
                                                 {(session.agenda_items || []).length > 0 && (
-                                                    <div className="rounded-lg bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 px-2.5 py-2">
-                                                        {(session.agenda_items || []).slice(0, 2).map((item, childIdx) => (
-                                                            <p key={`${idx}-child-${childIdx}`} className="text-[11px] text-neutral-500">
-                                                                {(item.start_time || '--:--')} - {(item.end_time || '--:--')} | {item.title}
-                                                            </p>
-                                                        ))}
+                                                    <div className="rounded-lg bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 px-2.5 py-2 space-y-1">
+                                                        {(session.agenda_items || [])
+                                                            .slice(0, expandedTodayId === sessionKey ? session.agenda_items.length : 2)
+                                                            .map((item, childIdx) => (
+                                                                <p key={`${idx}-child-${childIdx}`} className="text-[11px] text-neutral-500">
+                                                                    {(item.start_time || '--:--')} - {(item.end_time || '--:--')} | {item.title}
+                                                                </p>
+                                                            ))}
+                                                        {session.agenda_items.length > 2 && (
+                                                            <button
+                                                                type="button"
+                                                                className="text-[11px] font-bold text-athlix-red"
+                                                                onClick={() => setExpandedTodayId(expandedTodayId === sessionKey ? null : sessionKey)}
+                                                            >
+                                                                {expandedTodayId === sessionKey ? 'Sembunyikan detail' : 'Lihat detail lengkap'}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
-                            ))}
+                            )})}
                         </div>
                     ) : (
                         <Card className="border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 animate-fade-in-up fill-both">

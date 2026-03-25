@@ -29,8 +29,12 @@ class SuperAdminController extends Controller
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'required|string|max:20',
             'password' => 'required|string|min:8',
-            'role' => 'required|in:super_admin,landing_admin,sensei,murid',
-            'dojo_id' => 'nullable|exists:dojos,id',
+            'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
+            'dojo_id' => [
+                'nullable',
+                Rule::requiredIf(fn () => in_array($request->input('role'), ['sensei', 'dojo_admin'], true)),
+                'exists:dojos,id',
+            ],
             'profile_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'athlete_id' => [
                 'nullable',
@@ -68,8 +72,12 @@ class SuperAdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone_number' => 'required|string|max:20',
-            'role' => 'required|in:super_admin,landing_admin,sensei,murid',
-            'dojo_id' => 'nullable|exists:dojos,id',
+            'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
+            'dojo_id' => [
+                'nullable',
+                Rule::requiredIf(fn () => in_array($request->input('role'), ['sensei', 'dojo_admin'], true)),
+                'exists:dojos,id',
+            ],
             'password' => 'nullable|string|min:8',
             'profile_photo' => [
                 Rule::requiredIf(fn () => empty($user->profile_photo_path)),

@@ -23,6 +23,7 @@ class EnsureRole
         return redirect()->route(match ($user->role) {
             'murid' => 'pwa.home',
             'landing_admin' => 'cms.index',
+            'dojo_admin' => 'dojo-admin.sensei.index',
             default => 'dashboard',
         })->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
     }

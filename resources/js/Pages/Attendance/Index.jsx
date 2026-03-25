@@ -8,17 +8,22 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '@/Components/Modal';
 
-export default function Index({ auth, attendances, dojoQr, flash }) {
+export default function Index({ auth, attendances, dojoQr, flash, dojos = [], selectedDojoId = null }) {
     const isLoading = attendances === undefined || dojoQr === undefined;
     const [qrState, setQrState] = useState(dojoQr || null);
     const [refreshing, setRefreshing] = useState(false);
     const [feedbackModal, setFeedbackModal] = useState({ show: false, attendance: null });
     const [senseiFeedback, setSenseiFeedback] = useState('');
     const [senseiMood, setSenseiMood] = useState('normal');
+    const [dojoId, setDojoId] = useState(selectedDojoId || '');
 
     useEffect(() => {
         setQrState(dojoQr || null);
     }, [dojoQr]);
+
+    useEffect(() => {
+        setDojoId(selectedDojoId || '');
+    }, [selectedDojoId]);
 
     useEffect(() => {
         if (!qrState?.expires_in) return;
@@ -37,7 +42,7 @@ export default function Index({ auth, attendances, dojoQr, flash }) {
     const refreshDojoQr = async () => {
         setRefreshing(true);
         try {
-            const response = await fetch(route('attendance.dojo-qr'));
+            const response = await fetch(route('attendance.dojo-qr', dojoId ? { dojo_id: dojoId } : {}));
             const payload = await response.json();
             setQrState(payload);
         } finally {
@@ -92,7 +97,29 @@ export default function Index({ auth, attendances, dojoQr, flash }) {
                     </div>
 
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b"><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">QR Dojo Aktif</CardTitle><Button type="button" variant="outline" className="h-9" onClick={refreshDojoQr} disabled={refreshing}><RefreshCw size={14} className={refreshing ? 'animate-spin mr-2' : 'mr-2'} />Refresh QR</Button></CardHeader>
+                        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b">
+                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">QR Dojo Aktif</CardTitle>
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                {dojos.length > 0 && (
+                                    <select
+                                        className="h-9 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                        value={dojoId || ''}
+                                        onChange={(e) => {
+                                            const next = e.target.value;
+                                            setDojoId(next);
+                                            router.get(route('attendance.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                                        }}
+                                    >
+                                        {dojos.map((dojo) => (
+                                            <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <Button type="button" variant="outline" className="h-9" onClick={refreshDojoQr} disabled={refreshing}>
+                                    <RefreshCw size={14} className={refreshing ? 'animate-spin mr-2' : 'mr-2'} />Refresh QR
+                                </Button>
+                            </div>
+                        </CardHeader>
                         <CardContent className="p-4 sm:p-6">
                             {qrState?.payload ? (
                                 <div className="grid md:grid-cols-2 gap-6 items-center">

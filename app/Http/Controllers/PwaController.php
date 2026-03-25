@@ -27,18 +27,7 @@ class PwaController extends Controller
             ])->find($user->athlete_id);
         }
 
-        if ($user?->role === 'murid') {
-            return null;
-        }
-
-        return Athlete::with([
-            'belt',
-            'dojo',
-            'attendances',
-            'financeRecords',
-            'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
-            'achievements' => fn ($query) => $query->latest('competition_date'),
-        ])->first();
+        return null;
     }
 
     public function home()
@@ -57,13 +46,21 @@ class PwaController extends Controller
         }
 
         $todayIndo = $this->indoDayName(Carbon::now());
-        $todayPrograms = TrainingProgram::query()->where('day', $todayIndo)->orderBy('start_time')->get();
+        $dojoId = $athlete->dojo_id ?? auth()->user()?->dojo_id;
+        $todayPrograms = TrainingProgram::query()
+            ->when($dojoId, fn ($query) => $query->where('dojo_id', $dojoId))
+            ->where('day', $todayIndo)
+            ->orderBy('start_time')
+            ->get();
 
         $attendanceTotal = $athlete->attendances->count();
         $attendancePresent = $athlete->attendances->where('status', 'present')->count();
         $attendanceRate = $attendanceTotal > 0 ? round(($attendancePresent / $attendanceTotal) * 100) . '%' : '0%';
 
-        $unpaidRecords = $athlete->financeRecords->where('status', 'unpaid')->sortBy('due_date')->values();
+        $unpaidRecords = $athlete->financeRecords
+            ->where('status', 'unpaid')
+            ->sortBy('due_date')
+            ->values();
         $upcomingPayment = $unpaidRecords->first();
         $outstanding = $unpaidRecords->sum(fn ($record) => (float) $record->amount + self::ADMIN_FEE);
 
@@ -74,7 +71,7 @@ class PwaController extends Controller
             'total_sessions' => (string) $todayPrograms->count(),
         ];
 
-        $agendaThreeDays = $this->agendaThreeDays();
+        $agendaThreeDays = $this->agendaThreeDays($dojoId);
 
         return Inertia::render('PwaHome/Index', [
             'athlete' => Inertia::defer(fn () => $athlete),
@@ -105,8 +102,13 @@ class PwaController extends Controller
     {
         $today = Carbon::now();
         $todayIndo = $this->indoDayName($today);
+        $athlete = $this->resolveAthleteForUser();
+        $dojoId = $athlete?->dojo_id ?? auth()->user()?->dojo_id;
 
-        $allPrograms = TrainingProgram::query()->orderBy('start_time')->get();
+        $allPrograms = TrainingProgram::query()
+            ->when($dojoId, fn ($query) => $query->where('dojo_id', $dojoId))
+            ->orderBy('start_time')
+            ->get();
 
         $todaySessions = $allPrograms
             ->where('day', $todayIndo)
@@ -262,11 +264,12 @@ class PwaController extends Controller
         return Inertia::render('UserRecord/Settings');
     }
 
-    private function agendaThreeDays()
+    private function agendaThreeDays(?int $dojoId = null)
     {
         $today = Carbon::today();
 
         return TrainingProgram::query()
+            ->when($dojoId, fn ($query) => $query->where('dojo_id', $dojoId))
             ->get()
             ->flatMap(function ($program) use ($today) {
                 $items = [];
