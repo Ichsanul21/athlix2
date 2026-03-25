@@ -56,6 +56,8 @@ class FinanceController extends Controller
                 $latestMetric = $record->athlete?->physicalMetrics?->first();
                 $isPrima = $latestMetric && $latestMetric->bmi >= 18.5 && $latestMetric->bmi <= 24.9;
 
+                $status = $record->status === 'paid' ? 'paid' : 'unpaid';
+
                 return [
                     'id' => $record->id,
                     'athlete' => $record->athlete,
@@ -63,7 +65,7 @@ class FinanceController extends Controller
                     'amount' => (float) $record->amount,
                     'admin_fee' => self::ADMIN_FEE,
                     'total_amount' => (float) $record->amount + self::ADMIN_FEE,
-                    'status' => $record->status,
+                    'status' => $status,
                     'due_date' => $record->due_date,
                     'athlete_condition' => $isPrima ? 'Prima' : 'Tidak Prima',
                     'adjustments' => $record->adjustments->map(function ($adjustment) {

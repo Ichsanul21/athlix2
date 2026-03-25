@@ -236,7 +236,7 @@ class AttendanceController extends Controller
     {
         $overdueInvoice = FinanceRecord::query()
             ->where('athlete_id', $athlete->id)
-            ->where('status', 'unpaid')
+            ->where('status', '!=', 'paid')
             ->orderBy('due_date')
             ->first();
 

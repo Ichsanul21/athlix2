@@ -32,7 +32,7 @@ class DashboardController extends Controller
         $totalAthletes = (clone $athleteScope)->count();
         $unpaidCount = FinanceRecord::query()
             ->whereIn('athlete_id', $athleteIdSubquery)
-            ->where('status', 'unpaid')
+            ->where('status', '!=', 'paid')
             ->count();
 
         $dayMap = [

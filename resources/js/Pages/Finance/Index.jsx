@@ -65,8 +65,8 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
     }
 
     const totalRevenue = filteredRecords.filter((r) => r.status === 'paid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
-    const totalOutstanding = filteredRecords.filter((r) => r.status === 'unpaid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
-    const unpaidCount = filteredRecords.filter((r) => r.status === 'unpaid').length;
+    const totalOutstanding = filteredRecords.filter((r) => r.status !== 'paid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
+    const unpaidCount = filteredRecords.filter((r) => r.status !== 'paid').length;
 
     const formatIDR = (amount) => new Intl.NumberFormat('id-ID', {
         style: 'currency',

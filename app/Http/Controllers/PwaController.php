@@ -58,7 +58,7 @@ class PwaController extends Controller
         $attendanceRate = $attendanceTotal > 0 ? round(($attendancePresent / $attendanceTotal) * 100) . '%' : '0%';
 
         $unpaidRecords = $athlete->financeRecords
-            ->where('status', 'unpaid')
+            ->filter(fn ($record) => $record->status !== 'paid')
             ->sortBy('due_date')
             ->values();
         $upcomingPayment = $unpaidRecords->first();
@@ -202,13 +202,14 @@ class PwaController extends Controller
             ->latest()
             ->get()
             ->map(function ($record) {
+                $status = $record->status === 'paid' ? 'paid' : 'unpaid';
                 return [
                     'id' => $record->id,
                     'description' => $record->description,
                     'date' => Carbon::parse($record->due_date)->translatedFormat('d M Y'),
                     'due_date_raw' => Carbon::parse($record->due_date)->toDateString(),
                     'amount' => (float) $record->amount + self::ADMIN_FEE,
-                    'status' => $record->status,
+                    'status' => $status,
                     'admin_fee' => self::ADMIN_FEE,
                 ];
             });
