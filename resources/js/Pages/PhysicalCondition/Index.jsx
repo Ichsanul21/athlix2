@@ -2,13 +2,45 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { useState } from 'react';
-import { Ruler, Weight, Activity, Heart, Search, ChevronRight, Zap, TrendingUp } from 'lucide-react';
+import { Ruler, Weight, Activity, Search, ChevronRight, Zap, TrendingUp } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Skeleton } from '@/Components/ui/skeleton';
 
 export default function Index({ auth, athletes }) {
     const [search, setSearch] = useState('');
-    const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id || null);
+    const initialAthleteId = athletes?.[0]?.id ?? null;
+    const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId);
+    const isLoading = !athletes;
+
+    if (isLoading) {
+        return (
+            <AdminLayout
+                user={auth?.user}
+                header={<h2 className="text-xl font-bold tracking-tight uppercase">Monitoring Kondisi Fisik</h2>}
+            >
+                <Head title="Kondisi Fisik" />
+                <div className="py-6">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <div className="lg:col-span-4 space-y-4">
+                                <Skeleton className="h-80 w-full" />
+                            </div>
+                            <div className="lg:col-span-8 space-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                    {Array.from({ length: 3 }).map((_, idx) => (
+                                        <Skeleton key={idx} className="h-24" />
+                                    ))}
+                                </div>
+                                <Skeleton className="h-72 w-full" />
+                                <Skeleton className="h-40 w-full" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </AdminLayout>
+        );
+    }
 
     const filteredAthletes = athletes.filter(a => 
         a.full_name.toLowerCase().includes(search.toLowerCase())
@@ -20,12 +52,10 @@ export default function Index({ auth, athletes }) {
         { label: 'Tinggi Badan', value: `${selectedAthlete.latest_metrics.height} cm`, icon: Ruler, color: 'text-blue-500 bg-blue-500/10', sub: 'Baseline' },
         { label: 'Berat Badan', value: `${selectedAthlete.latest_metrics.weight} kg`, icon: Weight, color: 'text-orange-500 bg-orange-500/10', sub: 'Normal' },
         { label: 'Indeks Massa Tubuh', value: selectedAthlete.latest_metrics.bmi, icon: Activity, color: 'text-green-500 bg-green-500/10', sub: 'Normal' },
-        { label: 'Detak Jantung', value: `${selectedAthlete.latest_metrics.heart_rate} bpm`, icon: Heart, color: 'text-red-500 bg-red-500/10', sub: 'Stabil' },
     ] : (selectedAthlete ? [
         { label: 'Tinggi Badan', value: 'N/A', icon: Ruler, color: 'text-blue-500 bg-blue-500/10', sub: 'No Data' },
         { label: 'Berat Badan', value: 'N/A', icon: Weight, color: 'text-orange-500 bg-orange-500/10', sub: 'No Data' },
         { label: 'BMI', value: 'N/A', icon: Activity, color: 'text-green-500 bg-green-500/10', sub: 'No Data' },
-        { label: 'Detak Jantung', value: 'N/A', icon: Heart, color: 'text-red-500 bg-red-500/10', sub: 'No Data' },
     ] : []);
 
     const chartData = selectedAthlete?.physical_metrics?.map(m => ({
@@ -36,7 +66,7 @@ export default function Index({ auth, athletes }) {
 
     return (
         <AdminLayout
-            user={auth.user}
+            user={auth?.user}
             header={<h2 className="text-xl font-bold tracking-tight uppercase">Monitoring Kondisi Fisik</h2>}
         >
             <Head title="Kondisi Fisik" />
@@ -76,7 +106,7 @@ export default function Index({ auth, athletes }) {
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-sm tracking-tight">{a.full_name}</p>
-                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold">{a.belt?.name} • {a.age} Thn</p>
+                                                    <p className="text-xs text-neutral-500 uppercase font-bold">{a.belt?.name} | {a.age} Thn</p>
                                                 </div>
                                             </div>
                                             <ChevronRight size={16} className={`transition-all duration-300 ${selectedAthleteId === a.id ? 'text-athlix-red translate-x-0.5' : 'text-neutral-300'}`} />
@@ -90,7 +120,7 @@ export default function Index({ auth, athletes }) {
                         <div className="lg:col-span-8 space-y-6 animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
                             {selectedAthlete ? (
                                 <>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                                         {metrics.map((m, i) => (
                                             <Card key={i} className="border-neutral-200/80 dark:border-neutral-800 card-hover animate-fade-in-up fill-both" style={{ animationDelay: `${150 + i * 60}ms` }}>
                                                 <CardContent className="p-4 space-y-3">
@@ -98,9 +128,9 @@ export default function Index({ auth, athletes }) {
                                                         <m.icon size={18} />
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-bold uppercase text-neutral-500 tracking-widest">{m.label}</p>
+                                                        <p className="text-xs font-bold uppercase text-neutral-500 tracking-widest">{m.label}</p>
                                                         <p className="text-lg font-black">{m.value}</p>
-                                                        <p className="text-[10px] text-neutral-400">{m.sub}</p>
+                                                        <p className="text-xs text-neutral-400">{m.sub}</p>
                                                     </div>
                                                 </CardContent>
                                             </Card>
@@ -128,13 +158,25 @@ export default function Index({ auth, athletes }) {
                                                     <Line type="monotone" dataKey="bmi" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
                                                 </LineChart>
                                             </ResponsiveContainer>
-                                            <div className="flex justify-center gap-6 mt-4 text-[10px] font-bold uppercase text-neutral-500">
+                                            <div className="flex justify-center gap-6 mt-4 text-xs font-bold uppercase text-neutral-500">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-3 h-[3px] bg-athlix-red rounded-full"></div> BB (kg)
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-3 h-[3px] bg-blue-500 rounded-full"></div> IMT
                                                 </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card className="border-neutral-200/80 dark:border-neutral-800 bg-green-500/5 animate-fade-in-up fill-both" style={{ animationDelay: '380ms' }}>
+                                        <CardHeader>
+                                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kondisi Atlet (IMT)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                            <div className="space-y-1">
+                                                <p className="text-lg font-black text-green-600">{selectedAthlete.bmi_detail?.label || 'Belum Ada Data'}</p>
+                                                <p className="text-sm text-neutral-600 ">{selectedAthlete.bmi_detail?.note || 'Data IMT belum tersedia.'}</p>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -171,3 +213,6 @@ export default function Index({ auth, athletes }) {
         </AdminLayout>
     );
 }
+
+
+

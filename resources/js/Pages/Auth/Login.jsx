@@ -27,12 +27,12 @@ export default function Login({ status, canResetPassword }) {
 
             <div className="space-y-6">
                 <div className="text-center space-y-1">
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 dark:text-white">Masuk Akun</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 ">Masuk Akun</h2>
                     <p className="text-sm text-neutral-500">Masukkan kredensial untuk melanjutkan</p>
                 </div>
 
                 {status && (
-                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm font-medium text-green-600 dark:text-green-400 border border-green-200/50 dark:border-green-800/30 animate-fade-in">
+                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm font-medium text-green-600  border border-green-200/50 dark:border-green-800/30 animate-fade-in">
                         {status}
                     </div>
                 )}
@@ -82,7 +82,7 @@ export default function Login({ status, canResetPassword }) {
                                 onChange={(e) => setData('remember', e.target.checked)}
                                 className="rounded-md border-neutral-300 dark:border-neutral-600 text-athlix-red shadow-sm focus:ring-athlix-red/30 dark:bg-neutral-800 transition-colors"
                             />
-                            <span className="ms-2 text-xs font-medium text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-neutral-200 transition-colors">
+                            <span className="ms-2 text-xs font-medium text-neutral-600  group-hover:text-neutral-900 dark:group-hover:text-neutral-200 transition-colors">
                                 Ingat saya
                             </span>
                         </label>

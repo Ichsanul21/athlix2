@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default: "bg-athlix-red text-white hover:bg-athlix-red/90 shadow-md shadow-athlix-red/20 hover:shadow-lg hover:shadow-athlix-red/30 hover:-translate-y-0.5",
         destructive: "bg-red-500 text-neutral-50 hover:bg-red-500/90 shadow-md shadow-red-500/20",
         outline: "border border-neutral-200 bg-white hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 dark:hover:text-neutral-50",
-        secondary: "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-700",
+        secondary: "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 dark:bg-neutral-800  dark:hover:bg-neutral-700",
         ghost: "hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-50",
         link: "text-athlix-red underline-offset-4 hover:underline",
       },

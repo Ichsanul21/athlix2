@@ -1,63 +1,159 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { CreditCard, ArrowUpRight, ArrowDownLeft, Search, MessageCircle, Check } from 'lucide-react';
+import { CreditCard, ArrowUpRight, ArrowDownLeft, Search, MessageCircle, Check, HandCoins } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
+import { Skeleton } from '@/Components/ui/skeleton';
+import { Button } from '@/Components/ui/button';
+import Modal from '@/Components/Modal';
+import { useMemo, useState } from 'react';
 
-export default function Index({ auth, records }) {
-    const totalRevenue = records.filter(r => r.status === 'paid').reduce((acc, r) => acc + parseFloat(r.amount), 0);
-    const totalOutstanding = records.filter(r => r.status === 'unpaid').reduce((acc, r) => acc + parseFloat(r.amount), 0);
-    const pendingCount = records.filter(r => r.status === 'unpaid').length;
+export default function Index({ auth, records, filters, adminFee = 5000, flash, athletes = [] }) {
+    const [search, setSearch] = useState(filters?.search || '');
+    const [confirmationModal, setConfirmationModal] = useState({ show: false, action: null, record: null });
+    const [customModal, setCustomModal] = useState({ show: false, record: null });
+    const {
+        data: customForm,
+        setData: setCustomForm,
+        post: postCustomNominal,
+        processing: customProcessing,
+        errors: customErrors,
+        clearErrors: clearCustomErrors,
+        reset: resetCustomForm,
+    } = useForm({ new_amount: '', reason: '', source_athlete_id: '' });
 
-    const formatIDR = (amount) => {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+    const isLoading = !records;
+    const sourceRecords = records ?? [];
+
+    const filteredRecords = useMemo(() => {
+        const normalized = search.trim().toLowerCase();
+        if (!normalized) return sourceRecords;
+
+        return sourceRecords.filter((record) => {
+            const candidateValues = [
+                record.description,
+                record.athlete?.full_name,
+                record.athlete?.athlete_code,
+                record.athlete_condition,
+            ]
+                .filter(Boolean)
+                .map((value) => value.toString().toLowerCase());
+
+            return candidateValues.some((value) => value.includes(normalized));
+        });
+    }, [sourceRecords, search]);
+
+    if (isLoading) {
+        return (
+            <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Keuangan</h2>}>
+                <Head title="Finance" />
+                <div className="py-6">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                            {Array.from({ length: 3 }).map((_, idx) => (<Skeleton key={idx} className="h-24" />))}
+                        </div>
+                        <Skeleton className="h-72 w-full" />
+                    </div>
+                </div>
+            </AdminLayout>
+        );
+    }
+
+    const totalRevenue = filteredRecords.filter((r) => r.status === 'paid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
+    const totalOutstanding = filteredRecords.filter((r) => r.status === 'unpaid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
+    const pendingCount = filteredRecords.filter((r) => r.status === 'unpaid').length;
+
+    const formatIDR = (amount) => new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(amount || 0);
+
+    const closeModal = () => setConfirmationModal({ show: false, action: null, record: null });
+
+    const confirmAction = () => {
+        if (confirmationModal.action === 'generate') {
+            router.post(route('finance.generate'), {}, { onFinish: closeModal });
+            return;
+        }
+
+        if (confirmationModal.action === 'markPaid' && confirmationModal.record) {
+            router.patch(route('finance.update', confirmationModal.record.id), {}, { onFinish: closeModal });
+        }
+    };
+
+    const openCustomModal = (record) => {
+        setCustomModal({ show: true, record });
+        clearCustomErrors();
+        setCustomForm({
+            new_amount: String(record.amount || ''),
+            reason: '',
+            source_athlete_id: '',
+        });
+    };
+
+    const submitCustomNominal = () => {
+        if (!customModal.record) return;
+        postCustomNominal(route('finance.customize', customModal.record.id), {
+            preserveScroll: true,
+            data: {
+                ...customForm,
+                source_athlete_id: customForm.source_athlete_id || null,
+            },
+            onSuccess: () => {
+                setCustomModal({ show: false, record: null });
+                resetCustomForm();
+            },
+        });
     };
 
     return (
-        <AdminLayout
-            user={auth.user}
-            header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Keuangan</h2>}
-        >
+        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Keuangan</h2>}>
             <Head title="Finance" />
 
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
-                    
+                    {flash?.success && (
+                        <div className="p-3 text-sm rounded-xl border border-green-200 bg-green-50 text-green-700 dark:bg-green-900/20 dark:border-green-900/30 ">
+                            {flash.success}
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-                        <Card className="bg-green-50/80 dark:bg-green-900/10 border-green-200/50 dark:border-green-900/20 card-hover animate-fade-in-up fill-both group">
+                        <Card className="bg-green-50/80 dark:bg-green-900/10 border-green-200/50 dark:border-green-900/20">
                             <CardContent className="p-6">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="text-xs text-green-600 dark:text-green-400 font-bold uppercase tracking-widest">Total Terbayar</p>
+                                        <p className="text-xs text-green-600  font-bold uppercase tracking-widest">Total Terbayar</p>
                                         <h3 className="text-xl sm:text-2xl font-black mt-1">{formatIDR(totalRevenue)}</h3>
                                     </div>
-                                    <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-xl transition-transform duration-300 group-hover:scale-110">
+                                    <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-xl">
                                         <ArrowUpRight className="text-green-600" size={20} />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="bg-red-50/80 dark:bg-athlix-red/5 border-red-200/50 dark:border-athlix-red/10 card-hover animate-fade-in-up fill-both group" style={{ animationDelay: '80ms' }}>
+                        <Card className="bg-red-50/80 dark:bg-athlix-red/5 border-red-200/50 dark:border-athlix-red/10">
                             <CardContent className="p-6">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-xs text-athlix-red font-bold uppercase tracking-widest">Total Tunggakan</p>
                                         <h3 className="text-xl sm:text-2xl font-black mt-1">{formatIDR(totalOutstanding)}</h3>
                                     </div>
-                                    <div className="p-2.5 bg-athlix-red/10 rounded-xl transition-transform duration-300 group-hover:scale-110">
+                                    <div className="p-2.5 bg-athlix-red/10 rounded-xl">
                                         <ArrowDownLeft className="text-athlix-red" size={20} />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="border-neutral-200/80 dark:border-neutral-800 card-hover animate-fade-in-up fill-both group" style={{ animationDelay: '160ms' }}>
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
                             <CardContent className="p-6">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Invoice Belum Bayar</p>
+                                        <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Tagihan Belum Bayar</p>
                                         <h3 className="text-xl sm:text-2xl font-black mt-1">{pendingCount} Atlet</h3>
                                     </div>
-                                    <div className="p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl transition-transform duration-300 group-hover:scale-110">
+                                    <div className="p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
                                         <CreditCard size={20} />
                                     </div>
                                 </div>
@@ -65,31 +161,32 @@ export default function Index({ auth, records }) {
                         </Card>
                     </div>
 
-                    <Card className="border-neutral-200/80 dark:border-neutral-800 animate-fade-in-up fill-both" style={{ animationDelay: '200ms' }}>
+                    <Card className="border-neutral-200/80 dark:border-neutral-800">
                         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800">
-                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Daftar Tagihan Terbaru</CardTitle>
+                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Daftar Tagihan</CardTitle>
                             <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                                 <div className="relative w-full sm:max-w-xs">
                                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-                                    <Input type="text" placeholder="Cari invoice/atlet..." className="pl-10 h-9 border-none bg-neutral-50 dark:bg-neutral-950 text-xs" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Cari invoice/atlet..."
+                                        className="pl-10 h-9"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                    />
                                 </div>
-                                <button 
-                                    onClick={() => {
-                                        if(confirm('Terbitkan tagihan iuran bulanan baru untuk semua atlet aktif?')) {
-                                            router.post(route('finance.generate'));
-                                        }
-                                    }}
-                                    className="w-full sm:w-auto h-9 px-4 rounded-xl font-bold text-xs uppercase tracking-widest bg-athlix-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+                                <button
+                                    onClick={() => setConfirmationModal({ show: true, action: 'generate', record: null })}
+                                    className="w-full sm:w-auto h-9 px-4 rounded-xl font-bold text-xs uppercase tracking-widest bg-athlix-black dark:bg-white text-white "
                                 >
                                     Buat Tagihan Bulanan
                                 </button>
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
-                            {/* Desktop table */}
-                            <div className="overflow-x-auto hidden md:block">
+                            <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
-                                    <thead className="text-[10px] text-neutral-500 uppercase font-black bg-neutral-50/80 dark:bg-neutral-900/80 border-b border-neutral-200/80 dark:border-neutral-800 tracking-tighter">
+                                    <thead className="text-xs text-neutral-500 uppercase font-black bg-neutral-50/80 dark:bg-neutral-900/80 border-b border-neutral-200/80 dark:border-neutral-800 tracking-widest">
                                         <tr>
                                             <th className="px-6 py-4">Atlet</th>
                                             <th className="px-6 py-4">Keterangan</th>
@@ -100,108 +197,168 @@ export default function Index({ auth, records }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {records.map((rec, idx) => (
-                                            <tr key={rec.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-all duration-300 animate-fade-in-up fill-both" style={{ animationDelay: `${250 + idx * 40}ms` }}>
+                                        {filteredRecords.map((rec) => (
+                                            <tr key={rec.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30">
                                                 <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 text-athlix-red flex items-center justify-center font-bold text-xs uppercase">
-                                                            {rec.athlete.full_name.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-neutral-900 dark:text-neutral-100">{rec.athlete.full_name}</p>
-                                                            <p className="text-[10px] uppercase text-neutral-500">{rec.athlete.belt?.name}</p>
-                                                        </div>
-                                                    </div>
+                                                    <p className="font-bold">{rec.athlete?.full_name}</p>
+                                                    <p className="text-xs uppercase text-neutral-500">{rec.athlete?.athlete_code}</p>
                                                 </td>
-                                                <td className="px-6 py-4 text-xs font-medium">{rec.description}</td>
-                                                <td className="px-6 py-4 font-mono font-bold">{formatIDR(rec.amount)}</td>
+                                                <td className="px-6 py-4 text-xs">
+                                                    <p>{rec.description}</p>
+                                                    <p className="text-xs text-neutral-500 mt-1">Kondisi atlet: {rec.athlete_condition || '-'}</p>
+                                                </td>
+                                                <td className="px-6 py-4 font-mono">
+                                                    <p className="font-bold">{formatIDR(rec.total_amount || rec.amount)}</p>
+                                                    <p className="text-xs text-neutral-500">Rincian: {formatIDR(rec.amount)} + Admin {formatIDR(rec.admin_fee || adminFee)}</p>
+                                                </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                                                        rec.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-athlix-red dark:bg-athlix-red/10 dark:text-athlix-red'
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-widest ${
+                                                        rec.status === 'paid'
+                                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 '
+                                                            : 'bg-red-100 text-athlix-red dark:bg-athlix-red/10 '
                                                     }`}>
-                                                        <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${rec.status === 'paid' ? 'bg-green-500' : 'bg-athlix-red animate-pulse'}`}></div>
                                                         {rec.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-xs font-mono text-neutral-500 whitespace-nowrap">{rec.due_date}</td>
                                                 <td className="px-6 py-4 text-right">
-                                                    {rec.status === 'unpaid' && (
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <button 
-                                                                onClick={() => {
-                                                                    if (confirm(`Tandai tagihan ${rec.description} atas nama ${rec.athlete.full_name} sebagai lunas?`)) {
-                                                                        router.patch(route('finance.update', rec.id));
-                                                                    }
-                                                                }}
-                                                                className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 hover:bg-blue-500 hover:text-white transition-all duration-300 hover:shadow-md hover:shadow-blue-500/20 active:scale-95"
-                                                                title="Tandai Lunas"
-                                                            >
-                                                                <Check size={16} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => {
-                                                                    const message = `Halo ${rec.athlete.full_name}, ini pengingat dari Dojo ATHLIX mengenai pembayaran ${rec.description} sebesar ${formatIDR(rec.amount)} yang jatuh tempo pada ${rec.due_date}. Silakan lakukan pembayaran segera. Terima kasih!`;
-                                                                    window.open(`https://wa.me/${rec.athlete.phone_number}?text=${encodeURIComponent(message)}`, '_blank');
-                                                                }}
-                                                                className="p-2.5 rounded-xl bg-green-500/10 text-green-600 hover:bg-green-500 hover:text-white transition-all duration-300 hover:shadow-md hover:shadow-green-500/20 active:scale-95"
-                                                                title="Kirim Pengingat WA"
-                                                            >
-                                                                <MessageCircle size={16} />
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {rec.status === 'unpaid' && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => setConfirmationModal({ show: true, action: 'markPaid', record: rec })}
+                                                                    className="p-2 rounded-lg bg-blue-500/10 text-blue-600"
+                                                                    title="Tandai Lunas"
+                                                                >
+                                                                    <Check size={16} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => openCustomModal(rec)}
+                                                                    className="p-2 rounded-lg bg-amber-500/10 text-amber-600"
+                                                                    title="Custom Nominal"
+                                                                >
+                                                                    <HandCoins size={16} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <button
+                                                            onClick={() => {
+                                                                const message = `Halo ${rec.athlete?.full_name}, ini pengingat pembayaran ${rec.description} sebesar ${formatIDR(rec.total_amount || rec.amount)}. Jatuh tempo: ${rec.due_date}.`;
+                                                                window.open(`https://wa.me/${rec.athlete?.phone_number || ''}?text=${encodeURIComponent(message)}`, '_blank');
+                                                            }}
+                                                            className="p-2 rounded-lg bg-green-500/10 text-green-600"
+                                                            title="Kirim Pengingat WA"
+                                                        >
+                                                            <MessageCircle size={16} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
+                                        {filteredRecords.length === 0 && (
+                                            <tr>
+                                                <td colSpan="6" className="px-6 py-10 text-center text-sm text-neutral-400">
+                                                    Data pembayaran tidak ditemukan.
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
-                            {/* Mobile cards */}
-                            <div className="md:hidden divide-y divide-neutral-100 dark:divide-neutral-800">
-                                {records.map((rec, idx) => (
-                                    <div key={rec.id} className="p-4 flex items-center gap-3 animate-fade-in-up fill-both" style={{ animationDelay: `${idx * 50}ms` }}>
-                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 text-athlix-red flex items-center justify-center font-bold text-xs">
-                                            {rec.athlete.full_name.charAt(0)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-sm truncate">{rec.athlete.full_name}</p>
-                                            <p className="text-[10px] text-neutral-500 truncate">{rec.description}</p>
-                                        </div>
-                                        <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
-                                            <p className="font-mono font-bold text-sm">{formatIDR(rec.amount)}</p>
-                                            <span className={`text-[9px] font-bold uppercase ${rec.status === 'paid' ? 'text-green-600' : 'text-athlix-red'}`}>{rec.status}</span>
-                                            {rec.status === 'unpaid' && (
-                                                <div className="flex items-center justify-end gap-1 mt-1">
-                                                    <button 
-                                                        onClick={() => {
-                                                            if (confirm(`Tandai lunas?`)) {
-                                                                router.patch(route('finance.update', rec.id));
-                                                            }
-                                                        }}
-                                                        className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500 hover:text-white transition-all duration-300 active:scale-95"
-                                                        title="Tandai Lunas"
-                                                    >
-                                                        <Check size={14} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => {
-                                                            const message = `Halo ${rec.athlete.full_name}...`;
-                                                            window.open(`https://wa.me/${rec.athlete.phone_number}?text=${encodeURIComponent(message)}`, '_blank');
-                                                        }}
-                                                        className="p-1.5 rounded-lg bg-green-500/10 text-green-600 hover:bg-green-500 hover:text-white transition-all duration-300 active:scale-95"
-                                                    >
-                                                        <MessageCircle size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-neutral-200/80 dark:border-neutral-800">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Audit Cross-Subsidi</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-sm">
+                            {filteredRecords.flatMap((record) => (record.adjustments || []).map((item) => ({ ...item, athlete: record.athlete?.full_name }))).slice(0, 8).map((item) => (
+                                <div key={item.id} className="p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800">
+                                    <p className="font-semibold">{item.athlete}</p>
+                                    <p className="text-xs text-neutral-500">{formatIDR(item.old_amount)} {'->'} {formatIDR(item.new_amount)} | Delta: {formatIDR(item.delta_amount)}</p>
+                                    <p className="text-xs text-neutral-600 ">Alasan: {item.reason}</p>
+                                    {item.source_athlete && <p className="text-xs text-neutral-500">Sumber subsidi: {item.source_athlete}</p>}
+                                    <p className="text-xs text-neutral-400">{item.created_at}</p>
+                                </div>
+                            ))}
+                            {filteredRecords.flatMap((record) => record.adjustments || []).length === 0 && (
+                                <p className="text-sm text-neutral-400">Belum ada perubahan nominal yang tercatat.</p>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
             </div>
+
+            <Modal show={confirmationModal.show} onClose={closeModal} maxWidth="md">
+                <div className="p-6 space-y-4">
+                    <h3 className="text-lg font-black uppercase tracking-tight">
+                        {confirmationModal.action === 'generate' ? 'Buat Tagihan Bulanan' : 'Konfirmasi Pembayaran'}
+                    </h3>
+                    <p className="text-sm text-neutral-600 ">
+                        {confirmationModal.action === 'generate'
+                            ? 'Terbitkan tagihan iuran bulanan baru untuk semua atlet aktif sekarang?'
+                            : `Tandai tagihan ${confirmationModal.record?.description || ''} atas nama ${confirmationModal.record?.athlete?.full_name || ''} sebagai lunas?`}
+                    </p>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
+                        <Button type="button" onClick={confirmAction}>Ya, Lanjutkan</Button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal show={customModal.show} onClose={() => setCustomModal({ show: false, record: null })} maxWidth="lg">
+                <div className="p-6 space-y-4">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900 ">Custom Nominal Per Athlete</h3>
+                    <p className="text-sm text-neutral-700 ">
+                        Gunakan form ini untuk skema cross-subsidi. Semua perubahan akan tercatat otomatis pada audit log.
+                    </p>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Nominal Baru</label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={customForm.new_amount}
+                                onChange={(e) => setCustomForm('new_amount', e.target.value)}
+                                placeholder="Contoh: 125000"
+                            />
+                            {customErrors.new_amount && <p className="text-xs text-athlix-red">{customErrors.new_amount}</p>}
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sumber Cross-Subsidi</label>
+                            <select
+                                className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 "
+                                value={customForm.source_athlete_id}
+                                onChange={(e) => setCustomForm('source_athlete_id', e.target.value)}
+                            >
+                                <option value="">Tidak ada (manual)</option>
+                                {athletes.map((athlete) => (
+                                    <option key={athlete.id} value={athlete.id}>{athlete.full_name}</option>
+                                ))}
+                            </select>
+                            {customErrors.source_athlete_id && <p className="text-xs text-athlix-red">{customErrors.source_athlete_id}</p>}
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alasan Penyesuaian</label>
+                        <textarea
+                            className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm min-h-24 text-neutral-900 "
+                            value={customForm.reason}
+                            onChange={(e) => setCustomForm('reason', e.target.value)}
+                            placeholder="Contoh: subsidi silang dari atlet sponsor internal dojo"
+                        />
+                        {customErrors.reason && <p className="text-xs text-athlix-red">{customErrors.reason}</p>}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setCustomModal({ show: false, record: null })}>Batal</Button>
+                        <Button type="button" onClick={submitCustomNominal} disabled={customProcessing}>
+                            {customProcessing ? 'Menyimpan...' : 'Simpan Penyesuaian'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </AdminLayout>
     );
 }
+

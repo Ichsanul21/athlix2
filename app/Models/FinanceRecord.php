@@ -12,4 +12,9 @@ class FinanceRecord extends Model
     {
         return $this->belongsTo(Athlete::class);
     }
+
+    public function adjustments()
+    {
+        return $this->hasMany(FinanceAdjustment::class);
+    }
 }

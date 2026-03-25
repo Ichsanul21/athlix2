@@ -16,9 +16,4 @@ class Belt extends Model
     {
         return $this->hasMany(Athlete::class, 'current_belt_id');
     }
-
-    public function exams()
-    {
-        return $this->hasMany(Exam::class);
-    }
 }

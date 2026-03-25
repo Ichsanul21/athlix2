@@ -31,10 +31,10 @@ export default function GuestLayout({ children }) {
                             </div>
                         </div>
                         <div className="text-center">
-                            <h1 className="text-2xl font-black tracking-tighter text-athlix-black dark:text-white">
+                            <h1 className="text-2xl font-black tracking-tighter text-athlix-black ">
                                 ATHLIX<span className="text-athlix-red">.</span>
                             </h1>
-                            <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-[0.3em]">Dojo Management</p>
+                            <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-[0.3em]">Dojo Management</p>
                         </div>
                     </Link>
                 </div>
@@ -51,7 +51,7 @@ export default function GuestLayout({ children }) {
 
                 {/* Footer */}
                 <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '200ms' }}>
-                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-[0.2em]">
+                    <p className="text-xs text-neutral-400 font-bold uppercase tracking-[0.2em]">
                         &copy; {new Date().getFullYear()} ATHLIX. All rights reserved.
                     </p>
                 </div>
@@ -59,3 +59,4 @@ export default function GuestLayout({ children }) {
         </div>
     );
 }
+

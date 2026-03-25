@@ -1,72 +1,185 @@
 import PwaLayout from '@/Layouts/PwaLayout';
-import { Head } from '@inertiajs/react';
-import { Card, CardContent } from '@/Components/ui/card';
-import { QrCode, ShieldCheck, Info } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { Head, router } from '@inertiajs/react';
+import { Card } from '@/Components/ui/card';
+import { Button } from '@/Components/ui/button';
+import { ScanLine, Camera, CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Skeleton } from '@/Components/ui/skeleton';
+import { useEffect, useRef, useState } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 
-export default function Index({ auth, athlete }) {
-    if (!athlete) return <PwaLayout user={auth.user} header="ID Card">Loading...</PwaLayout>;
+export default function Index({ auth, athlete, flash }) {
+    const [scanning, setScanning] = useState(false);
+    const [scanResult, setScanResult] = useState(null);
+    const [scanError, setScanError] = useState(null);
+    const [permissionDenied, setPermissionDenied] = useState(false);
+    const [action, setAction] = useState('checkin');
+    const [feedback, setFeedback] = useState('');
+    const [mood, setMood] = useState('semangat');
+    const scannerRef = useRef(null);
+
+    const stopScanner = () => {
+        if (scannerRef.current) {
+            scannerRef.current.stop().catch(() => {}).finally(() => setScanning(false));
+            return;
+        }
+
+        setScanning(false);
+    };
+
+    const startScanner = async () => {
+        setScanResult(null);
+        setScanError(null);
+        setPermissionDenied(false);
+        setScanning(true);
+
+        try {
+            await navigator.mediaDevices.getUserMedia({ video: true });
+
+            const html5QrCode = new Html5Qrcode('qr-reader-dojo');
+            scannerRef.current = html5QrCode;
+
+            await html5QrCode.start(
+                { facingMode: 'environment' },
+                { fps: 15, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    html5QrCode.stop().then(() => {
+                        setScanning(false);
+                        router.post(route('attendance.scan-dojo'), {
+                            athlete_code: athlete?.athlete_code,
+                            dojo_payload: decodedText,
+                            action,
+                            athlete_feedback: action === 'checkout' ? feedback : '',
+                            athlete_mood: action === 'checkout' ? mood : '',
+                        }, {
+                            onSuccess: () => {
+                                setScanResult('success');
+                                if (action === 'checkout') {
+                                    setFeedback('');
+                                    setMood('semangat');
+                                }
+                            },
+                            onError: (errors) => {
+                                setScanError(errors.dojo_payload || errors.athlete_code || 'QR dojo tidak valid atau absensi gagal.');
+                            },
+                        });
+                    });
+                },
+                () => {}
+            );
+        } catch (err) {
+            setScanning(false);
+            if (err.name === 'NotAllowedError') {
+                setPermissionDenied(true);
+                return;
+            }
+
+            setScanError('Gagal mengakses kamera. Pastikan kamera tersedia.');
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (scannerRef.current) {
+                scannerRef.current.stop().catch(() => {});
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (flash?.success) {
+            setScanResult('success');
+        }
+    }, [flash]);
+
+    if (!athlete) {
+        return (
+            <PwaLayout user={auth?.user} header="Scan Absensi">
+                <div className="space-y-6 pb-24">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="h-80 w-full" />
+                </div>
+            </PwaLayout>
+        );
+    }
 
     return (
-        <PwaLayout user={auth.user} header="ID Card Kehadiran">
-            <Head title="ID Card" />
+        <PwaLayout user={auth?.user} header="Scan Absensi">
+            <Head title="Scan Absensi" />
 
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 pb-24">
-                
-                <div className="text-center space-y-1 animate-fade-in-up">
-                    <h2 className="text-xl font-black uppercase tracking-tighter">Kartu Identitas</h2>
-                    <p className="text-sm text-neutral-500 max-w-xs mx-auto">Tunjukkan QR Code ini kepada Sensei untuk mencatat kehadiran latihan Anda.</p>
-                </div>
+                {scanResult === 'success' && (
+                    <div className="text-center space-y-4">
+                        <div className="w-20 h-20 mx-auto rounded-full bg-green-500/10 flex items-center justify-center">
+                            <CheckCircle2 size={40} className="text-green-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black uppercase tracking-tighter">{action === 'checkout' ? 'Check-out Berhasil' : 'Check-in Berhasil'}</h2>
+                            <p className="text-sm text-neutral-500 mt-1">{flash?.success || 'Kehadiran kamu sudah tercatat.'}</p>
+                        </div>
+                        <Button onClick={() => { setScanResult(null); startScanner(); }} variant="outline">Scan Lagi</Button>
+                    </div>
+                )}
 
-                {/* ID Card Wrapper */}
-                <div className="w-full max-w-sm px-4 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-                    <Card className="overflow-hidden border-none shadow-2xl bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-800 dark:to-neutral-900 text-white relative group">
-                        {/* Decorative background elements */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-athlix-red/10 rounded-full -translate-y-1/2 translate-x-1/4"></div>
-                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-athlix-red/5 rounded-full translate-y-1/2 -translate-x-1/4"></div>
-                        
-                        <CardContent className="p-0 relative z-10">
-                            {/* Header Stripe */}
-                            <div className="bg-athlix-red px-6 py-3 flex items-center justify-between">
-                                <span className="font-black tracking-widest text-xs uppercase text-white/90">Dojo ATHLIX</span>
-                                <ShieldCheck size={18} className="text-white/90" />
+                {scanError && (
+                    <div className="text-center space-y-4">
+                        <div className="w-20 h-20 mx-auto rounded-full bg-red-500/10 flex items-center justify-center"><XCircle size={40} className="text-athlix-red" /></div>
+                        <div><h2 className="text-xl font-black uppercase tracking-tighter">Gagal Scan</h2><p className="text-sm text-neutral-500 mt-1">{scanError}</p></div>
+                        <Button onClick={() => { setScanError(null); startScanner(); }}>Coba Lagi</Button>
+                    </div>
+                )}
+
+                {permissionDenied && (
+                    <div className="text-center space-y-4">
+                        <div className="w-20 h-20 mx-auto rounded-full bg-yellow-500/10 flex items-center justify-center"><AlertTriangle size={40} className="text-yellow-500" /></div>
+                        <div><h2 className="text-xl font-black uppercase tracking-tighter">Izin Kamera Ditolak</h2><p className="text-sm text-neutral-500 mt-1">Izinkan akses kamera agar bisa scan QR dojo.</p></div>
+                        <Button onClick={() => { setPermissionDenied(false); startScanner(); }} variant="outline">Coba Lagi</Button>
+                    </div>
+                )}
+
+                {!scanResult && !scanError && !permissionDenied && (
+                    <div className="w-full max-w-sm space-y-4">
+                        <div className="text-center space-y-1">
+                            <h2 className="text-xl font-black uppercase tracking-tighter">Scan QR Dojo</h2>
+                            <p className="text-sm text-neutral-500">{athlete.full_name} ({athlete.athlete_code})</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button variant={action === 'checkin' ? 'default' : 'outline'} onClick={() => setAction('checkin')}>Check-in</Button>
+                            <Button variant={action === 'checkout' ? 'default' : 'outline'} onClick={() => setAction('checkout')}>Check-out</Button>
+                        </div>
+
+                        {action === 'checkout' && (
+                            <Card className="p-4 space-y-3">
+                                <select className="w-full rounded-lg border px-3 py-2 text-sm" value={mood} onChange={(e) => setMood(e.target.value)}>
+                                    <option value="semangat">Semangat</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="lelah">Lelah</option>
+                                    <option value="drop">Drop</option>
+                                </select>
+                                <textarea className="w-full rounded-lg border px-3 py-2 text-sm min-h-20" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Feedback latihan hari ini..." />
+                            </Card>
+                        )}
+
+                        <Card className="overflow-hidden border-neutral-200/80 dark:border-neutral-800 aspect-square relative shadow-lg">
+                            <div id="qr-reader-dojo" className="w-full h-full bg-neutral-900"></div>
+                            {!scanning && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-100 dark:bg-neutral-900 space-y-4">
+                                    <div className="w-20 h-20 rounded-2xl bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center"><Camera size={32} className="text-neutral-400" /></div>
+                                    <p className="text-sm text-neutral-400 font-medium">Arahkan ke QR yang ditampilkan oleh Sensei</p>
+                                </div>
+                            )}
+                        </Card>
+
+                        {!scanning ? (
+                            <Button onClick={startScanner} className="w-full h-14 text-sm font-black uppercase tracking-widest gap-3 rounded-2xl"><ScanLine size={20} />Buka Kamera</Button>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-center gap-2 text-sm text-neutral-500"><Loader2 size={16} className="animate-spin text-athlix-red" /><span className="text-sm font-bold uppercase tracking-widest">Memindai QR Dojo...</span></div>
+                                <Button onClick={stopScanner} variant="outline" className="w-full h-12 rounded-2xl">Batal</Button>
                             </div>
-
-                            {/* Info Section */}
-                            <div className="p-6 text-center space-y-4">
-                                <div>
-                                    <h3 className="text-2xl font-black uppercase tracking-tight">{athlete.full_name}</h3>
-                                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mt-1">{athlete.athlete_code}</p>
-                                </div>
-                                
-                                {/* QR Code Container */}
-                                <div className="bg-white p-4 rounded-2xl inline-block shadow-lg transition-transform duration-500 group-hover:scale-105">
-                                    <QRCodeSVG 
-                                        value={athlete.athlete_code} 
-                                        size={200}
-                                        bgColor={"#ffffff"}
-                                        fgColor={"#000000"}
-                                        level={"Q"}
-                                    />
-                                </div>
-
-                                {/* Status */}
-                                <div className="pt-2">
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                                        Member Aktif
-                                    </span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-neutral-500 px-8 text-center animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-                    <Info size={14} className="text-athlix-red flex-shrink-0" />
-                    <p>Pastikan tingkat kecerahan layar Anda cukup tinggi agar QR mudah dipindai.</p>
-                </div>
-
+                        )}
+                    </div>
+                )}
             </div>
         </PwaLayout>
     );

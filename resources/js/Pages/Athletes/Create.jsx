@@ -3,28 +3,64 @@ import { Head, useForm, Link } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { Skeleton } from '@/Components/ui/skeleton';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
 
-export default function Create({ auth, belts }) {
+export default function Create({ auth, belts, suggestedAthleteCode }) {
+    const isLoading = !belts;
+    const initialBeltId = belts?.[0]?.id ?? '';
     const { data, setData, post, processing, errors } = useForm({
         full_name: '',
-        athlete_code: 'ATH-' + Math.floor(1000 + Math.random() * 9000),
-        current_belt_id: belts[0]?.id || '',
+        athlete_code: suggestedAthleteCode || '',
+        current_belt_id: initialBeltId,
+        birth_place: '',
         dob: '',
         gender: 'M',
         specialization: 'both',
+        latest_height: '',
         latest_weight: '',
+        class_note: '',
     });
+
+    useEffect(() => {
+        if (belts?.length > 0 && !data.current_belt_id) {
+            setData('current_belt_id', belts[0].id);
+        }
+    }, [belts, data.current_belt_id, setData]);
+
+    useEffect(() => {
+        if (suggestedAthleteCode && !data.athlete_code) {
+            setData('athlete_code', suggestedAthleteCode);
+        }
+    }, [suggestedAthleteCode, data.athlete_code, setData]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
         post(route('athletes.store'));
     };
 
+    if (isLoading) {
+        return (
+            <AdminLayout
+                user={auth?.user}
+                header={<h2 className="text-xl font-semibold leading-tight text-neutral-800 ">Register New Athlete</h2>}
+            >
+                <Head title="Add Athlete" />
+                <div className="py-6">
+                    <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 space-y-6">
+                        <Skeleton className="h-4 w-36" />
+                        <Skeleton className="h-96 w-full" />
+                    </div>
+                </div>
+            </AdminLayout>
+        );
+    }
+
     return (
         <AdminLayout
-            user={auth.user}
-            header={<h2 className="text-xl font-semibold leading-tight text-neutral-800 dark:text-neutral-200">Register New Athlete</h2>}
+            user={auth?.user}
+            header={<h2 className="text-xl font-semibold leading-tight text-neutral-800 ">Register New Athlete</h2>}
         >
             <Head title="Add Athlete" />
 
@@ -40,7 +76,7 @@ export default function Create({ auth, belts }) {
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="col-span-2 space-y-1">
                                         <label className="text-sm font-medium">Full Name</label>
                                         <Input 
@@ -56,10 +92,13 @@ export default function Create({ auth, belts }) {
                                         <label className="text-sm font-medium">Athlete ID Code</label>
                                         <Input 
                                             value={data.athlete_code} 
-                                            onChange={e => setData('athlete_code', e.target.value)} 
-                                            placeholder="ATH-XXXX"
+                                            onChange={e => setData('athlete_code', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())} 
+                                            placeholder="ATH0001"
+                                            disabled
+                                            className="bg-neutral-100 dark:bg-neutral-800 cursor-not-allowed"
                                             required
                                         />
+                                        <p className="text-xs text-neutral-500">Kode atlet otomatis, hanya huruf dan angka (tanpa simbol).</p>
                                         {errors.athlete_code && <p className="text-xs text-athlix-red">{errors.athlete_code}</p>}
                                     </div>
 
@@ -74,6 +113,16 @@ export default function Create({ auth, belts }) {
                                                 <option key={belt.id} value={belt.id}>{belt.name}</option>
                                             ))}
                                         </select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium">Tempat Lahir</label>
+                                        <Input 
+                                            value={data.birth_place} 
+                                            onChange={e => setData('birth_place', e.target.value)} 
+                                            placeholder="Contoh: Samarinda"
+                                        />
+                                        {errors.birth_place && <p className="text-xs text-athlix-red">{errors.birth_place}</p>}
                                     </div>
 
                                     <div className="space-y-1">
@@ -99,6 +148,18 @@ export default function Create({ auth, belts }) {
                                     </div>
 
                                     <div className="space-y-1">
+                                        <label className="text-sm font-medium">Height (cm)</label>
+                                        <Input 
+                                            type="number"
+                                            step="0.1"
+                                            value={data.latest_height} 
+                                            onChange={e => setData('latest_height', e.target.value)} 
+                                            placeholder="e.g. 170"
+                                        />
+                                        {errors.latest_height && <p className="text-xs text-athlix-red">{errors.latest_height}</p>}
+                                    </div>
+
+                                    <div className="space-y-1">
                                         <label className="text-sm font-medium">Weight (kg)</label>
                                         <Input 
                                             type="number"
@@ -107,6 +168,7 @@ export default function Create({ auth, belts }) {
                                             onChange={e => setData('latest_weight', e.target.value)} 
                                             placeholder="e.g. 65.5"
                                         />
+                                        {errors.latest_weight && <p className="text-xs text-athlix-red">{errors.latest_weight}</p>}
                                     </div>
 
                                     <div className="space-y-1">
@@ -120,6 +182,16 @@ export default function Create({ auth, belts }) {
                                             <option value="kumite">Kumite</option>
                                             <option value="both">Both</option>
                                         </select>
+                                    </div>
+
+                                    <div className="col-span-2 space-y-1">
+                                        <label className="text-sm font-medium">Keterangan Kelas</label>
+                                        <Input 
+                                            value={data.class_note} 
+                                            onChange={e => setData('class_note', e.target.value)} 
+                                            placeholder="Contoh: Senior -67kg"
+                                        />
+                                        {errors.class_note && <p className="text-xs text-athlix-red">{errors.class_note}</p>}
                                     </div>
                                 </div>
 
@@ -137,3 +209,5 @@ export default function Create({ auth, belts }) {
         </AdminLayout>
     );
 }
+
+

@@ -21,12 +21,12 @@ export default function ForgotPassword({ status }) {
 
             <div className="space-y-6">
                 <div className="text-center space-y-1">
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 dark:text-white">Lupa Password</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 ">Lupa Password</h2>
                     <p className="text-sm text-neutral-500 max-w-xs mx-auto">Masukkan email Anda dan kami akan mengirimkan link reset password.</p>
                 </div>
 
                 {status && (
-                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm font-medium text-green-600 dark:text-green-400 border border-green-200/50 dark:border-green-800/30 animate-fade-in">
+                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm font-medium text-green-600  border border-green-200/50 dark:border-green-800/30 animate-fade-in">
                         {status}
                     </div>
                 )}

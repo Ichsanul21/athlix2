@@ -27,7 +27,7 @@ export default function ConfirmPassword() {
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-athlix-red/10 flex items-center justify-center text-athlix-red mb-4">
                         <ShieldCheck size={28} />
                     </div>
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 dark:text-white">Konfirmasi Password</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 ">Konfirmasi Password</h2>
                     <p className="text-sm text-neutral-500 max-w-xs mx-auto">Area ini aman. Silakan konfirmasi password Anda sebelum melanjutkan.</p>
                 </div>
 

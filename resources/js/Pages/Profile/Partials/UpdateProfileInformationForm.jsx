@@ -2,36 +2,73 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Skeleton } from '@/Components/ui/skeleton';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useEffect } from 'react';
 
 export default function UpdateProfileInformation({
     mustVerifyEmail,
     status,
     className = '',
 }) {
-    const user = usePage().props.auth.user;
+    const user = usePage().props.auth?.user;
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =
         useForm({
-            name: user.name,
-            email: user.email,
+            name: user?.name || '',
+            email: user?.email || '',
+            phone_number: user?.phone_number || '',
+            profile_photo: null,
         });
+
+    useEffect(() => {
+        if (user) {
+            setData({
+                name: user.name || '',
+                email: user.email || '',
+                phone_number: user.phone_number || '',
+                profile_photo: null,
+            });
+        }
+    }, [user, setData]);
 
     const submit = (e) => {
         e.preventDefault();
 
-        patch(route('profile.update'));
+        patch(route('profile.update'), {
+            forceFormData: true,
+        });
     };
+
+    if (!user) {
+        return (
+            <section className={className}>
+                <header>
+                    <h2 className="text-lg font-medium text-gray-900 ">
+                        Profile Information
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600 ">
+                        Update your account's profile information and email address.
+                    </p>
+                </header>
+                <div className="mt-6 space-y-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-28" />
+                </div>
+            </section>
+        );
+    }
 
     return (
         <section className={className}>
             <header>
-                <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                <h2 className="text-lg font-medium text-gray-900 ">
                     Profile Information
                 </h2>
 
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                <p className="mt-1 text-sm text-gray-600 ">
                     Update your account's profile information and email address.
                 </p>
             </header>
@@ -69,22 +106,55 @@ export default function UpdateProfileInformation({
                     <InputError className="mt-2" message={errors.email} />
                 </div>
 
-                {mustVerifyEmail && user.email_verified_at === null && (
+                <div>
+                    <InputLabel htmlFor="phone_number" value="No. WhatsApp" />
+
+                    <TextInput
+                        id="phone_number"
+                        type="text"
+                        className="mt-1 block w-full"
+                        value={data.phone_number}
+                        onChange={(e) => setData('phone_number', e.target.value)}
+                        required
+                    />
+
+                    <InputError className="mt-2" message={errors.phone_number} />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="profile_photo" value="Foto Profile" />
+
+                    <input
+                        id="profile_photo"
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        className="mt-1 block w-full text-sm"
+                        onChange={(e) => setData('profile_photo', e.target.files?.[0] ?? null)}
+                    />
+
+                    {user?.profile_photo_url && (
+                        <img src={user.profile_photo_url} alt="Profile" className="mt-2 h-16 w-16 rounded-full object-cover border" />
+                    )}
+
+                    <InputError className="mt-2" message={errors.profile_photo} />
+                </div>
+
+                {mustVerifyEmail && user?.email_verified_at === null && (
                     <div>
-                        <p className="mt-2 text-sm text-gray-800 dark:text-gray-200">
+                        <p className="mt-2 text-sm text-gray-800 ">
                             Your email address is unverified.
                             <Link
                                 href={route('verification.send')}
                                 method="post"
                                 as="button"
-                                className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
+                                className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2  dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
                             >
                                 Click here to re-send the verification email.
                             </Link>
                         </p>
 
                         {status === 'verification-link-sent' && (
-                            <div className="mt-2 text-sm font-medium text-green-600 dark:text-green-400">
+                            <div className="mt-2 text-sm font-medium text-green-600 ">
                                 A new verification link has been sent to your
                                 email address.
                             </div>
@@ -102,7 +172,7 @@ export default function UpdateProfileInformation({
                         leave="transition ease-in-out"
                         leaveTo="opacity-0"
                     >
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-gray-600 ">
                             Saved.
                         </p>
                     </Transition>
@@ -111,3 +181,4 @@ export default function UpdateProfileInformation({
         </section>
     );
 }
+

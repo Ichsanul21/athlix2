@@ -2,14 +2,32 @@ import PwaLayout from '@/Layouts/PwaLayout';
 import { Head } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { CreditCard, Calendar, Clock, Receipt, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Skeleton } from '@/Components/ui/skeleton';
 
 export default function Index({ auth, billing }) {
     const formatIDR = (amount) => {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
     };
 
+    const isLoading = billing === undefined;
+
+    if (isLoading) {
+        return (
+            <PwaLayout user={auth?.user} header="Billing">
+                <Head title="Billing" />
+                <div className="space-y-6 pb-24">
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-6 w-40" />
+                    {Array.from({ length: 3 }).map((_, idx) => (
+                        <Skeleton key={idx} className="h-20" />
+                    ))}
+                </div>
+            </PwaLayout>
+        );
+    }
+
     return (
-        <PwaLayout user={auth.user} header="Billing">
+        <PwaLayout user={auth?.user} header="Billing">
             <Head title="Billing" />
             
             <div className="space-y-6 pb-24">
@@ -23,7 +41,7 @@ export default function Index({ auth, billing }) {
                             <div className="p-2 rounded-xl bg-athlix-red/20 text-athlix-red">
                                 <CreditCard size={18} />
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Sisa Tagihan</span>
+                            <span className="text-xs font-black uppercase tracking-widest text-neutral-400">Sisa Tagihan</span>
                         </div>
                         <div>
                             <h2 className="text-3xl font-black tracking-tight">
@@ -56,14 +74,15 @@ export default function Index({ auth, billing }) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-bold text-sm truncate">{invoice.description}</p>
-                                        <div className="flex items-center gap-2 text-[10px] text-neutral-500 mt-0.5">
+                                        <div className="flex items-center gap-2 text-xs text-neutral-500 mt-0.5">
                                             <Clock size={10} />
                                             <span>{invoice.date}</span>
                                         </div>
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <p className="font-mono font-bold text-sm">{formatIDR(invoice.amount)}</p>
-                                        <span className={`text-[9px] font-bold uppercase ${
+                                        <p className="text-[11px] text-neutral-500">termasuk admin {formatIDR(invoice.admin_fee || 5000)}</p>
+                                        <span className={`text-[11px] font-bold uppercase ${
                                             invoice.status === 'paid' ? 'text-green-500' : 'text-athlix-red'
                                         }`}>
                                             {invoice.status === 'paid' ? 'LUNAS' : 'BELUM'}
@@ -89,3 +108,4 @@ export default function Index({ auth, billing }) {
         </PwaLayout>
     );
 }
+

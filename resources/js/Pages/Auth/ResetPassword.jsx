@@ -27,7 +27,7 @@ export default function ResetPassword({ token, email }) {
 
             <div className="space-y-6">
                 <div className="text-center space-y-1">
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 dark:text-white">Reset Password</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 ">Reset Password</h2>
                     <p className="text-sm text-neutral-500">Buat password baru untuk akun Anda</p>
                 </div>
 

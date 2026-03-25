@@ -45,7 +45,7 @@ export default function Index({ auth }) {
 
     return (
         <AdminLayout
-            user={auth.user}
+            user={auth?.user}
             header={
                 <div className="flex items-center gap-2">
                     <Sparkles size={20} className="text-athlix-red" />
@@ -66,7 +66,7 @@ export default function Index({ auth }) {
                                     <div className={`max-w-[85%] sm:max-w-[75%] p-4 rounded-2xl flex gap-3 ${
                                         msg.role === 'user' 
                                         ? 'bg-athlix-red text-white shadow-md shadow-athlix-red/20 rounded-tr-sm' 
-                                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-tl-sm'
+                                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900  rounded-tl-sm'
                                     }`}>
                                         <div className={`w-7 h-7 rounded-xl flex-shrink-0 flex items-center justify-center ${
                                             msg.role === 'user' ? 'bg-white/20' : 'bg-athlix-red text-white shadow-sm'
@@ -120,7 +120,7 @@ export default function Index({ auth }) {
                             <button 
                                 key={idx}
                                 onClick={() => setData('message', btn.msg)}
-                                className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:border-athlix-red hover:text-athlix-red transition-all duration-300 hover:shadow-sm active:scale-95"
+                                className="text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:border-athlix-red hover:text-athlix-red transition-all duration-300 hover:shadow-sm active:scale-95"
                             >
                                 {btn.label}
                             </button>
@@ -132,3 +132,5 @@ export default function Index({ auth }) {
         </AdminLayout>
     );
 }
+
+

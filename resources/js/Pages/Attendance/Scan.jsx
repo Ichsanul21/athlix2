@@ -37,7 +37,7 @@ export default function Scan({ auth, flash }) {
                                 setScanResult('success');
                             },
                             onError: (errors) => {
-                                setScanError(errors.message || 'QR tidak valid atau absen gagal.');
+                                setScanError(errors.athlete_code || errors.message || 'QR tidak valid atau absen gagal.');
                             }
                         });
                     });
@@ -82,10 +82,10 @@ export default function Scan({ auth, flash }) {
 
     return (
         <AdminLayout
-            user={auth.user}
+            user={auth?.user}
             header={
                 <div className="flex items-center gap-4 animate-fade-in-up">
-                    <Link href={route('attendance.index')} className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-300">
+                    <Link href={route('attendance.index')} className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-600  hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-300">
                         <ArrowLeft size={18} />
                     </Link>
                     <h2 className="text-xl font-bold tracking-tight uppercase">Scan Absensi</h2>
@@ -111,7 +111,7 @@ export default function Scan({ auth, flash }) {
                             variant="outline"
                             className="mt-4"
                         >
-                            Scan Scan Berikutnya
+                            Scan Berikutnya
                         </Button>
                     </div>
                 )}
@@ -216,3 +216,4 @@ export default function Scan({ auth, flash }) {
         </AdminLayout>
     );
 }
+

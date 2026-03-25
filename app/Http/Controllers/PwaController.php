@@ -2,96 +2,338 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Attendance;
-use App\Models\TrainingProgram;
-use App\Models\FinanceRecord;
 use App\Models\Athlete;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\FinanceRecord;
+use App\Models\TrainingProgram;
 use Carbon\Carbon;
+use Inertia\Inertia;
 
 class PwaController extends Controller
 {
+    private const ADMIN_FEE = 5000;
+
+    private function resolveAthleteForUser()
+    {
+        $user = auth()->user();
+
+        if ($user?->athlete_id) {
+            return Athlete::with([
+                'belt',
+                'dojo',
+                'attendances',
+                'financeRecords',
+                'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
+                'achievements' => fn ($query) => $query->latest('competition_date'),
+            ])->find($user->athlete_id);
+        }
+
+        if ($user?->role === 'murid') {
+            return null;
+        }
+
+        return Athlete::with([
+            'belt',
+            'dojo',
+            'attendances',
+            'financeRecords',
+            'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
+            'achievements' => fn ($query) => $query->latest('competition_date'),
+        ])->first();
+    }
+
     public function home()
     {
-        $athlete = Athlete::with(['belt', 'dojo'])->first();
-        
-        $dayMap = [
-            'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
-            'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'
-        ];
-        $todayIndo = $dayMap[Carbon::now()->englishDayOfWeek] ?? 'Senin';
+        $athlete = $this->resolveAthleteForUser();
 
-        $upcomingExam = \App\Models\Exam::with('belt')
-            ->where('athlete_id', $athlete->id)
-            ->where('status', 'pending')
-            ->orderBy('exam_date', 'asc')
-            ->first();
+        if (!$athlete) {
+            return Inertia::render('PwaHome/Index', [
+                'athlete' => Inertia::defer(fn () => null),
+                'todaySession' => Inertia::defer(fn () => null),
+                'stats' => Inertia::defer(fn () => null),
+                'upcomingPayment' => Inertia::defer(fn () => null),
+                'tips' => Inertia::defer(fn () => null),
+                'agendaThreeDays' => Inertia::defer(fn () => []),
+            ]);
+        }
+
+        $todayIndo = $this->indoDayName(Carbon::now());
+        $todayPrograms = TrainingProgram::query()->where('day', $todayIndo)->orderBy('start_time')->get();
+
+        $attendanceTotal = $athlete->attendances->count();
+        $attendancePresent = $athlete->attendances->where('status', 'present')->count();
+        $attendanceRate = $attendanceTotal > 0 ? round(($attendancePresent / $attendanceTotal) * 100) . '%' : '0%';
+
+        $unpaidRecords = $athlete->financeRecords->where('status', 'unpaid')->sortBy('due_date')->values();
+        $upcomingPayment = $unpaidRecords->first();
+        $outstanding = $unpaidRecords->sum(fn ($record) => (float) $record->amount + self::ADMIN_FEE);
+
+        $stats = [
+            'attendance' => $attendanceRate,
+            'belt' => $athlete->belt?->name ?? 'Putih',
+            'outstanding' => 'Rp ' . number_format($outstanding, 0, ',', '.'),
+            'total_sessions' => (string) $todayPrograms->count(),
+        ];
+
+        $agendaThreeDays = $this->agendaThreeDays();
 
         return Inertia::render('PwaHome/Index', [
-            'athlete' => $athlete,
-            'sessionsToday' => TrainingProgram::where('day', $todayIndo)->count(),
-            'upcomingExam' => $upcomingExam ? [
-                'date' => Carbon::parse($upcomingExam->exam_date)->translatedFormat('d F Y'),
-                'target_belt' => $upcomingExam->belt->name
-            ] : null,
+            'athlete' => Inertia::defer(fn () => $athlete),
+            'todaySession' => Inertia::defer(fn () => $todayPrograms->first() ? [
+                'title' => $todayPrograms->first()->title,
+                'time' => substr($todayPrograms->first()->start_time, 0, 5) . ' - ' . substr($todayPrograms->first()->end_time, 0, 5),
+                'coach' => $todayPrograms->first()->coach_name,
+            ] : null),
+            'stats' => Inertia::defer(fn () => $stats),
+            'upcomingPayment' => Inertia::defer(fn () => $upcomingPayment ? [
+                'due_date' => Carbon::parse($upcomingPayment->due_date)->translatedFormat('d M Y'),
+                'formatted_amount' => 'Rp ' . number_format((float) $upcomingPayment->amount + self::ADMIN_FEE, 0, ',', '.'),
+                'amount' => (float) $upcomingPayment->amount + self::ADMIN_FEE,
+            ] : null),
+            'tips' => Inertia::defer(fn () => 'Jaga ritme latihan: pemanasan 10 menit, teknik utama 30 menit, pendinginan 10 menit.'),
+            'agendaThreeDays' => Inertia::defer(fn () => $agendaThreeDays),
         ]);
     }
 
     public function scan()
     {
-        $athlete = Athlete::first(); // Assuming 1 athlete per user in prototype
-        return Inertia::render('Scan/Index', ['athlete' => $athlete]);
+        return Inertia::render('Scan/Index', [
+            'athlete' => Inertia::defer(fn () => $this->resolveAthleteForUser()),
+        ]);
     }
 
     public function schedule()
     {
-        $today = Carbon::now()->isoFormat('dddd'); // e.g. "Monday" -> in Indonesian "Senin"
-        // Mapping simple for demo
-        $dayMap = [
-            'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
-            'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'
-        ];
-        $todayIndo = $dayMap[Carbon::now()->englishDayOfWeek] ?? 'Senin';
+        $today = Carbon::now();
+        $todayIndo = $this->indoDayName($today);
+
+        $allPrograms = TrainingProgram::query()->orderBy('start_time')->get();
+
+        $todaySessions = $allPrograms
+            ->where('day', $todayIndo)
+            ->map(fn ($program) => [
+                'id' => $program->id,
+                'title' => $program->title,
+                'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
+                'coach' => $program->coach_name,
+                'type' => $program->type,
+                'agenda_items' => collect($program->agenda_items ?? [])->map(fn ($item) => [
+                    'title' => $item['title'] ?? 'Agenda',
+                    'start_time' => $item['start_time'] ?? null,
+                    'end_time' => $item['end_time'] ?? null,
+                    'description' => $item['description'] ?? null,
+                ])->values(),
+            ])->values();
+
+        $upcomingSessions = $allPrograms
+            ->map(function ($program) use ($today) {
+                $nextDate = $this->resolveNextDate($program->day, $today);
+                return [
+                    'title' => $program->title,
+                    'day' => $program->day,
+                    'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
+                    'coach' => $program->coach_name,
+                    'type' => $program->type,
+                    'date' => $nextDate->toDateString(),
+                ];
+            })
+            ->filter(fn ($program) => $program['date'] !== $today->toDateString())
+            ->sortBy('date')
+            ->take(5)
+            ->values()
+            ->map(function ($program) {
+                $program['day'] = Carbon::parse($program['date'])->translatedFormat('l');
+                return $program;
+            });
+
+        $allAgenda = $allPrograms
+            ->map(function ($program) use ($today) {
+                $nextDate = $this->resolveNextDate($program->day, $today);
+
+                return [
+                    'id' => $program->id,
+                    'title' => $program->title,
+                    'day' => $program->day,
+                    'date' => $nextDate->toDateString(),
+                    'date_label' => $nextDate->translatedFormat('D, d M Y'),
+                    'start_time' => substr($program->start_time, 0, 5),
+                    'end_time' => substr($program->end_time, 0, 5),
+                    'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
+                    'coach' => $program->coach_name,
+                    'type' => $program->type,
+                    'agenda_items' => collect($program->agenda_items ?? [])->map(fn ($item) => [
+                        'title' => $item['title'] ?? 'Agenda',
+                        'start_time' => $item['start_time'] ?? null,
+                        'end_time' => $item['end_time'] ?? null,
+                        'description' => $item['description'] ?? null,
+                    ])->values(),
+                ];
+            })
+            ->sortBy([
+                ['date', 'asc'],
+                ['start_time', 'asc'],
+            ])
+            ->values();
 
         return Inertia::render('Schedule/Index', [
-            'todayPrograms' => TrainingProgram::where('day', $todayIndo)->get(),
-            'allPrograms' => TrainingProgram::orderBy('start_time')->get()
+            'todaySessions' => Inertia::defer(fn () => $todaySessions),
+            'upcomingSessions' => Inertia::defer(fn () => $upcomingSessions),
+            'allAgenda' => Inertia::defer(fn () => $allAgenda),
         ]);
     }
 
     public function billing()
     {
-        // For demo, we just show the user's athletes (if they are a parent/user)
-        // Since we only have 1 user in seed, we'll just show some unpaid records
+        $athlete = $this->resolveAthleteForUser();
+
+        if (!$athlete) {
+            return Inertia::render('Billing/Index', [
+                'billing' => Inertia::defer(fn () => [
+                    'outstanding' => 0,
+                    'due_date' => null,
+                    'invoices' => [],
+                ]),
+            ]);
+        }
+
+        $invoices = FinanceRecord::query()
+            ->where('athlete_id', $athlete->id)
+            ->latest()
+            ->get()
+            ->map(function ($record) {
+                return [
+                    'id' => $record->id,
+                    'description' => $record->description,
+                    'date' => Carbon::parse($record->due_date)->translatedFormat('d M Y'),
+                    'due_date_raw' => Carbon::parse($record->due_date)->toDateString(),
+                    'amount' => (float) $record->amount + self::ADMIN_FEE,
+                    'status' => $record->status,
+                    'admin_fee' => self::ADMIN_FEE,
+                ];
+            });
+
+        $unpaid = $invoices->where('status', 'unpaid');
+        $nextDue = $unpaid->sortBy('due_date_raw')->first();
+
         return Inertia::render('Billing/Index', [
-            'records' => FinanceRecord::with('athlete')->where('status', 'unpaid')->latest()->get()
+            'billing' => Inertia::defer(fn () => [
+                'outstanding' => $unpaid->sum('amount'),
+                'due_date' => $nextDue['date'] ?? null,
+                'invoices' => $invoices->map(function ($invoice) {
+                    unset($invoice['due_date_raw']);
+                    return $invoice;
+                })->values(),
+            ]),
         ]);
     }
 
     public function profile()
     {
-        // Showing first athlete as "User Profile" for the PWA demo
-        $athlete = Athlete::with(['belt', 'physicalMetrics', 'exams.belt', 'exams.fromBelt'])->first();
         return Inertia::render('UserRecord/Index', [
-            'athlete' => $athlete
+            'athlete' => Inertia::defer(fn () => $this->resolveAthleteForUser()),
         ]);
     }
 
     public function personalInfo()
     {
-        $athlete = Athlete::with(['belt', 'dojo'])->first();
-        return Inertia::render('UserRecord/PersonalInfo', ['athlete' => $athlete]);
+        $athlete = $this->resolveAthleteForUser();
+
+        if ($athlete && $athlete->dob) {
+            $dob = Carbon::parse($athlete->dob);
+            $athlete->birth_date = $dob->translatedFormat('d F Y');
+            $athlete->age_detail = $dob->diff(Carbon::now())->format('%y tahun %m bulan %d hari');
+        }
+
+        return Inertia::render('UserRecord/PersonalInfo', [
+            'athlete' => Inertia::defer(fn () => $athlete),
+        ]);
     }
 
-    public function gradingHistory()
+    public function achievementHistory()
     {
-        $athlete = Athlete::with(['belt', 'exams.belt', 'exams.fromBelt', 'dojo'])->first();
-        return Inertia::render('UserRecord/GradingHistory', ['athlete' => $athlete]);
+        $athlete = $this->resolveAthleteForUser();
+
+        return Inertia::render('UserRecord/AchievementHistory', [
+            'athlete' => Inertia::defer(fn () => $athlete),
+        ]);
     }
 
     public function settings()
     {
         return Inertia::render('UserRecord/Settings');
     }
+
+    private function agendaThreeDays()
+    {
+        $today = Carbon::today();
+
+        return TrainingProgram::query()
+            ->get()
+            ->flatMap(function ($program) use ($today) {
+                $items = [];
+                for ($i = 0; $i < 3; $i++) {
+                    $date = $today->copy()->addDays($i);
+                    if ($this->indoDayName($date) === $program->day) {
+                        $items[] = [
+                            'id' => $program->id,
+                            'title' => $program->title,
+                            'day' => $program->day,
+                            'date_raw' => $date->toDateString(),
+                            'date' => $date->translatedFormat('D, d M'),
+                            'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
+                            'coach' => $program->coach_name,
+                            'agenda_items' => collect($program->agenda_items ?? [])->map(fn ($item) => [
+                                'title' => $item['title'] ?? 'Agenda',
+                                'start_time' => $item['start_time'] ?? null,
+                                'end_time' => $item['end_time'] ?? null,
+                                'description' => $item['description'] ?? null,
+                            ])->values(),
+                        ];
+                    }
+                }
+                return $items;
+            })
+            ->sortBy([
+                ['date_raw', 'asc'],
+                ['time', 'asc'],
+            ])
+            ->take(3)
+            ->values();
+    }
+
+    private function indoDayName(Carbon $date): string
+    {
+        return match ($date->englishDayOfWeek) {
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
+            default => 'Senin',
+        };
+    }
+
+    private function resolveNextDate(string $day, Carbon $now): Carbon
+    {
+        $targetIsoDay = match ($day) {
+            'Senin' => 1,
+            'Selasa' => 2,
+            'Rabu' => 3,
+            'Kamis' => 4,
+            'Jumat' => 5,
+            'Sabtu' => 6,
+            'Minggu' => 7,
+            default => (int) $now->isoWeekday(),
+        };
+
+        $date = $now->copy()->startOfDay()->setISODate((int) $now->format('o'), (int) $now->isoWeek(), $targetIsoDay);
+
+        if ($date->lt($now->copy()->startOfDay())) {
+            $date->addWeek();
+        }
+
+        return $date;
+    }
+
 }

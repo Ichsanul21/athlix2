@@ -9,11 +9,54 @@
     }
 
     body {
-        @apply transition-colors duration-300;
+        @apply transition-colors duration-300 overflow-x-hidden;
     }
 
     * {
         @apply border-border;
+    }
+
+    img,
+    video,
+    canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    textarea {
+        resize: vertical;
+    }
+
+    input,
+    select,
+    textarea {
+        @apply text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500;
+    }
+
+    /* Dark-mode fallback: auto-flip dark text tokens when component has no explicit dark text color */
+    .dark [class*='text-neutral-950']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-neutral-900']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-neutral-800']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-neutral-700']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-neutral-600']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-gray-950']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-gray-900']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-gray-800']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-gray-700']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-gray-600']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-zinc-950']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-zinc-900']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-zinc-800']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-zinc-700']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-zinc-600']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-slate-950']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-slate-900']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-slate-800']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-slate-700']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-slate-600']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-athlix-black']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']),
+    .dark [class*='text-black']:not([class*='dark:text-']):not([class*='dark:hover:text-']):not([class*='dark:focus:text-']) {
+        color: rgb(245 245 245);
     }
 
     ::selection {

@@ -1,27 +1,45 @@
 import PwaLayout from '@/Layouts/PwaLayout';
 import { Head, Link } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
-import { Button } from '@/Components/ui/button';
-import { User, Award, ShieldCheck, LogOut, LayoutDashboard, ChevronRight, Settings, Info } from 'lucide-react';
+import { User, Award, ShieldCheck, LogOut, ChevronRight, Settings } from 'lucide-react';
+import { Skeleton } from '@/Components/ui/skeleton';
 
 export default function Index({ auth, athlete }) {
-    if (!athlete) return <PwaLayout user={auth.user} header="Profile">Loading...</PwaLayout>;
+    if (!athlete) {
+        return (
+            <PwaLayout user={auth?.user} header="Profile">
+                <div className="space-y-6 pb-24">
+                    <Skeleton className="h-24 w-24 rounded-full mx-auto" />
+                    <Skeleton className="h-6 w-40 mx-auto" />
+                    <div className="grid grid-cols-2 gap-3">
+                        <Skeleton className="h-20" />
+                        <Skeleton className="h-20" />
+                    </div>
+                    <Skeleton className="h-40 w-full" />
+                </div>
+            </PwaLayout>
+        );
+    }
 
     return (
-        <PwaLayout user={auth.user} header="My Profile">
+        <PwaLayout user={auth?.user} header="My Profile">
             <Head title="Profile" />
             <div className="space-y-6 pb-24">
                 {/* Profile Header */}
                 <div className="flex flex-col items-center py-4 animate-fade-in-up fill-both">
                     <div className="relative mb-4">
                         <div className="absolute inset-0 bg-athlix-red/20 rounded-full blur-xl animate-pulse"></div>
-                        <div className="relative w-24 h-24 rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center text-athlix-red text-4xl font-black border-4 border-athlix-red shadow-xl shadow-athlix-red/20">
-                            {athlete.full_name.charAt(0)}
+                        <div className="relative w-24 h-24 rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center text-athlix-red text-4xl font-black border-4 border-athlix-red shadow-xl shadow-athlix-red/20 overflow-hidden">
+                            {auth?.user?.profile_photo_url ? (
+                                <img src={auth.user.profile_photo_url} alt={athlete.full_name} className="w-full h-full object-cover" />
+                            ) : (
+                                athlete.full_name.charAt(0)
+                            )}
                         </div>
                     </div>
                     <h2 className="text-2xl font-black uppercase tracking-tighter">{athlete.full_name}</h2>
                     <div className="flex items-center gap-2 mt-1.5">
-                        <span className="px-3 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[10px] font-bold text-neutral-500 uppercase tracking-widest border border-neutral-200/80 dark:border-neutral-700">
+                        <span className="px-3 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-xs font-bold text-neutral-500 uppercase tracking-widest border border-neutral-200/80 dark:border-neutral-700">
                             {athlete.athlete_code}
                         </span>
                     </div>
@@ -34,7 +52,7 @@ export default function Index({ auth, athlete }) {
                             <div className="w-10 h-10 rounded-xl bg-athlix-red/10 flex items-center justify-center text-athlix-red mb-2 transition-transform duration-300 hover:scale-110">
                                 <Award size={20} />
                             </div>
-                            <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest">Sabuk</p>
+                            <p className="text-xs text-neutral-500 uppercase font-black tracking-widest">Sabuk</p>
                             <p className="font-bold text-sm leading-tight">{athlete.belt?.name || 'Putih'}</p>
                         </CardContent>
                     </Card>
@@ -43,7 +61,7 @@ export default function Index({ auth, athlete }) {
                             <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 mb-2 transition-transform duration-300 hover:scale-110">
                                 <ShieldCheck size={20} />
                             </div>
-                            <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest">Status</p>
+                            <p className="text-xs text-neutral-500 uppercase font-black tracking-widest">Status</p>
                             <p className="font-bold text-sm leading-tight text-green-600">AKTIF</p>
                         </CardContent>
                     </Card>
@@ -51,11 +69,11 @@ export default function Index({ auth, athlete }) {
 
                 {/* Menu Items */}
                 <div className="space-y-2 animate-fade-in-up fill-both" style={{ animationDelay: '160ms' }}>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-3 px-1">Menu Akun</h3>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3 px-1">Menu Akun</h3>
                     
                     {[
                         { href: route('profile.info'), icon: User, label: 'Informasi Pribadi', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' },
-                        { href: route('profile.grading'), icon: Award, label: 'Riwayat Ujian', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' },
+                        { href: route('profile.achievements'), icon: Award, label: 'Riwayat Prestasi', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' },
                         { href: route('profile.settings'), icon: Settings, label: 'Pengaturan Aplikasi', color: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500' },
                     ].map((item, idx) => (
                         <Link 
@@ -74,18 +92,6 @@ export default function Index({ auth, athlete }) {
                         </Link>
                     ))}
 
-                    <div className="py-2"></div>
-
-                    <Link href={route('dashboard')} className="w-full flex items-center justify-between p-4 bg-athlix-red/5 dark:bg-athlix-red/5 rounded-2xl border border-athlix-red/10 hover:bg-athlix-red/10 transition-all duration-300 group animate-fade-in-up fill-both" style={{ animationDelay: '350ms' }}>
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-athlix-red/10 flex items-center justify-center text-athlix-red">
-                                <LayoutDashboard size={18} />
-                            </div>
-                            <span className="text-sm font-bold text-athlix-red">Dashboard Admin</span>
-                        </div>
-                        <ChevronRight size={16} className="text-athlix-red group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-
                     <div className="pt-4">
                         <Link 
                             href={route('logout')} 
@@ -103,3 +109,4 @@ export default function Index({ auth, athlete }) {
         </PwaLayout>
     );
 }
+

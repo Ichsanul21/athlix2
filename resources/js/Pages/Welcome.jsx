@@ -15,7 +15,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
     return (
         <>
             <Head title="Welcome" />
-            <div className="bg-gray-50 text-black/50 dark:bg-black dark:text-white/50">
+            <div className="bg-gray-50 text-black/50 dark:bg-black ">
                 <img
                     id="background"
                     className="absolute -left-20 top-0 max-w-[877px]"
@@ -38,10 +38,10 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 </svg>
                             </div>
                             <nav className="-mx-3 flex flex-1 justify-end">
-                                {auth.user ? (
+                                {auth?.user ? (
                                     <Link
                                         href={route('dashboard')}
-                                        className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                        className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20]  dark:hover:text-white/80 dark:focus-visible:ring-white"
                                     >
                                         Dashboard
                                     </Link>
@@ -49,13 +49,13 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     <>
                                         <Link
                                             href={route('login')}
-                                            className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                            className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20]  dark:hover:text-white/80 dark:focus-visible:ring-white"
                                         >
                                             Log in
                                         </Link>
                                         <Link
                                             href={route('register')}
-                                            className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                            className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20]  dark:hover:text-white/80 dark:focus-visible:ring-white"
                                         >
                                             Register
                                         </Link>
@@ -113,7 +113,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                             </div>
 
                                             <div className="pt-3 sm:pt-5 lg:pt-0">
-                                                <h2 className="text-xl font-semibold text-black dark:text-white">
+                                                <h2 className="text-xl font-semibold text-black ">
                                                     Documentation
                                                 </h2>
 
@@ -164,7 +164,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </div>
 
                                     <div className="pt-3 sm:pt-5">
-                                        <h2 className="text-xl font-semibold text-black dark:text-white">
+                                        <h2 className="text-xl font-semibold text-black ">
                                             Laracasts
                                         </h2>
 
@@ -213,7 +213,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </div>
 
                                     <div className="pt-3 sm:pt-5">
-                                        <h2 className="text-xl font-semibold text-black dark:text-white">
+                                        <h2 className="text-xl font-semibold text-black ">
                                             Laravel News
                                         </h2>
 
@@ -257,7 +257,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </div>
 
                                     <div className="pt-3 sm:pt-5">
-                                        <h2 className="text-xl font-semibold text-black dark:text-white">
+                                        <h2 className="text-xl font-semibold text-black ">
                                             Vibrant Ecosystem
                                         </h2>
 
@@ -350,7 +350,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                             </div>
                         </main>
 
-                        <footer className="py-16 text-center text-sm text-black dark:text-white/70">
+                        <footer className="py-16 text-center text-sm text-black ">
                             Laravel v{laravelVersion} (PHP v{phpVersion})
                         </footer>
                     </div>
@@ -359,3 +359,4 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
         </>
     );
 }
+

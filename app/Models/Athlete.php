@@ -32,9 +32,14 @@ class Athlete extends Model
         return $this->hasMany(FinanceRecord::class);
     }
 
-    public function exams()
+    public function achievements()
     {
-        return $this->hasMany(Exam::class);
+        return $this->hasMany(AthleteAchievement::class);
+    }
+
+    public function financeAdjustments()
+    {
+        return $this->hasMany(FinanceAdjustment::class);
     }
 
     public function attendances()

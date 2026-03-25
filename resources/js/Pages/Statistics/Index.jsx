@@ -3,13 +3,49 @@ import { Head } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Users, Calendar, Award } from 'lucide-react';
+import { Skeleton } from '@/Components/ui/skeleton';
+import { Button } from '@/Components/ui/button';
+import { useState } from 'react';
 
 const COLORS = ['#E61E32', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
-export default function Index({ auth, growthData, attendanceData, beltDistribution }) {
+export default function Index({ auth, growthData, attendanceData, beltDistribution, athletes }) {
+    const [previewScope, setPreviewScope] = useState('dojo');
+    const [selectedAthleteId, setSelectedAthleteId] = useState(athletes?.[0]?.id || '');
+    const isLoading = growthData === undefined || attendanceData === undefined || beltDistribution === undefined || athletes === undefined;
+
+    const openPpaPreview = (format) => {
+        const params = new URLSearchParams({ scope: previewScope, format });
+        if (previewScope === 'athlete' && selectedAthleteId) {
+            params.set('athlete_id', selectedAthleteId);
+        }
+        window.open(`${route('statistics.ppa-preview')}?${params.toString()}`, '_blank');
+    };
+
+    if (isLoading) {
+        return (
+            <AdminLayout
+                user={auth?.user}
+                header={<h2 className="text-xl font-bold tracking-tight uppercase">Statistik & Analitik Dojo</h2>}
+            >
+                <Head title="Statistik" />
+                <div className="py-6 space-y-6">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
+                        <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+                            <Skeleton className="h-72 w-full" />
+                            <Skeleton className="h-72 w-full" />
+                        </div>
+                        <Skeleton className="h-72 w-full" />
+                        <Skeleton className="h-40 w-full" />
+                    </div>
+                </div>
+            </AdminLayout>
+        );
+    }
+
     return (
         <AdminLayout
-            user={auth.user}
+            user={auth?.user}
             header={<h2 className="text-xl font-bold tracking-tight uppercase">Statistik & Analitik Dojo</h2>}
         >
             <Head title="Statistik" />
@@ -73,7 +109,7 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
-                                <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-[10px] uppercase font-bold text-neutral-500">
+                                <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-xs uppercase font-bold text-neutral-500">
                                     {beltDistribution.map((entry, index) => (
                                         <div key={index} className="flex items-center gap-1.5">
                                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
@@ -109,6 +145,38 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                     </Card>
 
                     <Card className="border-none bg-neutral-900 dark:bg-neutral-900 animate-fade-in-up fill-both overflow-hidden relative" style={{ animationDelay: '300ms' }}>
+                        <CardContent className="p-6 sm:p-8 border-b border-neutral-800/70 relative z-10 space-y-4">
+                            <h3 className="text-sm font-black uppercase text-white tracking-widest">Preview PPA (PDF / Excel)</h3>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <select
+                                    value={previewScope}
+                                    onChange={(event) => setPreviewScope(event.target.value)}
+                                    className="w-full sm:w-48 rounded-xl border border-neutral-700 bg-neutral-900 text-white text-sm"
+                                >
+                                    <option value="dojo">Per Dojo</option>
+                                    <option value="athlete">Per Atlet</option>
+                                </select>
+                                {previewScope === 'athlete' && (
+                                    <select
+                                        value={selectedAthleteId}
+                                        onChange={(event) => setSelectedAthleteId(event.target.value)}
+                                        className="w-full rounded-xl border border-neutral-700 bg-neutral-900 text-white text-sm"
+                                    >
+                                        {athletes.map((athlete) => (
+                                            <option key={athlete.id} value={athlete.id}>{athlete.full_name}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <Button type="button" variant="outline" className="border-neutral-700 text-white hover:bg-neutral-800" onClick={() => openPpaPreview('pdf')}>
+                                        Preview PDF
+                                    </Button>
+                                    <Button type="button" className="bg-athlix-red hover:bg-red-700 text-white" onClick={() => openPpaPreview('excel')}>
+                                        Preview Excel
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
                         <div className="absolute inset-0 bg-gradient-to-br from-athlix-red/5 via-transparent to-transparent"></div>
                         <CardContent className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-4 relative z-10">
                             <div className="w-16 h-16 rounded-2xl bg-athlix-red/10 flex items-center justify-center text-athlix-red animate-float">
@@ -125,3 +193,5 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
         </AdminLayout>
     );
 }
+
+

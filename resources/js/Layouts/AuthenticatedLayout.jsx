@@ -8,7 +8,7 @@ import { useTheme } from '@/Components/ThemeProvider';
 import { Sun, Moon } from 'lucide-react';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const user = usePage().props.auth?.user;
     const { theme, toggleTheme } = useTheme();
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
@@ -18,11 +18,11 @@ export default function AuthenticatedLayout({ header, children }) {
         <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 transition-colors duration-300">
             <nav className="border-b border-neutral-200/80 dark:border-neutral-700 glass-strong">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between">
-                        <div className="flex">
+                    <div className="flex h-16 justify-between gap-3">
+                        <div className="flex min-w-0">
                             <div className="flex shrink-0 items-center">
                                 <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-neutral-800 dark:text-neutral-200" />
+                                    <ApplicationLogo className="block h-9 w-auto fill-current text-neutral-800 " />
                                 </Link>
                             </div>
 
@@ -36,11 +36,11 @@ export default function AuthenticatedLayout({ header, children }) {
                             </div>
                         </div>
 
-                        <div className="hidden sm:ms-6 sm:flex sm:items-center gap-3">
+                        <div className="hidden sm:ms-6 sm:flex sm:items-center gap-2 md:gap-3 shrink-0">
                             {/* Dark/Light Toggle */}
                             <button
                                 onClick={toggleTheme}
-                                className="p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 transition-all duration-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-95 text-neutral-500 dark:text-neutral-400"
+                                className="p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 transition-all duration-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-95 text-neutral-500 "
                                 aria-label="Toggle theme"
                             >
                                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -52,9 +52,9 @@ export default function AuthenticatedLayout({ header, children }) {
                                         <span className="inline-flex rounded-md">
                                             <button
                                                 type="button"
-                                                className="inline-flex items-center rounded-xl border border-transparent bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-medium leading-4 text-neutral-600 dark:text-neutral-300 transition-all duration-300 hover:text-neutral-800 dark:hover:text-white hover:shadow-sm focus:outline-none active:scale-95"
+                                                className="inline-flex items-center rounded-xl border border-transparent bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-medium leading-4 text-neutral-600  transition-all duration-300 hover:text-neutral-800 dark:hover:text-white hover:shadow-sm focus:outline-none active:scale-95"
                                             >
-                                                {user.name}
+                                                {user?.name || 'Account'}
 
                                                 <svg
                                                     className="-me-0.5 ms-2 h-4 w-4"
@@ -97,7 +97,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                         (previousState) => !previousState,
                                     )
                                 }
-                                className="inline-flex items-center justify-center rounded-xl p-2 text-neutral-400 transition-all duration-300 hover:bg-neutral-100 hover:text-neutral-500 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-400 active:scale-95"
+                                className="inline-flex items-center justify-center rounded-xl p-2 text-neutral-400 transition-all duration-300 hover:bg-neutral-100 hover:text-neutral-500  dark:hover:bg-neutral-800 dark:hover:text-neutral-400 active:scale-95"
                             >
                                 <svg
                                     className="h-6 w-6"
@@ -150,11 +150,11 @@ export default function AuthenticatedLayout({ header, children }) {
 
                     <div className="border-t border-neutral-200 dark:border-neutral-600 pb-1 pt-4">
                         <div className="px-4">
-                            <div className="text-base font-medium text-neutral-800 dark:text-neutral-200">
-                                {user.name}
+                            <div className="text-base font-medium text-neutral-800 ">
+                                {user?.name || 'Account'}
                             </div>
                             <div className="text-sm font-medium text-neutral-500">
-                                {user.email}
+                                {user?.email || ''}
                             </div>
                         </div>
 
@@ -176,7 +176,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
             {header && (
                 <header className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm shadow-sm">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="mx-auto max-w-7xl px-4 py-5 sm:py-6 sm:px-6 lg:px-8">
                         {header}
                     </div>
                 </header>

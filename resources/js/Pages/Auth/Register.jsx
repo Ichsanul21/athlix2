@@ -4,12 +4,13 @@ import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
-import { Loader2, Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Loader2, Mail, Lock, User, UserPlus, Phone } from 'lucide-react';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         email: '',
+        phone_number: '',
         password: '',
         password_confirmation: '',
     });
@@ -27,7 +28,7 @@ export default function Register() {
 
             <div className="space-y-6">
                 <div className="text-center space-y-1">
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 dark:text-white">Buat Akun</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-neutral-900 ">Buat Akun</h2>
                     <p className="text-sm text-neutral-500">Daftarkan akun baru untuk memulai</p>
                 </div>
 
@@ -48,6 +49,15 @@ export default function Register() {
                             <TextInput id="email" type="email" name="email" value={data.email} className="mt-0 block w-full pl-10 h-11 rounded-xl border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 focus:border-athlix-red focus:ring-athlix-red/30" autoComplete="username" onChange={(e) => setData('email', e.target.value)} required />
                         </div>
                         <InputError message={errors.email} className="mt-1" />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <InputLabel htmlFor="phone_number" value="No. WhatsApp" className="text-xs font-bold uppercase tracking-widest text-neutral-500" />
+                        <div className="relative">
+                            <Phone size={16} className="absolute left-3 top-3 text-neutral-400" />
+                            <TextInput id="phone_number" name="phone_number" value={data.phone_number} className="mt-0 block w-full pl-10 h-11 rounded-xl border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 focus:border-athlix-red focus:ring-athlix-red/30" onChange={(e) => setData('phone_number', e.target.value)} required />
+                        </div>
+                        <InputError message={errors.phone_number} className="mt-1" />
                     </div>
 
                     <div className="space-y-1.5">

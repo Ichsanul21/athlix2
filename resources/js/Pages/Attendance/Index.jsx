@@ -1,138 +1,151 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head } from '@inertiajs/react';
-import { Card } from '@/Components/ui/card';
+import { Head, router } from '@inertiajs/react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
-import { ScanLine } from 'lucide-react';
-import { router } from '@inertiajs/react';
+import { Skeleton } from '@/Components/ui/skeleton';
+import { QrCode, RefreshCw, CalendarCheck2, CheckCircle2, UserRound, MessageSquare } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { useEffect, useMemo, useState } from 'react';
+import Modal from '@/Components/Modal';
 
-export default function Index({ auth, attendances }) {
+export default function Index({ auth, attendances, dojoQr, flash }) {
+    const isLoading = attendances === undefined || dojoQr === undefined;
+    const [qrState, setQrState] = useState(dojoQr || null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [feedbackModal, setFeedbackModal] = useState({ show: false, attendance: null });
+    const [senseiFeedback, setSenseiFeedback] = useState('');
+    const [senseiMood, setSenseiMood] = useState('normal');
+
+    useEffect(() => {
+        setQrState(dojoQr || null);
+    }, [dojoQr]);
+
+    useEffect(() => {
+        if (!qrState?.expires_in) return;
+
+        const timer = setInterval(() => {
+            setQrState((prev) => {
+                if (!prev) return prev;
+                const next = Math.max((prev.expires_in || 0) - 1, 0);
+                return { ...prev, expires_in: next };
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [qrState?.generated_at]);
+
+    const refreshDojoQr = async () => {
+        setRefreshing(true);
+        try {
+            const response = await fetch(route('attendance.dojo-qr'));
+            const payload = await response.json();
+            setQrState(payload);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    const summary = useMemo(() => {
+        const total = attendances?.length || 0;
+        const checkedIn = (attendances || []).filter((item) => item.check_in_at).length;
+        const checkedOut = (attendances || []).filter((item) => item.check_out_at).length;
+        return { total, checkedIn, checkedOut };
+    }, [attendances]);
+
+    const openFeedback = (attendance) => {
+        setFeedbackModal({ show: true, attendance });
+        setSenseiFeedback(attendance.sensei_feedback || '');
+        setSenseiMood(attendance.sensei_mood_assessment || 'normal');
+    };
+
+    const submitFeedback = () => {
+        if (!feedbackModal.attendance) return;
+
+        router.patch(route('attendance.sensei-feedback', feedbackModal.attendance.id), {
+            sensei_feedback: senseiFeedback,
+            sensei_mood_assessment: senseiMood,
+        }, {
+            onSuccess: () => setFeedbackModal({ show: false, attendance: null }),
+        });
+    };
+
+    if (isLoading) {
+        return (
+            <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold leading-tight text-neutral-800 ">Absensi Atlet</h2>}>
+                <Head title="Absensi" />
+                <div className="py-6"><div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-4"><Skeleton className="h-72 w-full" /></div></div>
+            </AdminLayout>
+        );
+    }
+
     return (
-        <AdminLayout
-            user={auth.user}
-            header={<h2 className="text-xl font-bold leading-tight text-neutral-800 dark:text-neutral-200">Attendance Logs</h2>}
-        >
-            <Head title="Attendance Logs" />
+        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold leading-tight text-neutral-800 ">Absensi Atlet</h2>}>
+            <Head title="Absensi" />
 
             <div className="py-6">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-4">
-                    
-                    {/* Action Bar */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
-                        <div>
-                            <p className="text-sm font-bold uppercase tracking-widest text-neutral-500">Log Kehadiran Hari Ini</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button 
-                                onClick={() => router.get(route('attendance.scan'))}
-                                className="h-10 px-6 rounded-xl font-black uppercase tracking-widest gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-athlix-red/20 transition-all active:scale-95" 
-                            >
-                                <ScanLine size={18} />
-                                <span className="hidden sm:inline">Scan Kehadiran</span>
-                                <span className="sm:hidden">Scan</span>
-                            </Button>
-                        </div>
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-5">
+                    {flash?.success && <div className="p-3 rounded-xl border border-green-200 bg-green-50 text-green-700 text-sm">{flash.success}</div>}
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-xs uppercase tracking-widest font-bold text-neutral-500">Check-in</p><p className="text-2xl font-black">{summary.checkedIn}</p></div><CalendarCheck2 className="text-green-600" /></CardContent></Card>
+                        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-xs uppercase tracking-widest font-bold text-neutral-500">Check-out</p><p className="text-2xl font-black">{summary.checkedOut}</p></div><CheckCircle2 className="text-athlix-red" /></CardContent></Card>
+                        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-xs uppercase tracking-widest font-bold text-neutral-500">Log Hari Ini</p><p className="text-2xl font-black">{summary.total}</p></div><QrCode className="text-blue-600" /></CardContent></Card>
                     </div>
 
-                    {/* Desktop Table */}
-                    <Card className="border-neutral-200/80 dark:border-neutral-800 overflow-hidden hidden md:block animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-[10px] text-neutral-500 uppercase bg-neutral-50/80 dark:bg-neutral-900/80 border-b border-neutral-200/80 dark:border-neutral-800 tracking-widest">
-                                    <tr>
-                                        <th className="px-6 py-4">Time</th>
-                                        <th className="px-6 py-4">Athlete</th>
-                                        <th className="px-6 py-4">Belt</th>
-                                        <th className="px-6 py-4">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {attendances.map((attendance, idx) => (
-                                        <tr key={attendance.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-all duration-300 animate-fade-in-up fill-both" style={{ animationDelay: `${idx * 40}ms` }}>
-                                            <td className="px-6 py-4 font-mono text-neutral-500">
-                                                {new Date(attendance.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                <div className="text-[10px] uppercase">{new Date(attendance.recorded_at).toLocaleDateString()}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 text-athlix-red flex items-center justify-center font-bold text-xs">
-                                                        {attendance.athlete?.full_name?.charAt(0)}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-medium text-athlix-black dark:text-athlix-white">{attendance.athlete?.full_name}</div>
-                                                        <div className="text-xs text-neutral-400">Code: {attendance.athlete?.athlete_code}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center text-xs">
-                                                    <span className="w-2.5 h-2.5 rounded-full mr-2 ring-2 ring-white dark:ring-neutral-900" style={{ backgroundColor: attendance.athlete?.belt?.color_hex }}></span>
-                                                    {attendance.athlete?.belt?.name}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
-                                                    attendance.status === 'present' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
-                                                }`}>
-                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${attendance.status === 'present' ? 'bg-green-500 animate-pulse' : 'bg-neutral-400'}`}></div>
-                                                    {attendance.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {attendances.length === 0 && (
-                                        <tr>
-                                            <td colSpan="4" className="px-6 py-16 text-center text-neutral-400">
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <div className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center animate-float">
-                                                        <span className="text-2xl">📋</span>
-                                                    </div>
-                                                    <p className="font-medium">No attendance logs found for today.</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between border-b"><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">QR Dojo Aktif</CardTitle><Button type="button" variant="outline" className="h-9" onClick={refreshDojoQr} disabled={refreshing}><RefreshCw size={14} className={refreshing ? 'animate-spin mr-2' : 'mr-2'} />Refresh QR</Button></CardHeader>
+                        <CardContent className="p-4 sm:p-6">
+                            {qrState?.payload ? (
+                                <div className="grid md:grid-cols-2 gap-6 items-center">
+                                    <div className="flex justify-center"><div className="bg-white p-4 rounded-xl border border-neutral-200"><QRCodeSVG value={qrState.payload} size={220} level="Q" /></div></div>
+                                    <div className="space-y-2 text-sm"><p className="font-semibold">Dojo: {qrState.dojo_name || '-'}</p><p className="text-neutral-600 ">Atlet scan QR ini untuk check-in/check-out.</p><p className="text-neutral-500">Kedaluwarsa dalam <span className="font-black text-athlix-red">{qrState.expires_in ?? 0} detik</span>.</p></div>
+                                </div>
+                            ) : <p className="text-sm text-neutral-400">QR dojo belum tersedia.</p>}
+                        </CardContent>
                     </Card>
 
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                        {attendances.map((attendance, idx) => (
-                            <Card key={attendance.id} className="animate-fade-in-up fill-both" style={{ animationDelay: `${idx * 50}ms` }}>
-                                <div className="p-4 flex items-center gap-4">
-                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 text-athlix-red flex items-center justify-center font-bold text-sm">
-                                        {attendance.athlete?.full_name?.charAt(0)}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between">
-                                            <p className="font-bold text-sm">{attendance.athlete?.full_name}</p>
-                                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase ${
-                                                attendance.status === 'present' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-neutral-100 text-neutral-600'
-                                            }`}>{attendance.status}</span>
+                    <Card>
+                        <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Log Kehadiran Hari Ini</CardTitle></CardHeader>
+                        <CardContent className="p-0">
+                            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                {(attendances || []).map((attendance) => (
+                                    <div key={attendance.id} className="px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-9 h-9 rounded-xl bg-athlix-red/10 text-athlix-red flex items-center justify-center"><UserRound size={16} /></div>
+                                            <div className="min-w-0"><p className="font-semibold truncate">{attendance.athlete?.full_name || '-'}</p><p className="text-xs text-neutral-500">{attendance.athlete?.athlete_code || '-'}</p></div>
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <span className="text-[10px] text-neutral-400 font-mono">
-                                                {new Date(attendance.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                            <span className="flex items-center gap-1 text-[10px] text-neutral-500">
-                                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: attendance.athlete?.belt?.color_hex }}></span>
-                                                {attendance.athlete?.belt?.name}
-                                            </span>
+                                        <div className="text-xs text-neutral-600  sm:min-w-[120px]">
+                                            <p>IN: {attendance.check_in_at ? new Date(attendance.check_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                                            <p>OUT: {attendance.check_out_at ? new Date(attendance.check_out_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {attendance.athlete_mood && <span className="px-2 py-1 rounded-lg bg-neutral-100 text-xs">Mood: {attendance.athlete_mood}</span>}
+                                            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => openFeedback(attendance)}><MessageSquare size={14} className="mr-1" />Feedback Sensei</Button>
                                         </div>
                                     </div>
-                                </div>
-                            </Card>
-                        ))}
-                        {attendances.length === 0 && (
-                            <div className="py-16 text-center text-neutral-400">
-                                <p className="font-medium">No attendance logs found for today.</p>
+                                ))}
+                                {(attendances || []).length === 0 && <div className="px-4 py-10 text-center text-sm text-neutral-400">Belum ada data absensi hari ini.</div>}
                             </div>
-                        )}
-                    </div>
-
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
+
+            <Modal show={feedbackModal.show} onClose={() => setFeedbackModal({ show: false, attendance: null })}>
+                <div className="p-6 space-y-3">
+                    <h3 className="text-lg font-bold">Feedback Sensei</h3>
+                    <select className="w-full rounded-md border px-3 py-2" value={senseiMood} onChange={(e) => setSenseiMood(e.target.value)}>
+                        <option value="normal">Normal</option>
+                        <option value="semangat">Semangat</option>
+                        <option value="lelah">Lelah</option>
+                        <option value="kurang-fokus">Kurang Fokus</option>
+                    </select>
+                    <textarea className="w-full rounded-md border px-3 py-2 min-h-24" value={senseiFeedback} onChange={(e) => setSenseiFeedback(e.target.value)} placeholder="Tulis evaluasi sensei..." />
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setFeedbackModal({ show: false, attendance: null })}>Batal</Button>
+                        <Button onClick={submitFeedback}>Simpan</Button>
+                    </div>
+                </div>
+            </Modal>
         </AdminLayout>
     );
 }
