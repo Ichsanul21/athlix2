@@ -20,12 +20,14 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Faker\Factory as FakerFactory;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $faker = fake('id_ID');
+        // Use explicit Faker factory because the global helper may not be loaded in some runtime contexts (e.g. production artisan without test helpers).
+        $faker = FakerFactory::create('id_ID');
         $faker->seed(20260325);
 
         $timezones = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'];
