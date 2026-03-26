@@ -4,6 +4,7 @@ import {
     Calendar,
     ScanLine,
     Activity,
+    Users,
     User,
     Download,
     Bell
@@ -24,6 +25,10 @@ export default function PwaLayout({ user, header, children }) {
     );
     const { t } = useLanguage();
     const { props } = usePage();
+    const normalizedRole = String(user?.role || '').toLowerCase();
+    const isAthleteRole = ['murid', 'athlete', 'parent'].includes(normalizedRole);
+    const isNotificationPollingRole = ['murid', 'athlete'].includes(normalizedRole);
+    const isSenseiPwaRole = ['sensei', 'head_coach', 'assistant'].includes(normalizedRole);
     const pwaNotifications = props?.pwaNotifications || { items: [], unread_count: 0, latest_popup: null };
     const [notificationFeed, setNotificationFeed] = useState(pwaNotifications);
     const latestKnownNotificationId = useRef(0);
@@ -58,11 +63,11 @@ export default function PwaLayout({ user, header, children }) {
 
     useEffect(() => {
         if (!user) return;
-        if (!['murid', 'athlete', 'parent'].includes(String(user.role || '').toLowerCase())) return;
+        if (!isAthleteRole) return;
         if (notificationPermission !== 'granted') return;
 
         registerWebNotificationDevice();
-    }, [user?.id, user?.role, notificationPermission]);
+    }, [user?.id, isAthleteRole, notificationPermission]);
 
     useEffect(() => {
         setNotificationFeed(pwaNotifications);
@@ -76,7 +81,7 @@ export default function PwaLayout({ user, header, children }) {
     }, [notificationFeed?.items]);
 
     useEffect(() => {
-        if (!user || !['murid', 'athlete'].includes(String(user.role || '').toLowerCase())) {
+        if (!user || !isNotificationPollingRole) {
             return undefined;
         }
 
@@ -153,7 +158,7 @@ export default function PwaLayout({ user, header, children }) {
             cancelled = true;
             window.clearInterval(intervalId);
         };
-    }, [user?.id, user?.role, notificationPermission]);
+    }, [user?.id, isNotificationPollingRole, notificationPermission]);
 
     useEffect(() => {
         const latestPopup = notificationFeed?.latest_popup;
@@ -165,6 +170,15 @@ export default function PwaLayout({ user, header, children }) {
 
         setPopupNotification(latestPopup);
     }, [notificationFeed?.latest_popup?.id]);
+
+    const handleNotificationButtonClick = () => {
+        if (isSenseiPwaRole) {
+            router.visit(route('sensei-pwa.notifications'));
+            return;
+        }
+
+        setShowNotificationPanel(true);
+    };
 
     const handleInstallClick = async () => {
         if (deferredPrompt) {
@@ -220,13 +234,21 @@ export default function PwaLayout({ user, header, children }) {
         setPopupNotification(null);
     };
 
-    const tabs = [
-        { name: t('common.home', 'Home'), route: 'pwa.home', icon: Home },
-        { name: t('common.schedule', 'Jadwal'), route: 'schedule.index', icon: Calendar },
-        { name: t('common.scan', 'Scan'), route: 'scan.index', icon: ScanLine, isPrimary: true },
-        { name: t('common.condition', 'Kondisi'), route: 'condition.index', icon: Activity },
-        { name: t('common.profile', 'Profile'), route: 'profile.pwa', icon: User, subRoutes: 'profile.*' },
-    ];
+    const tabs = isSenseiPwaRole
+        ? [
+            { name: t('common.home', 'Home'), route: 'sensei-pwa.home', icon: Home },
+            { name: t('common.schedule', 'Jadwal'), route: 'sensei-pwa.schedule', icon: Calendar },
+            { name: t('common.scan', 'Scan'), route: 'sensei-pwa.scan', icon: ScanLine, isPrimary: true },
+            { name: t('admin.db_athlete', 'Atlet'), route: 'sensei-pwa.athletes', icon: Users },
+            { name: t('admin.athlete_notification', 'Notifikasi'), route: 'sensei-pwa.notifications', icon: Bell },
+        ]
+        : [
+            { name: t('common.home', 'Home'), route: 'pwa.home', icon: Home },
+            { name: t('common.schedule', 'Jadwal'), route: 'schedule.index', icon: Calendar },
+            { name: t('common.scan', 'Scan'), route: 'scan.index', icon: ScanLine, isPrimary: true },
+            { name: t('common.condition', 'Kondisi'), route: 'condition.index', icon: Activity },
+            { name: t('common.profile', 'Profile'), route: 'profile.pwa', icon: User, subRoutes: 'profile.*' },
+        ];
 
     return (
         <div className="min-h-[100dvh] bg-neutral-50 text-athlix-black flex flex-col relative font-sans selection:bg-athlix-red selection:text-white pb-safe transition-colors duration-300">
@@ -335,7 +357,7 @@ export default function PwaLayout({ user, header, children }) {
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     <LanguageSwitch compact />
                     <button
-                        onClick={() => setShowNotificationPanel(true)}
+                        onClick={handleNotificationButtonClick}
                         className="text-neutral-400 p-2 rounded-xl border border-neutral-200/80 transition-all duration-300 hover:bg-neutral-100 active:scale-95 relative"
                     >
                         <Bell size={18} />

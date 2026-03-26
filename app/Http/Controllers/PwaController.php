@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AthleteNotification;
+use App\Models\Attendance;
 use App\Models\Athlete;
+use App\Models\Dojo;
 use App\Models\FinanceRecord;
 use App\Models\TrainingProgram;
 use Carbon\Carbon;
@@ -29,6 +32,345 @@ class PwaController extends Controller
         }
 
         return null;
+    }
+
+    public function senseiHome()
+    {
+        $user = auth()->user();
+        $dojo = $this->resolveSenseiDojo($user?->dojo_id);
+        $athleteIds = $this->senseiAthleteIds($user, $dojo?->id);
+
+        $todayAttendances = $athleteIds->isEmpty()
+            ? collect()
+            : Attendance::query()
+                ->with('athlete:id,full_name,athlete_code')
+                ->whereIn('athlete_id', $athleteIds)
+                ->whereDate('recorded_at', now()->toDateString())
+                ->latest('recorded_at')
+                ->get();
+
+        $todayPrograms = TrainingProgram::query()
+            ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id))
+            ->where('day', $this->indoDayName(Carbon::now()))
+            ->orderBy('start_time')
+            ->get()
+            ->map(fn (TrainingProgram $program) => $this->mapProgramAgenda($program))
+            ->values();
+
+        $stats = [
+            'athletes_count' => $athleteIds->count(),
+            'checked_in_count' => $todayAttendances->filter(fn ($attendance) => filled($attendance->check_in_at))->count(),
+            'checked_out_count' => $todayAttendances->filter(fn ($attendance) => filled($attendance->check_out_at))->count(),
+            'sick_count' => $todayAttendances->where('status', 'sick')->count(),
+            'excused_count' => $todayAttendances->where('status', 'excused')->count(),
+            'pending_feedback_count' => $todayAttendances
+                ->filter(fn ($attendance) => filled($attendance->check_out_at) && blank($attendance->sensei_feedback))
+                ->count(),
+        ];
+
+        $recentAttendances = $todayAttendances
+            ->take(8)
+            ->map(function (Attendance $attendance) {
+                return [
+                    'id' => $attendance->id,
+                    'athlete_name' => $attendance->athlete?->full_name ?? '-',
+                    'athlete_code' => $attendance->athlete?->athlete_code ?? '-',
+                    'status' => $attendance->status,
+                    'check_in_at' => $attendance->check_in_at ? Carbon::parse($attendance->check_in_at)->format('H:i') : null,
+                    'check_out_at' => $attendance->check_out_at ? Carbon::parse($attendance->check_out_at)->format('H:i') : null,
+                    'needs_feedback' => filled($attendance->check_out_at) && blank($attendance->sensei_feedback),
+                ];
+            })
+            ->values();
+
+        return Inertia::render('SenseiPwa/Home', [
+            'dojo' => [
+                'id' => $dojo?->id,
+                'name' => $dojo?->name ?? '-',
+            ],
+            'stats' => $stats,
+            'todayPrograms' => $todayPrograms,
+            'recentAttendances' => $recentAttendances,
+        ]);
+    }
+
+    public function senseiScan()
+    {
+        $user = auth()->user();
+        $dojo = $this->resolveSenseiDojo($user?->dojo_id);
+
+        $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id));
+
+        $athletes = $athleteQuery
+            ->orderBy('full_name')
+            ->get(['id', 'full_name', 'athlete_code'])
+            ->values();
+
+        $athleteIds = $athletes->pluck('id');
+        $todayAttendances = $athleteIds->isEmpty()
+            ? collect()
+            : Attendance::query()
+                ->with('athlete:id,full_name,athlete_code')
+                ->whereIn('athlete_id', $athleteIds)
+                ->whereDate('recorded_at', now()->toDateString())
+                ->latest('recorded_at')
+                ->get()
+                ->map(function (Attendance $attendance) {
+                    return [
+                        'id' => $attendance->id,
+                        'athlete_name' => $attendance->athlete?->full_name ?? '-',
+                        'athlete_code' => $attendance->athlete?->athlete_code ?? '-',
+                        'status' => $attendance->status,
+                        'absence_reason' => $attendance->absence_reason,
+                        'check_in_at' => $attendance->check_in_at ? Carbon::parse($attendance->check_in_at)->format('H:i') : null,
+                        'check_out_at' => $attendance->check_out_at ? Carbon::parse($attendance->check_out_at)->format('H:i') : null,
+                        'sensei_feedback' => $attendance->sensei_feedback,
+                        'athlete_feedback' => $attendance->athlete_feedback,
+                    ];
+                })
+                ->values();
+
+        return Inertia::render('SenseiPwa/Scan', [
+            'dojo' => [
+                'id' => $dojo?->id,
+                'name' => $dojo?->name ?? '-',
+            ],
+            'dojoQr' => $this->buildStaticDojoQrPayload($dojo),
+            'athletes' => $athletes,
+            'todayAttendances' => $todayAttendances,
+        ]);
+    }
+
+    public function senseiSchedule()
+    {
+        $user = auth()->user();
+        $dojo = $this->resolveSenseiDojo($user?->dojo_id);
+        $today = Carbon::now();
+        $todayIndo = $this->indoDayName($today);
+
+        $allPrograms = TrainingProgram::query()
+            ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id))
+            ->orderBy('start_time')
+            ->get();
+
+        $todayPrograms = $allPrograms
+            ->where('day', $todayIndo)
+            ->map(fn (TrainingProgram $program) => $this->mapProgramAgenda($program))
+            ->values();
+
+        $upcomingPrograms = $allPrograms
+            ->map(function (TrainingProgram $program) use ($today) {
+                $nextDate = $this->resolveNextDate($program->day, $today);
+
+                return [
+                    ...$this->mapProgramAgenda($program),
+                    'date' => $nextDate->toDateString(),
+                    'date_label' => $nextDate->translatedFormat('D, d M Y'),
+                ];
+            })
+            ->filter(fn ($program) => $program['date'] !== $today->toDateString())
+            ->sortBy([
+                ['date', 'asc'],
+                ['start_time', 'asc'],
+            ])
+            ->take(7)
+            ->values();
+
+        $allAgenda = $allPrograms
+            ->map(function (TrainingProgram $program) use ($today) {
+                $nextDate = $this->resolveNextDate($program->day, $today);
+
+                return [
+                    ...$this->mapProgramAgenda($program),
+                    'date' => $nextDate->toDateString(),
+                    'date_label' => $nextDate->translatedFormat('D, d M Y'),
+                ];
+            })
+            ->sortBy([
+                ['date', 'asc'],
+                ['start_time', 'asc'],
+            ])
+            ->values();
+
+        return Inertia::render('SenseiPwa/Schedule', [
+            'dojo' => [
+                'id' => $dojo?->id,
+                'name' => $dojo?->name ?? '-',
+            ],
+            'todayPrograms' => $todayPrograms,
+            'upcomingPrograms' => $upcomingPrograms,
+            'allAgenda' => $allAgenda,
+        ]);
+    }
+
+    public function senseiAthletes()
+    {
+        $user = auth()->user();
+        $dojo = $this->resolveSenseiDojo($user?->dojo_id);
+
+        $athletes = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id))
+            ->with([
+                'belt:id,name',
+                'latestReport:id,athlete_id,recorded_at,condition_percentage,stamina,balance,speed,strength,agility',
+                'physicalMetrics' => fn ($query) => $query->latest('recorded_at')->limit(1),
+            ])
+            ->withCount([
+                'attendances as attendance_total_count',
+                'attendances as attendance_present_count' => fn ($query) => $query->where('status', 'present'),
+            ])
+            ->orderBy('full_name')
+            ->get();
+
+        $todayAttendances = Attendance::query()
+            ->whereIn('athlete_id', $athletes->pluck('id'))
+            ->whereDate('recorded_at', now()->toDateString())
+            ->get()
+            ->keyBy('athlete_id');
+
+        $items = $athletes->map(function (Athlete $athlete) use ($todayAttendances) {
+            $attendanceRate = $athlete->attendance_total_count > 0
+                ? (int) round(($athlete->attendance_present_count / $athlete->attendance_total_count) * 100)
+                : 0;
+
+            $latestMetric = $athlete->physicalMetrics->first();
+            $bmi = $latestMetric?->bmi;
+            $bmiScore = 0;
+            if ($bmi) {
+                if ($bmi >= 18.5 && $bmi <= 24.9) {
+                    $bmiScore = 92;
+                } elseif ($bmi < 18.5) {
+                    $bmiScore = (int) max(55, 82 - (18.5 - $bmi) * 6);
+                } else {
+                    $bmiScore = (int) max(50, 82 - ($bmi - 24.9) * 4);
+                }
+            }
+
+            $report = $athlete->latestReport;
+            $conditionPercentage = $report?->condition_percentage;
+            if ($conditionPercentage === null) {
+                $conditionPercentage = (int) round(($bmiScore * 0.6) + ($attendanceRate * 0.4));
+            }
+            $conditionPercentage = max(0, min(100, (int) $conditionPercentage));
+
+            $abilityScores = collect([
+                $report?->stamina,
+                $report?->balance,
+                $report?->speed,
+                $report?->strength,
+                $report?->agility,
+            ])->filter(fn ($value) => $value !== null);
+
+            $abilityAverage = $abilityScores->isNotEmpty()
+                ? (int) round($abilityScores->avg())
+                : $conditionPercentage;
+
+            $abilityStatus = match (true) {
+                $abilityAverage >= 85 => 'Sangat Baik',
+                $abilityAverage >= 70 => 'Baik',
+                $abilityAverage >= 55 => 'Cukup',
+                default => 'Perlu Pembinaan',
+            };
+
+            $todayAttendance = $todayAttendances->get($athlete->id);
+
+            return [
+                'id' => $athlete->id,
+                'full_name' => $athlete->full_name,
+                'athlete_code' => $athlete->athlete_code,
+                'belt' => $athlete->belt?->name ?? '-',
+                'attendance_rate' => $attendanceRate,
+                'condition_percentage' => $conditionPercentage,
+                'ability_status' => $abilityStatus,
+                'today_status' => $todayAttendance?->status ?? 'unknown',
+                'today_check_in_at' => $todayAttendance?->check_in_at ? Carbon::parse($todayAttendance->check_in_at)->format('H:i') : null,
+                'today_check_out_at' => $todayAttendance?->check_out_at ? Carbon::parse($todayAttendance->check_out_at)->format('H:i') : null,
+                'latest_report_date' => optional($report?->recorded_at)->translatedFormat('d M Y'),
+            ];
+        })->values();
+
+        return Inertia::render('SenseiPwa/Athletes', [
+            'dojo' => [
+                'id' => $dojo?->id,
+                'name' => $dojo?->name ?? '-',
+            ],
+            'athletes' => $items,
+        ]);
+    }
+
+    public function senseiNotifications()
+    {
+        $user = auth()->user();
+        $dojo = $this->resolveSenseiDojo($user?->dojo_id);
+
+        $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id));
+
+        $athletes = $athleteQuery
+            ->orderBy('full_name')
+            ->get(['id', 'full_name', 'athlete_code']);
+
+        $athleteIds = $athletes->pluck('id');
+        $notifications = collect();
+
+        if ($dojo?->id || $athleteIds->isNotEmpty()) {
+            $notifications = AthleteNotification::query()
+                ->with(['athlete:id,full_name,athlete_code', 'sender:id,name'])
+                ->where(function ($query) use ($dojo, $athleteIds) {
+                    if ($dojo?->id) {
+                        $query->where('dojo_id', $dojo->id);
+                    }
+
+                    if ($athleteIds->isNotEmpty()) {
+                        if ($dojo?->id) {
+                            $query->orWhereIn('athlete_id', $athleteIds);
+                        } else {
+                            $query->whereIn('athlete_id', $athleteIds);
+                        }
+                    }
+
+                    $query->orWhere(function ($broadcastQuery) use ($dojo) {
+                        $broadcastQuery->whereNull('athlete_id');
+                        if ($dojo?->id) {
+                            $broadcastQuery->where(function ($dojoQuery) use ($dojo) {
+                                $dojoQuery->whereNull('dojo_id')
+                                    ->orWhere('dojo_id', $dojo->id);
+                            });
+                        } else {
+                            $broadcastQuery->whereNull('dojo_id');
+                        }
+                    });
+                })
+                ->latest('published_at')
+                ->latest('id')
+                ->take(40)
+                ->get()
+                ->map(function (AthleteNotification $notification) {
+                    return [
+                        'id' => $notification->id,
+                        'title' => $notification->title,
+                        'message' => $notification->message,
+                        'athlete_id' => $notification->athlete_id,
+                        'athlete_name' => $notification->athlete?->full_name,
+                        'is_popup' => (bool) $notification->is_popup,
+                        'is_active' => (bool) $notification->is_active,
+                        'published_at' => optional($notification->published_at)->translatedFormat('d M Y H:i') ?? '-',
+                        'expires_at' => optional($notification->expires_at)->translatedFormat('d M Y H:i'),
+                        'sender_name' => $notification->sender?->name ?? 'System',
+                    ];
+                })
+                ->values();
+        }
+
+        return Inertia::render('SenseiPwa/Notifications', [
+            'dojo' => [
+                'id' => $dojo?->id,
+                'name' => $dojo?->name ?? '-',
+            ],
+            'athletes' => $athletes,
+            'notifications' => $notifications,
+        ]);
     }
 
     public function home()
@@ -355,6 +697,61 @@ class PwaController extends Controller
             ])
             ->take(3)
             ->values();
+    }
+
+    private function resolveSenseiDojo(?int $dojoId): ?Dojo
+    {
+        if (! $dojoId) {
+            return null;
+        }
+
+        return Dojo::find($dojoId);
+    }
+
+    private function senseiAthleteIds($user, ?int $dojoId)
+    {
+        return $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->when($dojoId, fn ($query) => $query->where('dojo_id', $dojoId))
+            ->pluck('id');
+    }
+
+    private function buildStaticDojoQrPayload(?Dojo $dojo): array
+    {
+        if (! $dojo) {
+            return [
+                'payload' => null,
+                'expires_in' => null,
+                'dojo_name' => null,
+                'generated_at' => null,
+            ];
+        }
+
+        return [
+            'payload' => "ATHLIX-DOJO|{$dojo->id}",
+            'expires_in' => null,
+            'dojo_name' => $dojo->name,
+            'generated_at' => null,
+        ];
+    }
+
+    private function mapProgramAgenda(TrainingProgram $program): array
+    {
+        return [
+            'id' => $program->id,
+            'title' => $program->title,
+            'day' => $program->day,
+            'start_time' => substr($program->start_time, 0, 5),
+            'end_time' => substr($program->end_time, 0, 5),
+            'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
+            'coach' => $program->coach_name,
+            'type' => $program->type,
+            'agenda_items' => collect($program->agenda_items ?? [])->map(fn ($item) => [
+                'title' => $item['title'] ?? 'Agenda',
+                'start_time' => $item['start_time'] ?? null,
+                'end_time' => $item['end_time'] ?? null,
+                'description' => $item['description'] ?? null,
+            ])->values(),
+        ];
     }
 
     private function indoDayName(Carbon $date): string

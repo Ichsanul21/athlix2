@@ -18,7 +18,8 @@ import {
     Newspaper,
     Images,
     HandCoins,
-    ShieldCheck
+    ShieldCheck,
+    Smartphone
 } from 'lucide-react';
 
 export default function AdminLayout({ user, header, children }) {
@@ -56,6 +57,9 @@ export default function AdminLayout({ user, header, children }) {
                   { name: t('admin.master_dojo', 'Master Dojo'), href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
                   { name: t('admin.system_settings', 'System Settings'), href: route('super-admin.system-settings.index'), icon: ShieldCheck, current: 'super-admin.system-settings.*' },
               ]
+            : []),
+        ...(['sensei', 'head_coach', 'assistant'].includes(role)
+            ? [{ name: t('admin.sensei_pwa', 'PWA Sensei'), href: route('sensei-pwa.home'), icon: Smartphone, current: 'sensei-pwa.*' }]
             : []),
     ];
 

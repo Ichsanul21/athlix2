@@ -120,6 +120,15 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::post('/attendance/mark-status', [AttendanceController::class, 'markStatus'])->name('attendance.mark-status');
     });
 
+    Route::middleware('role:sensei,head_coach,assistant')->group(function () {
+        Route::redirect('/sensei-pwa', '/sensei-pwa/home')->name('sensei-pwa.entry');
+        Route::get('/sensei-pwa/home', [PwaController::class, 'senseiHome'])->name('sensei-pwa.home');
+        Route::get('/sensei-pwa/scan', [PwaController::class, 'senseiScan'])->name('sensei-pwa.scan');
+        Route::get('/sensei-pwa/schedule', [PwaController::class, 'senseiSchedule'])->name('sensei-pwa.schedule');
+        Route::get('/sensei-pwa/athletes', [PwaController::class, 'senseiAthletes'])->name('sensei-pwa.athletes');
+        Route::get('/sensei-pwa/notifications', [PwaController::class, 'senseiNotifications'])->name('sensei-pwa.notifications');
+    });
+
     Route::middleware('role:murid')->group(function () {
         Route::get('/pwa-home', [PwaController::class, 'home'])->name('pwa.home');
         Route::get('/scan', [PwaController::class, 'scan'])->name('scan.index');
