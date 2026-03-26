@@ -24,6 +24,7 @@ class PwaController extends Controller
                 'financeRecords',
                 'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
                 'achievements' => fn ($query) => $query->latest('competition_date'),
+                'latestReport',
             ])->find($user->athlete_id);
         }
 
@@ -42,6 +43,8 @@ class PwaController extends Controller
                 'upcomingPayment' => Inertia::defer(fn () => null),
                 'tips' => Inertia::defer(fn () => null),
                 'agendaThreeDays' => Inertia::defer(fn () => []),
+                'performanceSummary' => Inertia::defer(fn () => null),
+                'latestAttendanceFeedback' => Inertia::defer(fn () => null),
             ]);
         }
 
@@ -72,6 +75,24 @@ class PwaController extends Controller
         ];
 
         $agendaThreeDays = $this->agendaThreeDays($dojoId);
+        $performanceSummary = $this->buildPerformanceSummary($athlete);
+        $latestAttendanceFeedback = $athlete->attendances
+            ->where('status', 'present')
+            ->sortByDesc('recorded_at')
+            ->first(function ($attendance) {
+                return filled($attendance->sensei_feedback)
+                    || filled($attendance->sensei_mood_assessment);
+            });
+
+        if (! $latestAttendanceFeedback) {
+            $latestAttendanceFeedback = $athlete->attendances
+                ->where('status', 'present')
+                ->sortByDesc('recorded_at')
+                ->first(function ($attendance) {
+                    return filled($attendance->check_in_feedback)
+                        || filled($attendance->athlete_feedback);
+                });
+        }
 
         return Inertia::render('PwaHome/Index', [
             'athlete' => Inertia::defer(fn () => $athlete),
@@ -88,6 +109,16 @@ class PwaController extends Controller
             ] : null),
             'tips' => Inertia::defer(fn () => 'Jaga ritme latihan: pemanasan 10 menit, teknik utama 30 menit, pendinginan 10 menit.'),
             'agendaThreeDays' => Inertia::defer(fn () => $agendaThreeDays),
+            'performanceSummary' => Inertia::defer(fn () => $performanceSummary),
+            'latestAttendanceFeedback' => Inertia::defer(fn () => $latestAttendanceFeedback ? [
+                'date' => Carbon::parse($latestAttendanceFeedback->recorded_at)->translatedFormat('d M Y'),
+                'sensei_feedback' => $latestAttendanceFeedback->sensei_feedback,
+                'sensei_mood_assessment' => $latestAttendanceFeedback->sensei_mood_assessment,
+                'check_in_feedback' => $latestAttendanceFeedback->check_in_feedback,
+                'check_in_mood' => $latestAttendanceFeedback->check_in_mood,
+                'athlete_feedback' => $latestAttendanceFeedback->athlete_feedback,
+                'athlete_mood' => $latestAttendanceFeedback->athlete_mood,
+            ] : null),
         ]);
     }
 
@@ -236,6 +267,28 @@ class PwaController extends Controller
         ]);
     }
 
+    public function condition()
+    {
+        $athlete = $this->resolveAthleteForUser();
+        $summary = $athlete ? $this->buildPerformanceSummary($athlete) : null;
+        $trend = collect($athlete?->physicalMetrics ?? [])
+            ->sortBy('recorded_at')
+            ->map(function ($metric) {
+                return [
+                    'date' => Carbon::parse($metric->recorded_at)->translatedFormat('d M'),
+                    'weight' => $metric->weight,
+                    'bmi' => $metric->bmi,
+                ];
+            })
+            ->values();
+
+        return Inertia::render('PhysicalCondition/PwaIndex', [
+            'athlete' => Inertia::defer(fn () => $athlete),
+            'performanceSummary' => Inertia::defer(fn () => $summary),
+            'trend' => Inertia::defer(fn () => $trend),
+        ]);
+    }
+
     public function personalInfo()
     {
         $athlete = $this->resolveAthleteForUser();
@@ -338,6 +391,56 @@ class PwaController extends Controller
         }
 
         return $date;
+    }
+
+    private function buildPerformanceSummary(Athlete $athlete): array
+    {
+        $latestMetric = $athlete->physicalMetrics->first();
+        $attendanceTotal = $athlete->attendances->count();
+        $attendancePresent = $athlete->attendances->where('status', 'present')->count();
+        $attendanceRate = $attendanceTotal > 0 ? (int) round(($attendancePresent / $attendanceTotal) * 100) : 0;
+
+        $bmi = $latestMetric?->bmi;
+        $bmiScore = 0;
+        if ($bmi) {
+            if ($bmi >= 18.5 && $bmi <= 24.9) {
+                $bmiScore = 92;
+            } elseif ($bmi < 18.5) {
+                $bmiScore = (int) max(55, 82 - (18.5 - $bmi) * 6);
+            } else {
+                $bmiScore = (int) max(50, 82 - ($bmi - 24.9) * 4);
+            }
+        }
+
+        $conditionScore = (int) round((($bmiScore * 0.6) + ($attendanceRate * 0.4)));
+        $conditionScore = max(0, min(100, $conditionScore));
+        $latestReport = $athlete->latestReport;
+
+        $categories = [
+            ['label' => 'Stamina', 'score' => (int) ($latestReport?->stamina ?? max(0, min(100, $attendanceRate)))],
+            ['label' => 'Keseimbangan', 'score' => (int) ($latestReport?->balance ?? max(0, min(100, $bmiScore)))],
+            ['label' => 'Kecepatan', 'score' => (int) ($latestReport?->speed ?? max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2))))],
+            ['label' => 'Kekuatan', 'score' => (int) ($latestReport?->strength ?? max(0, min(100, (int) round(($attendanceRate * 0.4) + ($bmiScore * 0.6)))) )],
+            ['label' => 'Kelincahan', 'score' => (int) ($latestReport?->agility ?? max(0, min(100, (int) round(($attendanceRate * 0.5) + ($bmiScore * 0.5)))) )],
+        ];
+        $average = count($categories) > 0
+            ? (int) round(collect($categories)->avg('score'))
+            : 0;
+
+        $abilityStatus = match (true) {
+            $average >= 85 => 'Sangat Baik',
+            $average >= 70 => 'Baik',
+            $average >= 55 => 'Cukup',
+            default => 'Perlu Pembinaan',
+        };
+
+        return [
+            'condition_percentage' => (int) ($latestReport?->condition_percentage ?? $conditionScore),
+            'ability_status' => $abilityStatus,
+            'categories' => $categories,
+            'latest_report_note' => $latestReport?->notes,
+            'latest_report_date' => optional($latestReport?->recorded_at)->translatedFormat('d M Y'),
+        ];
     }
 
 }

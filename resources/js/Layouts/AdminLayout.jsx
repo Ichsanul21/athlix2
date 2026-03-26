@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { useTheme } from '@/Components/ThemeProvider';
+import { useLanguage } from '@/Components/LanguageProvider';
+import LanguageSwitch from '@/Components/LanguageSwitch';
 import { 
     LayoutDashboard, 
     Users, 
@@ -13,52 +14,53 @@ import {
     Dumbbell,
     BarChart3,
     Sparkles,
+    BellRing,
     Newspaper,
     Images,
     HandCoins,
-    ShieldCheck,
-    Sun,
-    Moon
+    ShieldCheck
 } from 'lucide-react';
 
 export default function AdminLayout({ user, header, children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const { theme, toggleTheme } = useTheme();
+    const { t } = useLanguage();
 
     const role = user?.role;
     const navigation = [
-        ...(role === 'super_admin' || role === 'sensei'
+        ...(['super_admin', 'sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'].includes(role)
             ? [
-                  { name: 'Dashboard', href: route('dashboard'), icon: LayoutDashboard, current: 'dashboard' },
-                  { name: 'Database Atlet', href: route('athletes.index'), icon: Users, current: 'athletes.*' },
-                  { name: 'Absensi', href: route('attendance.index'), icon: CalendarCheck, current: 'attendance.*' },
-                  { name: 'Pembayaran', href: route('finance.index'), icon: CreditCard, current: 'finance.*' },
-                  { name: 'Kondisi Fisik', href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
-                  { name: 'Program Latihan', href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
-                  { name: 'Statistik', href: route('statistics.index'), icon: BarChart3, current: 'statistics.*' },
-                  { name: 'Asisten Gemini AI', href: route('ai-assistant.index'), icon: Sparkles, current: 'ai-assistant.*' },
+                  { name: t('common.dashboard', 'Dashboard'), href: route('dashboard'), icon: LayoutDashboard, current: 'dashboard' },
+                  { name: t('admin.db_athlete', 'Database Atlet'), href: route('athletes.index'), icon: Users, current: 'athletes.*' },
+                  { name: t('admin.attendance', 'Absensi'), href: route('attendance.index'), icon: CalendarCheck, current: 'attendance.*' },
+                  { name: t('admin.payment', 'Pembayaran'), href: route('finance.index'), icon: CreditCard, current: 'finance.*' },
+                  { name: t('admin.physical_condition', 'Kondisi Fisik'), href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
+                  { name: t('admin.training_program', 'Program Latihan'), href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
+                  { name: t('admin.statistics', 'Statistik'), href: route('statistics.index'), icon: BarChart3, current: 'statistics.*' },
+                  { name: t('admin.ai_assistant', 'Asisten Gemini AI'), href: route('ai-assistant.index'), icon: Sparkles, current: 'ai-assistant.*' },
+                  { name: t('admin.athlete_notification', 'Notifikasi Atlet'), href: route('senpai-notifications.index'), icon: BellRing, current: 'senpai-notifications.*' },
               ]
             : []),
-        ...(role === 'dojo_admin'
-            ? [{ name: 'Manajemen Sensei', href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' }]
+        ...(role === 'dojo_admin' || role === 'super_admin'
+            ? [{ name: t('admin.db_coach', 'Database Pelatih'), href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' }]
             : []),
         ...(role === 'super_admin' || role === 'landing_admin'
             ? [
-                  { name: 'CMS Artikel', href: route('cms.articles.index'), icon: Newspaper, current: 'cms.articles.*' },
-                  { name: 'CMS Galeri', href: route('cms.galleries.index'), icon: Images, current: 'cms.galleries.*' },
-                  { name: 'CMS Pricelist', href: route('cms.pricelists.index'), icon: HandCoins, current: 'cms.pricelists.*' },
+                  { name: t('admin.cms_articles', 'CMS Artikel'), href: route('cms.articles.index'), icon: Newspaper, current: 'cms.articles.*' },
+                  { name: t('admin.cms_gallery', 'CMS Galeri'), href: route('cms.galleries.index'), icon: Images, current: 'cms.galleries.*' },
+                  { name: t('admin.cms_pricelist', 'CMS Pricelist'), href: route('cms.pricelists.index'), icon: HandCoins, current: 'cms.pricelists.*' },
               ]
             : []),
         ...(role === 'super_admin'
             ? [
-                  { name: 'Master Akun', href: route('super-admin.users.index'), icon: ShieldCheck, current: 'super-admin.users.*' },
-                  { name: 'Master Dojo', href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
+                  { name: t('admin.master_account', 'Master Akun'), href: route('super-admin.users.index'), icon: ShieldCheck, current: 'super-admin.users.*' },
+                  { name: t('admin.master_dojo', 'Master Dojo'), href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
+                  { name: t('admin.system_settings', 'System Settings'), href: route('super-admin.system-settings.index'), icon: ShieldCheck, current: 'super-admin.system-settings.*' },
               ]
             : []),
     ];
 
     return (
-        <div className="min-h-screen bg-neutral-50 dark:bg-athlix-black text-athlix-black  transition-colors duration-300">
+        <div className="min-h-screen bg-neutral-50 text-athlix-black transition-colors duration-300">
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
                 <div 
@@ -68,20 +70,20 @@ export default function AdminLayout({ user, header, children }) {
             )}
 
             {/* Sidebar */}
-            <aside className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 transition-all duration-500 ease-out ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
+            <aside className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-neutral-200/80 transition-all duration-500 ease-out ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
                 {/* Brand */}
-                <div className="flex items-center justify-between h-16 px-6 border-b border-neutral-200/80 dark:border-neutral-800">
+                <div className="flex items-center justify-between h-16 px-6 border-b border-neutral-200/80">
                     <div className="flex items-center gap-3 animate-fade-in">
                         <div className="relative">
                             <img src="/logo.png" alt="ATHLIX Logo" className="w-9 h-9 rounded-xl shadow-md object-cover" />
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900"></div>
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                         </div>
                         <div>
                             <span className="text-lg font-black tracking-tight text-athlix-red">ATHLIX</span>
                             <span className="text-lg font-light text-neutral-300 ">.</span>
                         </div>
                     </div>
-                    <button className="lg:hidden text-neutral-500 hover:text-athlix-black dark:hover:text-athlix-white p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors" onClick={() => setSidebarOpen(false)}>
+                    <button className="lg:hidden text-neutral-500 hover:text-athlix-black p-1 rounded-lg hover:bg-neutral-100 transition-colors" onClick={() => setSidebarOpen(false)}>
                         <X size={20} />
                     </button>
                 </div>
@@ -97,7 +99,7 @@ export default function AdminLayout({ user, header, children }) {
                                 className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden fill-both ${
                                     isActive 
                                     ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20' 
-                                    : 'text-neutral-600  hover:bg-neutral-100 dark:hover:bg-neutral-800/80 hover:text-athlix-black dark:hover:text-athlix-white'
+                                    : 'text-neutral-600  hover:bg-neutral-100 hover:text-athlix-black'
                                 }`}
                                 style={{ animationDelay: `${idx * 40}ms` }}
                             >
@@ -112,10 +114,10 @@ export default function AdminLayout({ user, header, children }) {
                 </nav>
 
                 {/* Logout */}
-                <div className="absolute bottom-0 w-full p-3 border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-                    <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 dark:hover:bg-athlix-red/10 hover:text-athlix-red transition-all duration-300">
+                <div className="absolute bottom-0 w-full p-3 border-t border-neutral-200/80 bg-white">
+                    <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 hover:text-athlix-red transition-all duration-300">
                         <LogOut className="w-5 h-5 mr-3" />
-                        Sign Out
+                        {t('common.sign_out', 'Sign Out')}
                     </Link>
                 </div>
             </aside>
@@ -126,7 +128,7 @@ export default function AdminLayout({ user, header, children }) {
                 <header className="sticky top-0 z-30 flex items-center justify-between min-h-16 py-2 px-3 sm:px-6 gap-3 glass-strong border-gradient">
                     <div className="flex items-center min-w-0 flex-1">
                         <button 
-                            className="mr-4 lg:hidden text-neutral-500 hover:text-athlix-black dark:hover:text-athlix-white p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-300 active:scale-95" 
+                            className="mr-4 lg:hidden text-neutral-500 hover:text-athlix-black p-2 rounded-xl hover:bg-neutral-100 transition-all duration-300 active:scale-95" 
                             onClick={() => setSidebarOpen(true)}
                         >
                             <Menu size={22} />
@@ -138,20 +140,7 @@ export default function AdminLayout({ user, header, children }) {
                         )}
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                        {/* Dark/Light Toggle */}
-                        <button
-                            onClick={toggleTheme}
-                            className="relative w-14 h-7 rounded-full transition-all duration-500 cursor-pointer bg-neutral-200 dark:bg-neutral-700 hover:shadow-md"
-                            aria-label="Toggle theme"
-                        >
-                            <div className={`absolute top-0.5 w-6 h-6 rounded-full shadow-md transition-all duration-500 flex items-center justify-center ${
-                                theme === 'dark' 
-                                    ? 'translate-x-7 bg-athlix-red text-white' 
-                                    : 'translate-x-0.5 bg-white text-amber-500'
-                            }`}>
-                                {theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
-                            </div>
-                        </button>
+                        <LanguageSwitch />
 
                         <div className="text-sm font-medium text-neutral-700  hidden sm:block">
                             {user?.name || 'Sensei'}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 628" width="1200" height="628">
+  <rect width="1200" height="628" fill="#111827" />
+  <g fill="#F8FAFC" font-family="Arial, sans-serif">
+    <text x="80" y="220" font-size="72" font-weight="700">ATHLIX CERTIFICATE</text>
+    <text x="80" y="290" font-size="36" opacity="0.9">ATHLIX Seed Asset</text>
+    <text x="80" y="360" font-size="28" opacity="0.75">Digunakan untuk simulasi data lokal dan production demo</text>
+  </g>
+</svg>

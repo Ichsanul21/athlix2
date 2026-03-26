@@ -2,21 +2,21 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
+import LanguageSwitch from '@/Components/LanguageSwitch';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { useTheme } from '@/Components/ThemeProvider';
-import { Sun, Moon } from 'lucide-react';
+import { useLanguage } from '@/Components/LanguageProvider';
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth?.user;
-    const { theme, toggleTheme } = useTheme();
+    const { t } = useLanguage();
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
 
     return (
-        <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 transition-colors duration-300">
-            <nav className="border-b border-neutral-200/80 dark:border-neutral-700 glass-strong">
+        <div className="min-h-screen bg-neutral-100 transition-colors duration-300">
+            <nav className="border-b border-neutral-200/80 glass-strong">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between gap-3">
                         <div className="flex min-w-0">
@@ -31,20 +31,13 @@ export default function AuthenticatedLayout({ header, children }) {
                                     href={route('dashboard')}
                                     active={route().current('dashboard')}
                                 >
-                                    Dashboard
+                                    {t('common.dashboard', 'Dashboard')}
                                 </NavLink>
                             </div>
                         </div>
 
                         <div className="hidden sm:ms-6 sm:flex sm:items-center gap-2 md:gap-3 shrink-0">
-                            {/* Dark/Light Toggle */}
-                            <button
-                                onClick={toggleTheme}
-                                className="p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 transition-all duration-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-95 text-neutral-500 "
-                                aria-label="Toggle theme"
-                            >
-                                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                            </button>
+                            <LanguageSwitch />
 
                             <div className="relative ms-3">
                                 <Dropdown>
@@ -52,7 +45,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                         <span className="inline-flex rounded-md">
                                             <button
                                                 type="button"
-                                                className="inline-flex items-center rounded-xl border border-transparent bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-medium leading-4 text-neutral-600  transition-all duration-300 hover:text-neutral-800 dark:hover:text-white hover:shadow-sm focus:outline-none active:scale-95"
+                                                className="inline-flex items-center rounded-xl border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-neutral-600  transition-all duration-300 hover:text-neutral-800 hover:shadow-sm focus:outline-none active:scale-95"
                                             >
                                                 {user?.name || 'Account'}
 
@@ -76,14 +69,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                         <Dropdown.Link
                                             href={route('profile.edit')}
                                         >
-                                            Profile
+                                            {t('common.profile', 'Profile')}
                                         </Dropdown.Link>
                                         <Dropdown.Link
                                             href={route('logout')}
                                             method="post"
                                             as="button"
                                         >
-                                            Log Out
+                                            {t('common.sign_out', 'Log Out')}
                                         </Dropdown.Link>
                                     </Dropdown.Content>
                                 </Dropdown>
@@ -97,7 +90,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                         (previousState) => !previousState,
                                     )
                                 }
-                                className="inline-flex items-center justify-center rounded-xl p-2 text-neutral-400 transition-all duration-300 hover:bg-neutral-100 hover:text-neutral-500  dark:hover:bg-neutral-800 dark:hover:text-neutral-400 active:scale-95"
+                                className="inline-flex items-center justify-center rounded-xl p-2 text-neutral-400 transition-all duration-300 hover:bg-neutral-100 hover:text-neutral-500 active:scale-95"
                             >
                                 <svg
                                     className="h-6 w-6"
@@ -144,11 +137,11 @@ export default function AuthenticatedLayout({ header, children }) {
                             href={route('dashboard')}
                             active={route().current('dashboard')}
                         >
-                            Dashboard
+                            {t('common.dashboard', 'Dashboard')}
                         </ResponsiveNavLink>
                     </div>
 
-                    <div className="border-t border-neutral-200 dark:border-neutral-600 pb-1 pt-4">
+                    <div className="border-t border-neutral-200 pb-1 pt-4">
                         <div className="px-4">
                             <div className="text-base font-medium text-neutral-800 ">
                                 {user?.name || 'Account'}
@@ -160,14 +153,14 @@ export default function AuthenticatedLayout({ header, children }) {
 
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
+                                {t('common.profile', 'Profile')}
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 method="post"
                                 href={route('logout')}
                                 as="button"
                             >
-                                Log Out
+                                {t('common.sign_out', 'Log Out')}
                             </ResponsiveNavLink>
                         </div>
                     </div>
@@ -175,7 +168,7 @@ export default function AuthenticatedLayout({ header, children }) {
             </nav>
 
             {header && (
-                <header className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm shadow-sm">
+                <header className="bg-white/80 backdrop-blur-sm shadow-sm">
                     <div className="mx-auto max-w-7xl px-4 py-5 sm:py-6 sm:px-6 lg:px-8">
                         {header}
                     </div>

@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -31,11 +32,30 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
+        $user = $request->user()?->loadMissing('dojo');
+        if ($user && ! $user->isSuperAdmin() && ! $user->isLandingAdmin() && $user->dojo_id) {
+            $dojo = $user->dojo;
+            if (! $dojo || ! $dojo->canAccessSaas()) {
+                Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                $message = $dojo && $dojo->accessStatusLabel() === 'Expired'
+                    ? 'Login ditolak: masa berlangganan SaaS dojo sudah berakhir.'
+                    : 'Login ditolak: dojo sedang nonaktif atau diblokir.';
+
+                throw ValidationException::withMessages([
+                    'email' => $message,
+                ]);
+            }
+        }
+
         $request->session()->regenerate();
 
-        $user = $request->user();
         $target = match ($user?->role) {
             'murid' => route('pwa.home', absolute: false),
+            'athlete' => route('pwa.home', absolute: false),
+            'parent' => route('pwa.home', absolute: false),
             'landing_admin' => route('cms.index', absolute: false),
             'dojo_admin' => route('dojo-admin.sensei.index', absolute: false),
             default => route('dashboard', absolute: false),

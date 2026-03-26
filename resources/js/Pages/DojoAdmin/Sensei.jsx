@@ -4,11 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import Modal from '@/Components/Modal';
-import { useState } from 'react';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
+import { useEffect, useState } from 'react';
 
-export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash }) {
+export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos = [], selectedDojoId = null, flash }) {
     const [editingId, setEditingId] = useState(null);
     const [assignModal, setAssignModal] = useState({ open: false, sensei: null, athleteIds: [] });
+    const [dojoId, setDojoId] = useState(selectedDojoId || '');
 
     const form = useForm({
         name: '',
@@ -16,7 +18,13 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
         phone_number: '',
         password: '',
         profile_photo: null,
+        dojo_id: selectedDojoId || '',
     });
+
+    useEffect(() => {
+        setDojoId(selectedDojoId || '');
+        form.setData('dojo_id', selectedDojoId || '');
+    }, [selectedDojoId]);
 
     const submit = () => {
         if (editingId) {
@@ -26,6 +34,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
                 onSuccess: () => {
                     setEditingId(null);
                     form.reset();
+                    form.setData('dojo_id', dojoId || '');
                 },
             });
             return;
@@ -33,7 +42,10 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
 
         form.post(route('dojo-admin.sensei.store'), {
             forceFormData: true,
-            onSuccess: () => form.reset(),
+            onSuccess: () => {
+                form.reset();
+                form.setData('dojo_id', dojoId || '');
+            },
         });
     };
 
@@ -67,17 +79,34 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
     };
 
     return (
-        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Sensei</h2>}>
-            <Head title="Manajemen Sensei" />
+        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Database Pelatih</h2>}>
+            <Head title="Database Pelatih" />
             <div className="space-y-6 py-4">
                 {flash?.success && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{flash.success}</div>}
                 {flash?.error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{flash.error}</div>}
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>{editingId ? 'Edit Sensei' : `Tambah Sensei - ${dojo?.name || 'Dojo'}`}</CardTitle>
+                        <CardTitle>{editingId ? 'Edit Pelatih' : `Tambah Pelatih - ${dojo?.name || 'Dojo'}`}</CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {dojos.length > 0 && (
+                            <select
+                                className="text-sm border rounded-lg px-3 py-2 md:col-span-2 xl:col-span-3"
+                                value={dojoId || ''}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setDojoId(next);
+                                    form.setData('dojo_id', next);
+                                    router.get(route('dojo-admin.sensei.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                                }}
+                            >
+                                {dojos.map((item) => (
+                                    <option key={item.id} value={item.id}>{item.name}</option>
+                                ))}
+                            </select>
+                        )}
+
                         <Input className="text-sm" placeholder="Nama Sensei" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
                         <Input className="text-sm" placeholder="Email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
                         <Input className="text-sm" placeholder="No. WhatsApp" value={form.data.phone_number} onChange={(e) => form.setData('phone_number', e.target.value)} />
@@ -85,11 +114,12 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
                         <input type="file" accept=".jpg,.jpeg,.png,.webp" className="border rounded-lg px-3 py-2 text-sm" onChange={(e) => form.setData('profile_photo', e.target.files?.[0] ?? null)} />
 
                         <div className="md:col-span-2 xl:col-span-3 flex flex-wrap gap-2">
-                            <Button onClick={submit}>{editingId ? 'Simpan Perubahan' : 'Simpan Sensei'}</Button>
+                            <Button onClick={submit}>{editingId ? 'Simpan Perubahan' : 'Simpan Pelatih'}</Button>
                             {editingId && (
                                 <Button type="button" variant="outline" onClick={() => {
                                     setEditingId(null);
                                     form.reset();
+                                    form.setData('dojo_id', dojoId || '');
                                 }}>
                                     Batal
                                 </Button>
@@ -99,14 +129,14 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
                 </Card>
 
                 <Card>
-                    <CardHeader><CardTitle>Daftar Sensei Dojo</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Daftar Pelatih Dojo</CardTitle></CardHeader>
                     <CardContent className="space-y-3">
                         {senseis.map((sensei) => (
                             <div key={sensei.id} className="p-3 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                                 <div className="min-w-0 flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-neutral-100 overflow-hidden flex items-center justify-center text-xs font-black">
                                         {sensei.profile_photo_path ? (
-                                            <img src={`/storage/${sensei.profile_photo_path}`} alt={sensei.name} className="w-full h-full object-cover" />
+                                            <img src={resolveMediaUrl(sensei.profile_photo_path)} alt={sensei.name} className="w-full h-full object-cover" />
                                         ) : (
                                             sensei.name?.charAt(0)
                                         )}
@@ -130,6 +160,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, flash 
                                                 phone_number: sensei.phone_number || '',
                                                 password: '',
                                                 profile_photo: null,
+                                                dojo_id: dojoId || '',
                                             });
                                         }}
                                     >Edit</button>

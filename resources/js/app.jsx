@@ -4,7 +4,7 @@ import './bootstrap';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot, hydrateRoot } from 'react-dom/client';
-import { ThemeProvider } from '@/Components/ThemeProvider';
+import { LanguageProvider } from '@/Components/LanguageProvider';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -17,9 +17,9 @@ createInertiaApp({
         ),
     setup({ el, App, props }) {
         const app = (
-            <ThemeProvider>
+            <LanguageProvider>
                 <App {...props} />
-            </ThemeProvider>
+            </LanguageProvider>
         );
 
         if (import.meta.env.SSR) {

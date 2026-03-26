@@ -6,10 +6,12 @@ use App\Models\Athlete;
 use App\Models\Attendance;
 use App\Models\Belt;
 use App\Models\Dojo;
+use App\Models\PhysicalMetric;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class StatisticsController extends Controller
@@ -201,5 +203,179 @@ class StatisticsController extends Controller
 HTML;
 
         return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    public function importPpa(Request $request)
+    {
+        $user = auth()->user();
+        $validated = $request->validate([
+            'file' => 'nullable|file|mimes:csv,txt|max:10240',
+            'rows' => 'nullable|array|min:2',
+            'rows.*' => 'array',
+            'source_file_name' => 'nullable|string|max:255',
+            'dojo_id' => $user?->isSuperAdmin() ? 'nullable|exists:dojos,id' : 'nullable',
+        ]);
+
+        if (! $request->hasFile('file') && empty($validated['rows'] ?? [])) {
+            throw ValidationException::withMessages([
+                'file' => 'Pilih file PPA (CSV/XLS/XLSX) terlebih dahulu.',
+            ]);
+        }
+
+        $selectedDojoId = $this->resolveDojoId($user, isset($validated['dojo_id']) ? (int) $validated['dojo_id'] : null);
+        $allowedAthletesQuery = $this->scopeAthletesForUser(Athlete::query(), $user);
+        if ($selectedDojoId) {
+            $allowedAthletesQuery->where('dojo_id', $selectedDojoId);
+        }
+
+        $allowedAthletes = $allowedAthletesQuery
+            ->get(['id', 'athlete_code'])
+            ->keyBy(fn ($athlete) => strtoupper(str_replace('-', '', $athlete->athlete_code)));
+
+        $imported = 0;
+        $skipped = 0;
+        $today = now()->toDateString();
+
+        if (! empty($validated['rows'] ?? [])) {
+            $rows = $validated['rows'];
+            $headers = $rows[0] ?? [];
+            $normalizedHeaders = collect($headers)
+                ->map(fn ($header) => $this->normalizeCsvHeader((string) $header))
+                ->values()
+                ->all();
+
+            foreach (array_slice($rows, 1) as $row) {
+                if (! is_array($row)) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (count($row) === 1 && trim((string) ($row[0] ?? '')) === '') {
+                    continue;
+                }
+
+                $mapped = [];
+                foreach ($normalizedHeaders as $index => $header) {
+                    $mapped[$header] = $row[$index] ?? null;
+                }
+
+                if ($this->importPpaMappedRow($mapped, $allowedAthletes, $today)) {
+                    $imported++;
+                } else {
+                    $skipped++;
+                }
+            }
+        } else {
+            $realPath = $validated['file']->getRealPath();
+            $handle = fopen($realPath, 'r');
+            if (! $handle) {
+                throw ValidationException::withMessages([
+                    'file' => 'File CSV tidak dapat dibaca.',
+                ]);
+            }
+
+            $headers = fgetcsv($handle) ?: [];
+            $normalizedHeaders = collect($headers)
+                ->map(fn ($header) => $this->normalizeCsvHeader((string) $header))
+                ->values()
+                ->all();
+
+            while (($row = fgetcsv($handle)) !== false) {
+                if (count($row) === 1 && trim((string) $row[0]) === '') {
+                    continue;
+                }
+
+                $mapped = [];
+                foreach ($normalizedHeaders as $index => $header) {
+                    $mapped[$header] = $row[$index] ?? null;
+                }
+
+                if ($this->importPpaMappedRow($mapped, $allowedAthletes, $today)) {
+                    $imported++;
+                } else {
+                    $skipped++;
+                }
+            }
+
+            fclose($handle);
+        }
+
+        if ($imported === 0) {
+            return back()->with('warning', 'Tidak ada data PPA yang berhasil diimpor. Periksa format file dan header.');
+        }
+
+        $message = 'Import PPA berhasil: ' . $imported . ' data masuk.';
+        if ($skipped > 0) {
+            $message .= ' ' . $skipped . ' baris dilewati.';
+        }
+
+        return back()->with('success', $message);
+    }
+
+    private function normalizeCsvHeader(string $header): string
+    {
+        $header = trim(strtolower($header));
+        $header = str_replace([' ', '-', '/'], '_', $header);
+
+        return preg_replace('/[^a-z0-9_]/', '', $header) ?: '';
+    }
+
+    private function importPpaMappedRow(array $mapped, Collection $allowedAthletes, string $today): bool
+    {
+        $athleteCodeRaw = (string) ($mapped['kode_atlet'] ?? $mapped['athlete_code'] ?? $mapped['kode'] ?? '');
+        $athleteCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $athleteCodeRaw));
+        if ($athleteCode === '' || ! isset($allowedAthletes[$athleteCode])) {
+            return false;
+        }
+
+        $athlete = $allowedAthletes[$athleteCode];
+        $height = $this->toNullableFloat($mapped['tinggi_cm'] ?? $mapped['tinggi'] ?? null);
+        $weight = $this->toNullableFloat($mapped['berat_kg'] ?? $mapped['berat'] ?? null);
+        $bmi = $this->toNullableFloat($mapped['imt'] ?? $mapped['bmi'] ?? null);
+
+        if ($height === null && $weight === null && $bmi === null) {
+            return false;
+        }
+
+        $computedBmi = $bmi;
+        if ($computedBmi === null && $height && $weight && $height > 0) {
+            $meter = $height / 100;
+            $computedBmi = round($weight / ($meter * $meter), 2);
+        }
+
+        $athleteUpdates = [];
+        if ($height !== null) {
+            $athleteUpdates['latest_height'] = $height;
+        }
+        if ($weight !== null) {
+            $athleteUpdates['latest_weight'] = $weight;
+        }
+        if (! empty($athleteUpdates)) {
+            Athlete::query()->whereKey($athlete->id)->update($athleteUpdates);
+        }
+
+        PhysicalMetric::create([
+            'athlete_id' => $athlete->id,
+            'height' => $height,
+            'weight' => $weight,
+            'bmi' => $computedBmi,
+            'recorded_at' => $today,
+        ]);
+
+        return true;
+    }
+
+    private function toNullableFloat($value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = str_replace(',', '.', trim((string) $value));
+        if ($normalized === '' || ! is_numeric($normalized)) {
+            return null;
+        }
+
+        return (float) $normalized;
     }
 }

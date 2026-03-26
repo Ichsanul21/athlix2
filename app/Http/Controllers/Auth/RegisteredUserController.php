@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\System\SystemSettingService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        if (!config('auth.allow_public_registration') && !app()->environment(['local', 'testing'])) {
+        if (! $this->isPublicRegistrationEnabled() && ! app()->environment(['local', 'testing'])) {
             abort(404);
         }
 
@@ -35,7 +36,7 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        if (!config('auth.allow_public_registration') && !app()->environment(['local', 'testing'])) {
+        if (! $this->isPublicRegistrationEnabled() && ! app()->environment(['local', 'testing'])) {
             abort(404);
         }
 
@@ -52,12 +53,19 @@ class RegisteredUserController extends Controller
             'phone_number' => $request->phone_number,
             'profile_photo_path' => 'seed/profile-placeholder.svg',
             'password' => Hash::make($request->password),
+            'role' => 'murid',
+            'email_verified_at' => now(),
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect(route('pwa.home', absolute: false));
+    }
+
+    private function isPublicRegistrationEnabled(): bool
+    {
+        return app(SystemSettingService::class)->getBool(SystemSettingService::KEY_ALLOW_PUBLIC_REGISTRATION);
     }
 }

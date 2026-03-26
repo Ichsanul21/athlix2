@@ -32,6 +32,11 @@ abstract class Controller
             return $query->whereIn('id', $athleteIds);
         }
 
+        if ($user->isParent()) {
+            $athleteIds = $user->guardianAthletes()->pluck('athletes.id');
+            return $query->whereIn('id', $athleteIds);
+        }
+
         if ($user->isMurid() && $user->athlete_id) {
             return $query->whereKey($user->athlete_id);
         }
@@ -55,6 +60,14 @@ abstract class Controller
 
         if ($user->isSensei()) {
             $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
+            if (! $allowed) {
+                abort(403);
+            }
+            return;
+        }
+
+        if ($user->isParent()) {
+            $allowed = $user->guardianAthletes()->whereKey($athlete->id)->exists();
             if (! $allowed) {
                 abort(403);
             }

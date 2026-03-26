@@ -1,18 +1,64 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { CreditCard, ArrowUpRight, ArrowDownLeft, Search, MessageCircle, Check, HandCoins } from 'lucide-react';
+import { CreditCard, ArrowUpRight, ArrowDownLeft, Search, MessageCircle, Check, HandCoins, Settings2 } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { Button } from '@/Components/ui/button';
 import Modal from '@/Components/Modal';
 import { useEffect, useMemo, useState } from 'react';
 
-export default function Index({ auth, records, filters, adminFee = 5000, flash, athletes = [], dojos = [], selectedDojoId = null }) {
+const DYNAMIC_BILLING_BASE = '/finance-api/billing/dynamic';
+
+export default function Index({
+    auth,
+    records,
+    filters,
+    adminFee = 5000,
+    flash,
+    athletes = [],
+    dojos = [],
+    selectedDojoId = null,
+    billingDefaults = [],
+    billingOverrides = [],
+    overrideRequests = [],
+    canManageDynamicBilling = false,
+    canRequestDynamicBilling = false,
+}) {
     const [search, setSearch] = useState(filters?.search || '');
     const [confirmationModal, setConfirmationModal] = useState({ show: false, action: null, record: null });
     const [customModal, setCustomModal] = useState({ show: false, record: null });
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
+    const [dynamicDefaults, setDynamicDefaults] = useState(billingDefaults || []);
+    const [dynamicOverrides, setDynamicOverrides] = useState(billingOverrides || []);
+    const [dynamicOverrideRequests, setDynamicOverrideRequests] = useState(overrideRequests || []);
+    const [dynamicLoading, setDynamicLoading] = useState(false);
+    const [dynamicError, setDynamicError] = useState('');
+    const [dynamicSuccess, setDynamicSuccess] = useState('');
+    const [requestLoading, setRequestLoading] = useState(false);
+    const [reviewLoadingId, setReviewLoadingId] = useState(null);
+    const [defaultForm, setDefaultForm] = useState({
+        monthly_fee: '',
+        class_note: '',
+        effective_from: '',
+        effective_to: '',
+    });
+    const [overrideForm, setOverrideForm] = useState({
+        athlete_id: '',
+        override_mode: 'discount_amount',
+        override_value: '',
+        reason: '',
+        valid_from: '',
+        valid_to: '',
+    });
+    const [overrideRequestForm, setOverrideRequestForm] = useState({
+        athlete_id: '',
+        override_mode: 'discount_amount',
+        override_value: '',
+        reason: '',
+        valid_from: '',
+        valid_to: '',
+    });
     const {
         data: customForm,
         setData: setCustomForm,
@@ -29,6 +75,15 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
     useEffect(() => {
         setDojoId(selectedDojoId || '');
     }, [selectedDojoId]);
+
+    useEffect(() => {
+        setDynamicDefaults(billingDefaults || []);
+        setDynamicOverrides(billingOverrides || []);
+    }, [billingDefaults, billingOverrides]);
+
+    useEffect(() => {
+        setDynamicOverrideRequests(overrideRequests || []);
+    }, [overrideRequests]);
 
     const filteredRecords = useMemo(() => {
         const normalized = search.trim().toLowerCase();
@@ -47,6 +102,302 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
             return candidateValues.some((value) => value.includes(normalized));
         });
     }, [sourceRecords, search]);
+
+    const resolveTenantId = () => {
+        const fromSelect = Number(dojoId || 0);
+        if (fromSelect > 0) return fromSelect;
+
+        const fromInitial = Number(selectedDojoId || 0);
+        if (fromInitial > 0) return fromInitial;
+
+        const fromUser = Number(auth?.user?.dojo_id || 0);
+        return fromUser > 0 ? fromUser : 0;
+    };
+
+    const parseApiError = async (response, fallbackMessage) => {
+        const payload = await response.json().catch(() => ({}));
+        if (payload?.errors) {
+            const firstErrorKey = Object.keys(payload.errors)[0];
+            if (firstErrorKey && payload.errors[firstErrorKey]?.[0]) {
+                return payload.errors[firstErrorKey][0];
+            }
+        }
+
+        return payload?.message || fallbackMessage;
+    };
+
+    const csrfToken = typeof document !== 'undefined'
+        ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        : null;
+
+    const jsonHeaders = (includeBody = false) => ({
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(includeBody ? { 'Content-Type': 'application/json' } : {}),
+        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+    });
+
+    const fetchDynamicBillingData = async () => {
+        if (!canManageDynamicBilling) return;
+        const tenantId = resolveTenantId();
+        if (tenantId <= 0) return;
+
+        setDynamicLoading(true);
+        setDynamicError('');
+        try {
+            const [defaultsResponse, overridesResponse] = await Promise.all([
+                fetch(`${DYNAMIC_BILLING_BASE}/defaults?tenant_id=${tenantId}`, {
+                    headers: jsonHeaders(),
+                    credentials: 'same-origin',
+                }),
+                fetch(`${DYNAMIC_BILLING_BASE}/overrides?tenant_id=${tenantId}`, {
+                    headers: jsonHeaders(),
+                    credentials: 'same-origin',
+                }),
+            ]);
+
+            if (!defaultsResponse.ok || !overridesResponse.ok) {
+                setDynamicError('Gagal memuat data dynamic billing.');
+                return;
+            }
+
+            const defaultsPayload = await defaultsResponse.json();
+            const overridesPayload = await overridesResponse.json();
+
+            setDynamicDefaults(defaultsPayload?.items || []);
+            setDynamicOverrides(overridesPayload?.items || []);
+        } catch (error) {
+            setDynamicError('Terjadi gangguan saat mengambil data dynamic billing.');
+        } finally {
+            setDynamicLoading(false);
+        }
+    };
+
+    const fetchOverrideRequests = async () => {
+        if (!canManageDynamicBilling && !canRequestDynamicBilling) return;
+
+        const tenantId = resolveTenantId();
+        if (tenantId <= 0) return;
+
+        try {
+            const response = await fetch(`${DYNAMIC_BILLING_BASE}/override-requests?tenant_id=${tenantId}&limit=40`, {
+                headers: jsonHeaders(),
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const payload = await response.json().catch(() => ({}));
+            setDynamicOverrideRequests(payload?.items || []);
+        } catch (error) {
+            // Intentionally noop, page still renders server-provided fallback data.
+        }
+    };
+
+    useEffect(() => {
+        if (!canManageDynamicBilling) return;
+        fetchDynamicBillingData();
+    }, [dojoId, selectedDojoId, canManageDynamicBilling]);
+
+    useEffect(() => {
+        if (!canManageDynamicBilling && !canRequestDynamicBilling) return;
+        fetchOverrideRequests();
+    }, [dojoId, selectedDojoId, canManageDynamicBilling, canRequestDynamicBilling]);
+
+    const submitDefaultRule = async (event) => {
+        event.preventDefault();
+        const tenantId = resolveTenantId();
+        if (tenantId <= 0) {
+            setDynamicError('Tenant dojo belum dipilih.');
+            return;
+        }
+
+        setDynamicLoading(true);
+        setDynamicError('');
+        setDynamicSuccess('');
+
+        try {
+            const response = await fetch(`${DYNAMIC_BILLING_BASE}/defaults`, {
+                method: 'POST',
+                headers: jsonHeaders(true),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    tenant_id: tenantId,
+                    monthly_fee: Number(defaultForm.monthly_fee),
+                    class_note: defaultForm.class_note || null,
+                    effective_from: defaultForm.effective_from || null,
+                    effective_to: defaultForm.effective_to || null,
+                }),
+            });
+
+            if (!response.ok) {
+                const message = await parseApiError(response, 'Gagal menyimpan default billing.');
+                setDynamicError(message);
+                return;
+            }
+
+            setDynamicSuccess('Default billing berhasil disimpan.');
+            setDefaultForm({
+                monthly_fee: '',
+                class_note: '',
+                effective_from: '',
+                effective_to: '',
+            });
+            await fetchDynamicBillingData();
+        } catch (error) {
+            setDynamicError('Terjadi gangguan saat menyimpan default billing.');
+        } finally {
+            setDynamicLoading(false);
+        }
+    };
+
+    const submitOverrideRule = async (event) => {
+        event.preventDefault();
+        const tenantId = resolveTenantId();
+        if (tenantId <= 0) {
+            setDynamicError('Tenant dojo belum dipilih.');
+            return;
+        }
+
+        if (!overrideForm.athlete_id) {
+            setDynamicError('Pilih atlet terlebih dahulu untuk override.');
+            return;
+        }
+
+        setDynamicLoading(true);
+        setDynamicError('');
+        setDynamicSuccess('');
+
+        try {
+            const response = await fetch(`${DYNAMIC_BILLING_BASE}/overrides`, {
+                method: 'POST',
+                headers: jsonHeaders(true),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    tenant_id: tenantId,
+                    athlete_id: Number(overrideForm.athlete_id),
+                    override_mode: overrideForm.override_mode,
+                    override_value: Number(overrideForm.override_value),
+                    reason: overrideForm.reason || null,
+                    valid_from: overrideForm.valid_from || null,
+                    valid_to: overrideForm.valid_to || null,
+                }),
+            });
+
+            if (!response.ok) {
+                const message = await parseApiError(response, 'Gagal menyimpan athlete override.');
+                setDynamicError(message);
+                return;
+            }
+
+            setDynamicSuccess('Override billing atlet berhasil disimpan.');
+            setOverrideForm({
+                athlete_id: '',
+                override_mode: 'discount_amount',
+                override_value: '',
+                reason: '',
+                valid_from: '',
+                valid_to: '',
+            });
+            await fetchDynamicBillingData();
+        } catch (error) {
+            setDynamicError('Terjadi gangguan saat menyimpan override billing.');
+        } finally {
+            setDynamicLoading(false);
+        }
+    };
+
+    const submitOverrideRequest = async (event) => {
+        event.preventDefault();
+        const tenantId = resolveTenantId();
+        if (tenantId <= 0) {
+            setDynamicError('Tenant dojo belum dipilih.');
+            return;
+        }
+
+        if (!overrideRequestForm.athlete_id) {
+            setDynamicError('Pilih atlet terlebih dahulu untuk pengajuan override.');
+            return;
+        }
+
+        setRequestLoading(true);
+        setDynamicError('');
+        setDynamicSuccess('');
+
+        try {
+            const response = await fetch(`${DYNAMIC_BILLING_BASE}/override-requests`, {
+                method: 'POST',
+                headers: jsonHeaders(true),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    tenant_id: tenantId,
+                    athlete_id: Number(overrideRequestForm.athlete_id),
+                    override_mode: overrideRequestForm.override_mode,
+                    override_value: Number(overrideRequestForm.override_value),
+                    reason: overrideRequestForm.reason || null,
+                    valid_from: overrideRequestForm.valid_from || null,
+                    valid_to: overrideRequestForm.valid_to || null,
+                }),
+            });
+
+            if (!response.ok) {
+                const message = await parseApiError(response, 'Gagal mengirim pengajuan override.');
+                setDynamicError(message);
+                return;
+            }
+
+            setDynamicSuccess('Pengajuan override berhasil dikirim. Menunggu approval dojo admin.');
+            setOverrideRequestForm({
+                athlete_id: '',
+                override_mode: 'discount_amount',
+                override_value: '',
+                reason: '',
+                valid_from: '',
+                valid_to: '',
+            });
+            await fetchOverrideRequests();
+        } catch (error) {
+            setDynamicError('Terjadi gangguan saat mengirim pengajuan override.');
+        } finally {
+            setRequestLoading(false);
+        }
+    };
+
+    const reviewOverrideRequest = async (requestId, decision) => {
+        setReviewLoadingId(requestId);
+        setDynamicError('');
+        setDynamicSuccess('');
+
+        try {
+            const response = await fetch(`${DYNAMIC_BILLING_BASE}/override-requests/${requestId}/review`, {
+                method: 'PATCH',
+                headers: jsonHeaders(true),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    decision,
+                }),
+            });
+
+            if (!response.ok) {
+                const message = await parseApiError(response, 'Gagal memproses pengajuan override.');
+                setDynamicError(message);
+                return;
+            }
+
+            setDynamicSuccess(decision === 'approved'
+                ? 'Pengajuan override disetujui dan langsung diterapkan.'
+                : 'Pengajuan override ditolak.');
+
+            await fetchDynamicBillingData();
+            await fetchOverrideRequests();
+        } catch (error) {
+            setDynamicError('Terjadi gangguan saat memproses pengajuan override.');
+        } finally {
+            setReviewLoadingId(null);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -73,21 +424,42 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
         currency: 'IDR',
         maximumFractionDigits: 0,
     }).format(amount || 0);
+    const showOverrideRequestForm = canRequestDynamicBilling && !canManageDynamicBilling;
+    const statusBadgeClass = (status) => {
+        if (status === 'approved') {
+            return 'bg-green-100 text-green-700';
+        }
+        if (status === 'rejected') {
+            return 'bg-red-100 text-red-700';
+        }
+        return 'bg-amber-100 text-amber-700';
+    };
 
     const closeModal = () => setConfirmationModal({ show: false, action: null, record: null });
 
     const confirmAction = () => {
         if (confirmationModal.action === 'generate') {
+            if (!canManageDynamicBilling) {
+                closeModal();
+                return;
+            }
             router.post(route('finance.generate'), dojoId ? { dojo_id: dojoId } : {}, { onFinish: closeModal });
             return;
         }
 
         if (confirmationModal.action === 'markPaid' && confirmationModal.record) {
+            if (!canManageDynamicBilling) {
+                closeModal();
+                return;
+            }
             router.patch(route('finance.update', confirmationModal.record.id), {}, { onFinish: closeModal });
         }
     };
 
     const openCustomModal = (record) => {
+        if (!canManageDynamicBilling) {
+            return;
+        }
         setCustomModal({ show: true, record });
         clearCustomErrors();
         setCustomForm({
@@ -98,7 +470,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
     };
 
     const submitCustomNominal = () => {
-        if (!customModal.record) return;
+        if (!customModal.record || !canManageDynamicBilling) return;
         postCustomNominal(route('finance.customize', customModal.record.id), {
             preserveScroll: true,
             data: {
@@ -166,6 +538,283 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                         </Card>
                     </div>
 
+                    {canManageDynamicBilling && (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                    <Settings2 size={14} className="text-athlix-red" />
+                                    Dynamic Billing Rules
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6 space-y-5">
+                                {(dynamicError || dynamicSuccess) && (
+                                    <div className={`rounded-xl border px-3 py-2 text-sm ${
+                                        dynamicError
+                                            ? 'border-red-200 bg-red-50 text-red-700'
+                                            : 'border-green-200 bg-green-50 text-green-700'
+                                    }`}>
+                                        {dynamicError || dynamicSuccess}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <form onSubmit={submitDefaultRule} className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
+                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Default Bulanan</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                placeholder="Nominal (IDR)"
+                                                value={defaultForm.monthly_fee}
+                                                onChange={(e) => setDefaultForm((prev) => ({ ...prev, monthly_fee: e.target.value }))}
+                                                required
+                                            />
+                                            <Input
+                                                type="text"
+                                                placeholder="Class note (opsional)"
+                                                value={defaultForm.class_note}
+                                                onChange={(e) => setDefaultForm((prev) => ({ ...prev, class_note: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                                type="date"
+                                                value={defaultForm.effective_from}
+                                                onChange={(e) => setDefaultForm((prev) => ({ ...prev, effective_from: e.target.value }))}
+                                            />
+                                            <Input
+                                                type="date"
+                                                value={defaultForm.effective_to}
+                                                onChange={(e) => setDefaultForm((prev) => ({ ...prev, effective_to: e.target.value }))}
+                                            />
+                                        </div>
+                                        <Button type="submit" size="sm" disabled={dynamicLoading}>
+                                            {dynamicLoading ? 'Menyimpan...' : 'Simpan Default'}
+                                        </Button>
+                                    </form>
+
+                                    <form onSubmit={submitOverrideRule} className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
+                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Override Atlet</p>
+                                        <select
+                                            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                            value={overrideForm.athlete_id}
+                                            onChange={(e) => setOverrideForm((prev) => ({ ...prev, athlete_id: e.target.value }))}
+                                            required
+                                        >
+                                            <option value="">Pilih Atlet</option>
+                                            {athletes.map((athlete) => (
+                                                <option key={athlete.id} value={athlete.id}>
+                                                    {athlete.full_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <select
+                                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                                value={overrideForm.override_mode}
+                                                onChange={(e) => setOverrideForm((prev) => ({ ...prev, override_mode: e.target.value }))}
+                                            >
+                                                <option value="fixed">Fixed</option>
+                                                <option value="discount_amount">Diskon Nominal</option>
+                                                <option value="discount_percent">Diskon Persen</option>
+                                            </select>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                placeholder="Nilai override"
+                                                value={overrideForm.override_value}
+                                                onChange={(e) => setOverrideForm((prev) => ({ ...prev, override_value: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                        <Input
+                                            type="text"
+                                            placeholder="Alasan override"
+                                            value={overrideForm.reason}
+                                            onChange={(e) => setOverrideForm((prev) => ({ ...prev, reason: e.target.value }))}
+                                        />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                                type="date"
+                                                value={overrideForm.valid_from}
+                                                onChange={(e) => setOverrideForm((prev) => ({ ...prev, valid_from: e.target.value }))}
+                                            />
+                                            <Input
+                                                type="date"
+                                                value={overrideForm.valid_to}
+                                                onChange={(e) => setOverrideForm((prev) => ({ ...prev, valid_to: e.target.value }))}
+                                            />
+                                        </div>
+                                        <Button type="submit" size="sm" disabled={dynamicLoading}>
+                                            {dynamicLoading ? 'Menyimpan...' : 'Simpan Override'}
+                                        </Button>
+                                    </form>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
+                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Default Aktif</p>
+                                        {dynamicDefaults.length > 0 ? dynamicDefaults.slice(0, 8).map((item) => (
+                                            <div key={item.id} className="rounded-xl border border-neutral-100 dark:border-neutral-800 px-3 py-2 text-xs">
+                                                <p className="font-bold">Rp {Number(item.monthly_fee || 0).toLocaleString('id-ID')}</p>
+                                                <p className="text-neutral-500">Class: {item.class_note || '-'}</p>
+                                                <p className="text-neutral-500">Periode: {item.effective_from || '-'} s/d {item.effective_to || '-'}</p>
+                                            </div>
+                                        )) : (
+                                            <p className="text-sm text-neutral-400">Belum ada default billing.</p>
+                                        )}
+                                    </div>
+
+                                    <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
+                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Override Terbaru</p>
+                                        {dynamicOverrides.length > 0 ? dynamicOverrides.slice(0, 8).map((item) => (
+                                            <div key={item.id} className="rounded-xl border border-neutral-100 dark:border-neutral-800 px-3 py-2 text-xs">
+                                                <p className="font-bold">{item.athlete?.full_name || '-'}</p>
+                                                <p className="text-neutral-500">Mode: {item.override_mode} | Nilai: {Number(item.override_value || 0).toLocaleString('id-ID')}</p>
+                                                <p className="text-neutral-500">Periode: {item.valid_from || '-'} s/d {item.valid_to || '-'}</p>
+                                            </div>
+                                        )) : (
+                                            <p className="text-sm text-neutral-400">Belum ada override billing.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {(showOverrideRequestForm || canManageDynamicBilling) && (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">
+                                    {canManageDynamicBilling ? 'Approval Pengajuan Override' : 'Ajukan Override Billing'}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6 space-y-4">
+                                {!canManageDynamicBilling && (dynamicError || dynamicSuccess) && (
+                                    <div className={`rounded-xl border px-3 py-2 text-sm ${
+                                        dynamicError
+                                            ? 'border-red-200 bg-red-50 text-red-700'
+                                            : 'border-green-200 bg-green-50 text-green-700'
+                                    }`}>
+                                        {dynamicError || dynamicSuccess}
+                                    </div>
+                                )}
+
+                                {showOverrideRequestForm && (
+                                    <form onSubmit={submitOverrideRequest} className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
+                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Form Pengajuan</p>
+                                        <select
+                                            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                            value={overrideRequestForm.athlete_id}
+                                            onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, athlete_id: e.target.value }))}
+                                            required
+                                        >
+                                            <option value="">Pilih Atlet</option>
+                                            {athletes.map((athlete) => (
+                                                <option key={athlete.id} value={athlete.id}>
+                                                    {athlete.full_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <select
+                                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                                value={overrideRequestForm.override_mode}
+                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, override_mode: e.target.value }))}
+                                            >
+                                                <option value="fixed">Fixed</option>
+                                                <option value="discount_amount">Diskon Nominal</option>
+                                                <option value="discount_percent">Diskon Persen</option>
+                                            </select>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                placeholder="Nilai override"
+                                                value={overrideRequestForm.override_value}
+                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, override_value: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                        <Input
+                                            type="text"
+                                            placeholder="Alasan pengajuan"
+                                            value={overrideRequestForm.reason}
+                                            onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, reason: e.target.value }))}
+                                        />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                                type="date"
+                                                value={overrideRequestForm.valid_from}
+                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, valid_from: e.target.value }))}
+                                            />
+                                            <Input
+                                                type="date"
+                                                value={overrideRequestForm.valid_to}
+                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, valid_to: e.target.value }))}
+                                            />
+                                        </div>
+                                        <Button type="submit" size="sm" disabled={requestLoading}>
+                                            {requestLoading ? 'Mengirim...' : 'Kirim Pengajuan'}
+                                        </Button>
+                                    </form>
+                                )}
+
+                                <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
+                                    <p className="text-xs font-black uppercase tracking-widest text-neutral-500">
+                                        {canManageDynamicBilling ? 'Queue Pending' : 'Riwayat Pengajuan'}
+                                    </p>
+                                    {dynamicOverrideRequests.length > 0 ? dynamicOverrideRequests.map((item) => (
+                                        <div key={item.id} className="rounded-xl border border-neutral-100 dark:border-neutral-800 px-3 py-3 text-xs space-y-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="font-bold">{item.athlete?.full_name || '-'}</p>
+                                                <span className={`inline-flex items-center rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(item.status)}`}>
+                                                    {item.status}
+                                                </span>
+                                            </div>
+                                            <p className="text-neutral-500">Mode: {item.override_mode} | Nilai: {Number(item.override_value || 0).toLocaleString('id-ID')}</p>
+                                            <p className="text-neutral-500">Periode: {item.valid_from || '-'} s/d {item.valid_to || '-'}</p>
+                                            <p className="text-neutral-500">Pengaju: {item.requester?.name || '-'}</p>
+                                            {item.reviewer?.name && (
+                                                <p className="text-neutral-500">Reviewer: {item.reviewer?.name}</p>
+                                            )}
+                                            {item.review_note && (
+                                                <p className="text-neutral-500">Catatan: {item.review_note}</p>
+                                            )}
+
+                                            {canManageDynamicBilling && item.status === 'pending' && (
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() => reviewOverrideRequest(item.id, 'approved')}
+                                                        disabled={reviewLoadingId === item.id}
+                                                    >
+                                                        {reviewLoadingId === item.id ? 'Memproses...' : 'Approve'}
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => reviewOverrideRequest(item.id, 'rejected')}
+                                                        disabled={reviewLoadingId === item.id}
+                                                    >
+                                                        Reject
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )) : (
+                                        <p className="text-sm text-neutral-400">
+                                            {canManageDynamicBilling
+                                                ? 'Belum ada pengajuan override yang menunggu approval.'
+                                                : 'Belum ada pengajuan override.'}
+                                        </p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card className="border-neutral-200/80 dark:border-neutral-800">
                         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800">
                             <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Daftar Tagihan</CardTitle>
@@ -195,14 +844,16 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                                         ))}
                                     </select>
                                 )}
-                                <Button
-                                    onClick={() => setConfirmationModal({ show: true, action: 'generate', record: null })}
-                                    className="w-full sm:w-auto bg-athlix-black text-white hover:bg-athlix-black/90 text-xs font-bold uppercase tracking-widest whitespace-normal leading-tight"
-                                    size="sm"
-                                    disabled={dojos.length > 0 && !dojoId}
-                                >
-                                    Buat Tagihan Bulanan
-                                </Button>
+                                {canManageDynamicBilling && (
+                                    <Button
+                                        onClick={() => setConfirmationModal({ show: true, action: 'generate', record: null })}
+                                        className="w-full sm:w-auto bg-athlix-black text-white hover:bg-athlix-black/90 text-xs font-bold uppercase tracking-widest whitespace-normal leading-tight"
+                                        size="sm"
+                                        disabled={dojos.length > 0 && !dojoId}
+                                    >
+                                        Buat Tagihan Bulanan
+                                    </Button>
+                                )}
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -245,7 +896,7 @@ export default function Index({ auth, records, filters, adminFee = 5000, flash, 
                                                 <td className="px-6 py-4 text-xs font-mono text-neutral-500 whitespace-nowrap">{rec.due_date}</td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {rec.status === 'unpaid' && (
+                                                        {canManageDynamicBilling && rec.status === 'unpaid' && (
                                                             <>
                                                                 <button
                                                                     onClick={() => setConfirmationModal({ show: true, action: 'markPaid', record: rec })}

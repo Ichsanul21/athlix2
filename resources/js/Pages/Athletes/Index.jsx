@@ -10,14 +10,11 @@ import { useState } from 'react';
 export default function Index({ auth, athletes, flash, filters }) {
     const [search, setSearch] = useState(filters?.search || '');
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Prima': return 'bg-green-500/10 text-green-500 border-green-500/20';
-            case 'Pemulihan': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-            case 'Kelelahan': return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
-            case 'Cedera': return 'bg-red-500/10 text-red-500 border-red-500/20';
-            default: return 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20';
-        }
+    const getConditionTone = (percentage = 0) => {
+        if (percentage >= 85) return 'text-green-600';
+        if (percentage >= 70) return 'text-blue-600';
+        if (percentage >= 55) return 'text-yellow-600';
+        return 'text-red-600';
     };
 
     const isLoading = !athletes;
@@ -117,7 +114,7 @@ export default function Index({ auth, athletes, flash, filters }) {
                                         <th className="px-6 py-4">Nomor Tanding</th>
                                         <th className="px-6 py-4">Keterangan Kelas</th>
                                         <th className="px-6 py-4">Tanggal Lahir</th>
-                                        <th className="px-6 py-4">Status Kesehatan</th>
+                                        <th className="px-6 py-4">Kondisi Fisik</th>
                                         <th className="px-6 py-4 text-right">Aksi</th>
                                     </tr>
                                 </thead>
@@ -144,9 +141,14 @@ export default function Index({ auth, athletes, flash, filters }) {
                                                 {formatDate(athlete.dob)}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase border ${getStatusColor(athlete.health_status)}`}>
-                                                    {athlete.health_status}
-                                                </span>
+                                                <div className="min-w-[120px]">
+                                                    <p className={`text-xs font-black ${getConditionTone(athlete.physical_condition_percentage)}`}>
+                                                        {athlete.physical_condition_percentage ?? 0}%
+                                                    </p>
+                                                    <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
+                                                        <div className="h-full bg-athlix-red rounded-full" style={{ width: `${Math.max(0, Math.min(100, athlete.physical_condition_percentage ?? 0))}%` }} />
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <Link href={route('athletes.show', athlete.id)}>
@@ -183,10 +185,11 @@ export default function Index({ auth, athletes, flash, filters }) {
                                             <div>
                                                 <h3 className="font-bold text-base">{athlete.full_name}</h3>
                                                 <p className="text-xs text-neutral-500">{athlete.category} | {athlete.class_note || '-'}</p>
+                                                <p className="text-[11px] text-neutral-400">Status kemampuan: {athlete.ability_status || 'Belum Dinilai'}</p>
                                             </div>
                                         </div>
-                                        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold uppercase border ${getStatusColor(athlete.health_status)}`}>
-                                            {athlete.health_status}
+                                        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold uppercase border border-athlix-red/20 bg-athlix-red/5 ${getConditionTone(athlete.physical_condition_percentage)}`}>
+                                            {athlete.physical_condition_percentage ?? 0}%
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">

@@ -75,11 +75,20 @@ class DatabaseSeeder extends Seeder
         ];
 
         return collect($dojoBlueprints)->map(function (array $dojo) {
+            $subscriptionStart = now()->startOfMonth();
+            $subscriptionEnd = $subscriptionStart->copy()->addMonth()->subDay();
+
             return Dojo::create([
                 'name' => $dojo['name'],
                 'timezone' => $dojo['timezone'],
                 'attendance_secret' => Str::upper(Str::random(16)),
                 'is_active' => true,
+                'saas_plan_name' => 'Pro',
+                'billing_cycle_months' => 1,
+                'subscription_started_at' => $subscriptionStart->toDateString(),
+                'subscription_expires_at' => $subscriptionEnd->toDateString(),
+                'grace_period_ends_at' => $subscriptionEnd->copy()->addDays(7)->toDateString(),
+                'is_saas_blocked' => false,
             ]);
         });
     }

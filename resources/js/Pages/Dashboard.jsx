@@ -2,7 +2,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Skeleton } from '@/Components/ui/skeleton';
-import { Users, Dumbbell, Activity, CreditCard, Sparkles, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Users, Dumbbell, Activity, CreditCard, Sparkles, ChevronRight, CheckCircle2, HeartPulse, AlertTriangle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function Dashboard({
@@ -12,6 +12,9 @@ export default function Dashboard({
     nextTrainingReminder,
     attendanceSummary,
     recentAttendances = [],
+    wellnessSummary,
+    wellnessAlerts = [],
+    wellnessTrend = [],
     dojoName,
     dojos = [],
     selectedDojoId = null,
@@ -43,7 +46,10 @@ export default function Dashboard({
         dojoName === undefined ||
         nextTrainingReminder === undefined ||
         attendanceSummary === undefined ||
-        recentAttendances === undefined;
+        recentAttendances === undefined ||
+        wellnessSummary === undefined ||
+        wellnessAlerts === undefined ||
+        wellnessTrend === undefined;
 
     if (isLoading) {
         return (
@@ -72,16 +78,19 @@ export default function Dashboard({
                                     <Skeleton key={idx} className="h-16" />
                                 ))}
                             </div>
-                            <div className="md:col-span-4 space-y-3">
-                                <Skeleton className="h-48" />
-                                <Skeleton className="h-40" />
-                            </div>
+                        <div className="md:col-span-4 space-y-3">
+                            <Skeleton className="h-48" />
+                            <Skeleton className="h-40" />
+                            <Skeleton className="h-40" />
                         </div>
+                    </div>
                     </div>
                 </div>
             </AdminLayout>
         );
     }
+
+    const maxHighRiskCount = Math.max(1, ...wellnessTrend.map((item) => Number(item.high_risk_count || 0)));
 
     return (
         <AdminLayout
@@ -201,6 +210,102 @@ export default function Dashboard({
                         </div>
 
                         <div className="md:col-span-4 space-y-4 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
+                            <Card className="bg-white dark:bg-neutral-900/80 border-neutral-200/80 dark:border-neutral-800">
+                                <CardContent className="p-5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tren Wellness 7 Hari</p>
+                                        <Activity size={16} className="text-athlix-red" />
+                                    </div>
+                                    <p className="text-[11px] text-neutral-500">Merah: readiness rata-rata | Kuning: jumlah atlet high/very-high ACWR.</p>
+
+                                    {wellnessTrend.length > 0 ? (
+                                        <div className="space-y-2">
+                                            <div className="grid grid-cols-7 gap-1">
+                                                {wellnessTrend.map((item) => {
+                                                    const readinessHeight = Math.max(6, Math.round(Number(item.average_readiness || 0)));
+                                                    const riskHeight = Math.max(
+                                                        6,
+                                                        Math.round((Number(item.high_risk_count || 0) / maxHighRiskCount) * 100)
+                                                    );
+
+                                                    return (
+                                                        <div key={item.date} className="space-y-1">
+                                                            <div className="h-24 rounded-lg bg-neutral-50 dark:bg-neutral-900 px-1 py-1 flex items-end justify-center gap-1">
+                                                                <div
+                                                                    className="w-2 rounded bg-athlix-red/80"
+                                                                    style={{ height: `${readinessHeight}%` }}
+                                                                    title={`Readiness ${item.average_readiness}%`}
+                                                                />
+                                                                <div
+                                                                    className="w-2 rounded bg-amber-500/80"
+                                                                    style={{ height: `${riskHeight}%` }}
+                                                                    title={`High ACWR ${item.high_risk_count}`}
+                                                                />
+                                                            </div>
+                                                            <p className="text-[10px] text-center text-neutral-500">{item.label}</p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="flex items-center justify-between text-[11px] text-neutral-500">
+                                                <span>Avg readiness: {wellnessSummary?.average_readiness ?? 0}%</span>
+                                                <span>Max high ACWR/day: {maxHighRiskCount}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-neutral-400">Belum ada data tren wellness.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card className="bg-white dark:bg-neutral-900/80 border-neutral-200/80 dark:border-neutral-800">
+                                <CardContent className="p-5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Wellness Alert Monitor</p>
+                                        <HeartPulse size={16} className="text-athlix-red" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2">
+                                            <p className="text-[11px] text-neutral-500">Avg Readiness</p>
+                                            <p className="font-black text-athlix-red">{wellnessSummary?.average_readiness ?? 0}%</p>
+                                        </div>
+                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2">
+                                            <p className="text-[11px] text-neutral-500">Tracked</p>
+                                            <p className="font-black">{wellnessSummary?.tracked_athletes ?? 0}</p>
+                                        </div>
+                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2">
+                                            <p className="text-[11px] text-neutral-500">Low Readiness</p>
+                                            <p className="font-black">{wellnessSummary?.low_readiness_count ?? 0}</p>
+                                        </div>
+                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2">
+                                            <p className="text-[11px] text-neutral-500">High ACWR</p>
+                                            <p className="font-black">{wellnessSummary?.high_workload_count ?? 0}</p>
+                                        </div>
+                                    </div>
+
+                                    {wellnessAlerts.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {wellnessAlerts.slice(0, 4).map((alert, idx) => (
+                                                <div key={`${alert.athlete_code}-${alert.type}-${idx}`} className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 px-3 py-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <p className="text-xs font-bold">{alert.athlete_name}</p>
+                                                        <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-black ${
+                                                            alert.priority >= 3 ? 'text-athlix-red' : 'text-amber-600'
+                                                        }`}>
+                                                            <AlertTriangle size={12} />
+                                                            {alert.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-neutral-500">{alert.athlete_code} | {alert.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-neutral-400">Belum ada alert readiness/workload.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+
                             <Card className="bg-white dark:bg-neutral-900/80 border-neutral-200/80 dark:border-neutral-800">
                                 <CardContent className="p-5 space-y-2">
                                     <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Ringkasan Absensi Hari Ini</p>

@@ -15,6 +15,9 @@ export default function Index({ auth, athlete, flash }) {
     const [action, setAction] = useState('checkin');
     const [feedback, setFeedback] = useState('');
     const [mood, setMood] = useState('semangat');
+    const [absenceReason, setAbsenceReason] = useState('');
+    const [statusResult, setStatusResult] = useState(null);
+    const [statusSubmitting, setStatusSubmitting] = useState(false);
     const scannerRef = useRef(null);
 
     const stopScanner = () => {
@@ -29,6 +32,7 @@ export default function Index({ auth, athlete, flash }) {
     const startScanner = async () => {
         setScanResult(null);
         setScanError(null);
+        setStatusResult(null);
         setPermissionDenied(false);
         setScanning(true);
 
@@ -48,15 +52,15 @@ export default function Index({ auth, athlete, flash }) {
                             athlete_code: athlete?.athlete_code,
                             dojo_payload: decodedText,
                             action,
+                            check_in_feedback: action === 'checkin' ? feedback : '',
+                            check_in_mood: action === 'checkin' ? mood : '',
                             athlete_feedback: action === 'checkout' ? feedback : '',
                             athlete_mood: action === 'checkout' ? mood : '',
                         }, {
                             onSuccess: () => {
                                 setScanResult('success');
-                                if (action === 'checkout') {
-                                    setFeedback('');
-                                    setMood('semangat');
-                                }
+                                setFeedback('');
+                                setMood('semangat');
                             },
                             onError: (errors) => {
                                 setScanError(errors.dojo_payload || errors.athlete_code || 'QR dojo tidak valid atau absensi gagal.');
@@ -86,10 +90,29 @@ export default function Index({ auth, athlete, flash }) {
     }, []);
 
     useEffect(() => {
-        if (flash?.success) {
+        if (flash?.success && (flash.success.toLowerCase().includes('check-in') || flash.success.toLowerCase().includes('check-out'))) {
             setScanResult('success');
         }
     }, [flash]);
+
+    const submitAbsence = (status) => {
+        setStatusSubmitting(true);
+        router.post(route('attendance.mark-status'), {
+            athlete_code: athlete?.athlete_code,
+            status,
+            absence_reason: absenceReason,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setStatusResult(status === 'sick' ? 'Status sakit berhasil dikirim.' : 'Status izin berhasil dikirim.');
+                setAbsenceReason('');
+            },
+            onError: (errors) => {
+                setScanError(errors.status || errors.athlete_code || 'Gagal mengirim status absensi.');
+            },
+            onFinish: () => setStatusSubmitting(false),
+        });
+    };
 
     if (!athlete) {
         return (
@@ -143,22 +166,48 @@ export default function Index({ auth, athlete, flash }) {
                             <p className="text-sm text-neutral-500">{athlete.full_name} ({athlete.athlete_code})</p>
                         </div>
 
+                        {statusResult && (
+                            <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                                {statusResult}
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-2">
                             <Button variant={action === 'checkin' ? 'default' : 'outline'} onClick={() => setAction('checkin')}>Check-in</Button>
                             <Button variant={action === 'checkout' ? 'default' : 'outline'} onClick={() => setAction('checkout')}>Check-out</Button>
                         </div>
 
-                        {action === 'checkout' && (
-                            <Card className="p-4 space-y-3">
-                                <select className="w-full rounded-lg border px-3 py-2 text-sm" value={mood} onChange={(e) => setMood(e.target.value)}>
-                                    <option value="semangat">Semangat</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="lelah">Lelah</option>
-                                    <option value="drop">Drop</option>
-                                </select>
-                                <textarea className="w-full rounded-lg border px-3 py-2 text-sm min-h-20" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Feedback latihan hari ini..." />
-                            </Card>
-                        )}
+                        <Card className="p-4 space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-500">
+                                {action === 'checkin' ? 'Form Check-in' : 'Form Check-out'}
+                            </p>
+                            <select className="w-full rounded-lg border px-3 py-2 text-sm" value={mood} onChange={(e) => setMood(e.target.value)}>
+                                <option value="semangat">Semangat</option>
+                                <option value="normal">Normal</option>
+                                <option value="lelah">Lelah</option>
+                                <option value="drop">Drop</option>
+                            </select>
+                            <textarea
+                                className="w-full rounded-lg border px-3 py-2 text-sm min-h-20"
+                                value={feedback}
+                                onChange={(e) => setFeedback(e.target.value)}
+                                placeholder={action === 'checkin' ? 'Catatan kondisi awal sebelum latihan...' : 'Feedback latihan setelah sesi selesai...'}
+                            />
+                        </Card>
+
+                        <Card className="p-4 space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Tidak Hadir</p>
+                            <textarea
+                                className="w-full rounded-lg border px-3 py-2 text-sm min-h-16"
+                                placeholder="Alasan izin/sakit (opsional)"
+                                value={absenceReason}
+                                onChange={(e) => setAbsenceReason(e.target.value)}
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button type="button" variant="outline" disabled={statusSubmitting} onClick={() => submitAbsence('excused')}>Izin</Button>
+                                <Button type="button" variant="outline" disabled={statusSubmitting} onClick={() => submitAbsence('sick')}>Sakit</Button>
+                            </div>
+                        </Card>
 
                         <Card className="overflow-hidden border-neutral-200/80 dark:border-neutral-800 aspect-square relative shadow-lg">
                             <div id="qr-reader-dojo" className="w-full h-full bg-neutral-900"></div>

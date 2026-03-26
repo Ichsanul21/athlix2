@@ -21,7 +21,7 @@ export default defineConfig({
                 short_name: 'ATHLIX',
                 description: 'Dojo Management SaaS Platform',
                 theme_color: '#E61E32',
-                background_color: '#000000',
+                background_color: '#ffffff',
                 display: 'standalone',
                 orientation: 'portrait',
                 icons: [
@@ -38,6 +38,9 @@ export default defineConfig({
                 ]
             },
             workbox: {
+                skipWaiting: true,
+                clientsClaim: true,
+                cleanupOutdatedCaches: true,
                 navigateFallback: null,
             },
         })

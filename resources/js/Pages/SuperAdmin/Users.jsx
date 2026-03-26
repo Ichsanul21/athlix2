@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { useState } from 'react';
 
 export default function Users({ auth, users = [], dojos = [], athletes = [], flash }) {
@@ -126,7 +127,7 @@ export default function Users({ auth, users = [], dojos = [], athletes = [], fla
                                 <div className="min-w-0 flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-neutral-100 overflow-hidden flex items-center justify-center text-xs font-black">
                                         {user.profile_photo_path ? (
-                                            <img src={`/storage/${user.profile_photo_path}`} alt={user.name} className="w-full h-full object-cover" />
+                                            <img src={resolveMediaUrl(user.profile_photo_path)} alt={user.name} className="w-full h-full object-cover" />
                                         ) : (
                                             user.name?.charAt(0)
                                         )}

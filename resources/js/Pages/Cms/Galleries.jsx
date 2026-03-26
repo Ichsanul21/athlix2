@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { Images, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -71,7 +72,7 @@ export default function Galleries({ auth, galleries = [], flash }) {
                                 <div key={item.id} className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 bg-white dark:bg-neutral-900/40">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <img src={`/storage/${item.image_path}`} alt={item.title} className="w-16 h-16 rounded-lg object-cover border border-neutral-200 dark:border-neutral-800" />
+                                            <img src={resolveMediaUrl(item.image_path)} alt={item.title} className="w-16 h-16 rounded-lg object-cover border border-neutral-200 dark:border-neutral-800" />
                                             <div className="min-w-0">
                                                 <p className="font-bold text-neutral-900  truncate">{item.title}</p>
                                                 <p className="text-xs text-neutral-600 ">{item.caption || '-'}</p>

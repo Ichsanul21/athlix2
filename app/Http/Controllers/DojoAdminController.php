@@ -16,7 +16,11 @@ class DojoAdminController extends Controller
     public function senseiIndex()
     {
         $user = auth()->user();
-        $dojoId = $user?->dojo_id;
+        $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
+        $dojoId = $this->resolveDojoId($user, $requestedDojoId);
+        if ($user?->isSuperAdmin() && ! $dojoId) {
+            $dojoId = Dojo::query()->value('id');
+        }
 
         $senseis = User::query()
             ->where('role', 'sensei')
@@ -53,12 +57,18 @@ class DojoAdminController extends Controller
             'senseis' => Inertia::defer(fn () => $senseis),
             'athletes' => Inertia::defer(fn () => $athletes),
             'dojo' => Inertia::defer(fn () => $dojo),
+            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $dojoId),
         ]);
     }
 
     public function storeSensei(Request $request)
     {
-        $dojoId = auth()->user()?->dojo_id;
+        $user = auth()->user();
+        $dojoId = $this->resolveDojoId(
+            $user,
+            $user?->isSuperAdmin() ? ($request->dojo_id ? (int) $request->dojo_id : null) : null
+        );
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -66,6 +76,7 @@ class DojoAdminController extends Controller
             'phone_number' => 'required|string|max:20',
             'password' => 'required|string|min:8',
             'profile_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
         ]);
 
         if (!$dojoId) {
@@ -88,9 +99,10 @@ class DojoAdminController extends Controller
 
     public function updateSensei(Request $request, User $sensei)
     {
-        $dojoId = auth()->user()?->dojo_id;
+        $user = auth()->user();
+        $dojoId = $user?->dojo_id;
 
-        if ($sensei->role !== 'sensei' || $sensei->dojo_id !== $dojoId) {
+        if ($sensei->role !== 'sensei' || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $dojoId)) {
             abort(403);
         }
 
@@ -129,9 +141,10 @@ class DojoAdminController extends Controller
 
     public function destroySensei(User $sensei)
     {
-        $dojoId = auth()->user()?->dojo_id;
+        $user = auth()->user();
+        $dojoId = $user?->dojo_id;
 
-        if ($sensei->role !== 'sensei' || $sensei->dojo_id !== $dojoId) {
+        if ($sensei->role !== 'sensei' || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $dojoId)) {
             abort(403);
         }
 
@@ -146,9 +159,10 @@ class DojoAdminController extends Controller
 
     public function updateAssignments(Request $request, User $sensei)
     {
-        $dojoId = auth()->user()?->dojo_id;
+        $user = auth()->user();
+        $dojoId = $sensei->dojo_id;
 
-        if ($sensei->role !== 'sensei' || $sensei->dojo_id !== $dojoId) {
+        if ($sensei->role !== 'sensei' || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $user?->dojo_id)) {
             abort(403);
         }
 

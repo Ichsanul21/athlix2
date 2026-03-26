@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { ArrowLeft, Award, Trash2, FileText } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { useEffect } from 'react';
 
-export default function Show({ auth, athlete, performance, achievementHistory }) {
+export default function Show({ auth, athlete, performance, achievementHistory, latestReport }) {
     const COLORS = ['#DC2626', '#404040'];
 
     const isLoading = !athlete || !performance || !achievementHistory;
@@ -31,6 +32,30 @@ export default function Show({ auth, athlete, performance, achievementHistory })
         notes: '',
         certificate: null,
     });
+
+    const reportForm = useForm({
+        condition_percentage: latestReport?.condition_percentage ?? performance?.condition?.[0]?.value ?? 0,
+        stamina: latestReport?.stamina ?? performance?.categories?.find((item) => item.label === 'Stamina')?.score ?? 0,
+        balance: latestReport?.balance ?? performance?.categories?.find((item) => item.label === 'Keseimbangan')?.score ?? 0,
+        speed: latestReport?.speed ?? performance?.categories?.find((item) => item.label === 'Kecepatan')?.score ?? 0,
+        strength: latestReport?.strength ?? performance?.categories?.find((item) => item.label === 'Kekuatan')?.score ?? 0,
+        agility: latestReport?.agility ?? performance?.categories?.find((item) => item.label === 'Kelincahan')?.score ?? 0,
+        notes: latestReport?.notes ?? '',
+        recorded_at: latestReport?.recorded_at ?? new Date().toISOString().slice(0, 10),
+    });
+
+    useEffect(() => {
+        reportForm.setData({
+            condition_percentage: latestReport?.condition_percentage ?? performance?.condition?.[0]?.value ?? 0,
+            stamina: latestReport?.stamina ?? performance?.categories?.find((item) => item.label === 'Stamina')?.score ?? 0,
+            balance: latestReport?.balance ?? performance?.categories?.find((item) => item.label === 'Keseimbangan')?.score ?? 0,
+            speed: latestReport?.speed ?? performance?.categories?.find((item) => item.label === 'Kecepatan')?.score ?? 0,
+            strength: latestReport?.strength ?? performance?.categories?.find((item) => item.label === 'Kekuatan')?.score ?? 0,
+            agility: latestReport?.agility ?? performance?.categories?.find((item) => item.label === 'Kelincahan')?.score ?? 0,
+            notes: latestReport?.notes ?? '',
+            recorded_at: latestReport?.recorded_at ?? new Date().toISOString().slice(0, 10),
+        });
+    }, [latestReport?.id]);
 
     const formatBirthDate = (dateString) => {
         if (!dateString) return '-';
@@ -77,6 +102,14 @@ export default function Show({ auth, athlete, performance, achievementHistory })
             onSuccess: () => {
                 reset();
             },
+        });
+    };
+
+    const submitReport = (e) => {
+        e.preventDefault();
+
+        reportForm.post(route('athletes.reports.store', athlete.id), {
+            preserveScroll: true,
         });
     };
 
@@ -168,12 +201,12 @@ export default function Show({ auth, athlete, performance, achievementHistory })
                     </Card>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="bg-neutral-50/50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
+                        <Card className="min-w-0 bg-neutral-50/50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
                             <CardHeader className="pb-0">
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-600 ">Condition Atlet</CardTitle>
                             </CardHeader>
-                            <CardContent className="h-72 relative">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <CardContent className="h-72 relative min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                     <PieChart>
                                         <Pie
                                             data={performance.condition}
@@ -209,21 +242,94 @@ export default function Show({ auth, athlete, performance, achievementHistory })
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-neutral-50/50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
+                        <Card className="min-w-0 bg-neutral-50/50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
                             <CardHeader className="pb-0">
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-600 ">Skor Kemampuan Atlet</CardTitle>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-600 ">Skor Kemampuan Atlet (Diagram Jaring)</CardTitle>
                             </CardHeader>
-                            <CardContent className="h-72">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={categorySeries} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
-                                        <XAxis dataKey="label" fontSize={10} axisLine={false} tickLine={false} />
-                                        <YAxis fontSize={10} domain={[0, 100]} axisLine={false} tickLine={false} />
-                                        <Tooltip cursor={{ fill: 'transparent' }} />
-                                        <Bar dataKey="score" fill="#DC2626" radius={[6, 6, 0, 0]} barSize={20} />
-                                    </BarChart>
+                            <CardContent className="h-72 min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
+                                    <RadarChart data={categorySeries}>
+                                        <PolarGrid stroke="#88888833" />
+                                        <PolarAngleAxis dataKey="label" tick={{ fontSize: 10 }} />
+                                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                                        <Tooltip />
+                                        <Radar dataKey="score" stroke="#DC2626" fill="#DC2626" fillOpacity={0.3} />
+                                    </RadarChart>
                                 </ResponsiveContainer>
-                                <p className="text-xs text-center font-bold uppercase tracking-widest text-neutral-500  mt-1">Rata-rata skor: {averageScore}</p>
+                                <p className="text-xs text-center font-bold uppercase tracking-widest text-neutral-500  mt-1">
+                                    Rata-rata skor: {averageScore} | Status: {performance?.ability_status || 'Belum Dinilai'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Card className="border-neutral-200/80 dark:border-neutral-800 lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Input Rapor Kemampuan Atlet</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <form onSubmit={submitReport} className="space-y-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Kondisi Fisik (%)
+                                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.condition_percentage} onChange={(e) => reportForm.setData('condition_percentage', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Stamina
+                                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.stamina} onChange={(e) => reportForm.setData('stamina', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Keseimbangan
+                                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.balance} onChange={(e) => reportForm.setData('balance', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Kecepatan
+                                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.speed} onChange={(e) => reportForm.setData('speed', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Kekuatan
+                                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.strength} onChange={(e) => reportForm.setData('strength', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Kelincahan
+                                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.agility} onChange={(e) => reportForm.setData('agility', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1 md:col-span-2">
+                                            Tanggal Penilaian
+                                            <input type="date" className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
+                                        </label>
+                                    </div>
+                                    <label className="block text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                        Catatan Rapor
+                                        <textarea className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-sm min-h-20" value={reportForm.data.notes} onChange={(e) => reportForm.setData('notes', e.target.value)} placeholder="Catatan evaluasi teknik/mental/target latihan berikutnya..." />
+                                    </label>
+                                    {Object.values(reportForm.errors).length > 0 && (
+                                        <p className="text-xs text-athlix-red">Pastikan nilai rapor berada di rentang 0-100 dan tanggal penilaian valid.</p>
+                                    )}
+                                    <div className="flex justify-end">
+                                        <Button type="submit" disabled={reportForm.processing}>{reportForm.processing ? 'Menyimpan...' : 'Simpan Rapor'}</Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-neutral-200/80 dark:border-neutral-800 lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {categorySeries.map((item) => (
+                                    <div key={item.label} className="space-y-1">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-bold uppercase tracking-wider text-neutral-500">{item.label}</span>
+                                            <span className="font-black text-athlix-red">{item.score}</span>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-neutral-100 overflow-hidden">
+                                            <div className="h-full rounded-full bg-athlix-red" style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
+                                        </div>
+                                    </div>
+                                ))}
                             </CardContent>
                         </Card>
                     </div>

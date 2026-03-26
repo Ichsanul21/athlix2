@@ -3,17 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Athlete;
+use App\Models\AthleteBillingOverride;
+use App\Models\BillingDefault;
+use App\Models\BillingOverrideRequest;
 use App\Models\Dojo;
 use App\Models\FinanceAdjustment;
 use App\Models\FinanceRecord;
+use App\Services\Billing\DynamicBillingService;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 
 class FinanceController extends Controller
 {
     private const ADMIN_FEE = 5000;
-    private const BASE_FEE_PRIMA = 150000;
-    private const BASE_FEE_NON_PRIMA = 175000;
 
     public function index()
     {
@@ -82,11 +84,63 @@ class FinanceController extends Controller
                 ];
             });
 
+        $tenantId = (int) ($selectedDojoId ?? $user?->dojo_id);
+        $billingDefaults = collect();
+        $billingOverrides = collect();
+        $overrideRequests = collect();
+        $canManageDynamicBilling = (bool) ($user?->isSuperAdmin() || $user?->isDojoAdmin());
+        $canRequestDynamicBilling = (bool) ($user?->isCoachGroup() || $user?->isParent());
+
+        if ($tenantId > 0) {
+            $billingDefaults = BillingDefault::query()
+                ->where('tenant_id', $tenantId)
+                ->with('belt:id,name')
+                ->latest('effective_from')
+                ->latest('id')
+                ->get();
+
+            $billingOverrides = AthleteBillingOverride::query()
+                ->where('tenant_id', $tenantId)
+                ->with([
+                    'athlete:id,full_name,athlete_code',
+                    'creator:id,name',
+                ])
+                ->latest('id')
+                ->limit(40)
+                ->get();
+
+            $overrideRequestsQuery = BillingOverrideRequest::query()
+                ->where('tenant_id', $tenantId)
+                ->with([
+                    'athlete:id,full_name,athlete_code',
+                    'requester:id,name',
+                    'reviewer:id,name',
+                ])
+                ->latest('id');
+
+            if ($canManageDynamicBilling) {
+                $overrideRequests = (clone $overrideRequestsQuery)
+                    ->where('status', 'pending')
+                    ->limit(40)
+                    ->get();
+            } elseif ($canRequestDynamicBilling && $user) {
+                $overrideRequests = (clone $overrideRequestsQuery)
+                    ->where('requested_by', $user->id)
+                    ->limit(40)
+                    ->get();
+            }
+        }
+
         return Inertia::render('Finance/Index', [
             'records' => Inertia::defer(fn () => $records),
             'filters' => Inertia::defer(fn () => ['search' => $search]),
             'adminFee' => Inertia::defer(fn () => self::ADMIN_FEE),
             'athletes' => Inertia::defer(fn () => $athleteListQuery->get()),
+            'billingDefaults' => Inertia::defer(fn () => $billingDefaults),
+            'billingOverrides' => Inertia::defer(fn () => $billingOverrides),
+            'overrideRequests' => Inertia::defer(fn () => $overrideRequests),
+            'canManageDynamicBilling' => Inertia::defer(fn () => $canManageDynamicBilling),
+            'canRequestDynamicBilling' => Inertia::defer(fn () => $canRequestDynamicBilling),
             'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
@@ -94,7 +148,7 @@ class FinanceController extends Controller
 
     public function update(Request $request, FinanceRecord $finance)
     {
-        $this->ensureFinanceAccessible($finance);
+        $this->ensureFinanceManager($finance);
 
         $finance->update([
             'status' => 'paid',
@@ -106,7 +160,7 @@ class FinanceController extends Controller
 
     public function customize(Request $request, FinanceRecord $finance)
     {
-        $this->ensureFinanceAccessible($finance);
+        $this->ensureFinanceManager($finance);
 
         if (($request->input('source_athlete_id') ?? '') === '') {
             $request->merge(['source_athlete_id' => null]);
@@ -152,9 +206,13 @@ class FinanceController extends Controller
         return back()->with('success', 'Nominal tagihan berhasil dikustom untuk skema cross-subsidi.');
     }
 
-    public function generateMonthly()
+    public function generateMonthly(DynamicBillingService $billingService)
     {
         $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isDojoAdmin()) {
+            return back()->with('error', 'Hanya admin keuangan dojo yang dapat generate tagihan.');
+        }
+
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
 
@@ -162,59 +220,37 @@ class FinanceController extends Controller
             return back()->with('error', 'Pilih dojo terlebih dahulu sebelum menerbitkan tagihan.');
         }
 
-        $athleteQuery = Athlete::with(['physicalMetrics' => fn ($query) => $query->latest('recorded_at')]);
-        $athleteQuery = $this->scopeAthletesForUser($athleteQuery, $user);
-        if ($selectedDojoId) {
-            $athleteQuery->where('dojo_id', $selectedDojoId);
+        $tenantId = (int) ($selectedDojoId ?? $user?->dojo_id);
+        if ($tenantId <= 0) {
+            return back()->with('error', 'Tenant dojo tidak ditemukan untuk generate tagihan.');
         }
 
-        $athletes = $athleteQuery->get();
+        $run = $billingService->generateMonthlyInvoices(
+            $tenantId,
+            now()->startOfMonth(),
+            now()->endOfMonth(),
+            auth()->id(),
+            true
+        );
+
+        $invoiceCount = $run->invoices()->count();
         $monthName = now()->translatedFormat('F Y');
-        $dueDate = now()->endOfMonth()->format('Y-m-d');
-        
-        $count = 0;
-        foreach ($athletes as $athlete) {
-            $latestMetric = $athlete->physicalMetrics->first();
-            $isPrima = $latestMetric && $latestMetric->bmi >= 18.5 && $latestMetric->bmi <= 24.9;
-            $amount = $isPrima ? self::BASE_FEE_PRIMA : self::BASE_FEE_NON_PRIMA;
-            $conditionLabel = $isPrima ? 'Prima' : 'Tidak Prima';
 
-            // Check if already generated for this month to avoid duplicates
-            $exists = FinanceRecord::where('athlete_id', $athlete->id)
-                ->where('description', "Iuran Bulanan ({$conditionLabel}) - {$monthName}")
-                ->exists();
-                
-            if (!$exists) {
-                FinanceRecord::create([
-                    'athlete_id' => $athlete->id,
-                    'amount' => $amount,
-                    'description' => "Iuran Bulanan ({$conditionLabel}) - {$monthName}",
-                    'status' => 'unpaid',
-                    'due_date' => $dueDate,
-                ]);
-                $count++;
-            }
-        }
-
-        return back()->with('success', "Berhasil menerbitkan {$count} tagihan iuran bulan {$monthName}.");
+        return back()->with('success', "Berhasil menerbitkan {$invoiceCount} tagihan iuran bulan {$monthName}.");
     }
 
-    private function ensureFinanceAccessible(FinanceRecord $finance): void
+    private function ensureFinanceManager(FinanceRecord $finance): void
     {
         $user = auth()->user();
         if (! $user) {
             abort(403);
         }
 
-        if ($user->isSuperAdmin()) {
-            return;
+        if (! $user->isSuperAdmin() && ! $user->isDojoAdmin()) {
+            abort(403);
         }
 
-        if ($user->isSensei()) {
-            $allowed = $user->senseiAthletes()->whereKey($finance->athlete_id)->exists();
-            if (! $allowed) {
-                abort(403);
-            }
+        if ($user->isSuperAdmin()) {
             return;
         }
 

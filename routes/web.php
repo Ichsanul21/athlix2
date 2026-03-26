@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiAssistantController;
+use App\Http\Controllers\Api\V1\Billing\DynamicBillingController;
 use App\Http\Controllers\AthleteController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\DashboardController;
@@ -12,15 +13,17 @@ use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PhysicalConditionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PwaController;
+use App\Http\Controllers\SenpaiNotificationController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SuperAdminSystemSettingController;
 use App\Http\Controllers\TrainingProgramController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing.index');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware('role:super_admin,sensei')->group(function () {
+Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
+    Route::middleware('role:super_admin,sensei,head_coach,assistant,medical_staff,dojo_admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         Route::get('/attendance-logs', [AttendanceController::class, 'index'])->name('attendance.index');
@@ -35,11 +38,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/athletes/{athlete}', [AthleteController::class, 'show'])->name('athletes.show');
         Route::post('/athletes/{athlete}/achievements', [AthleteController::class, 'storeAchievement'])->name('athletes.achievements.store');
         Route::delete('/athletes/{athlete}/achievements/{achievement}', [AthleteController::class, 'destroyAchievement'])->name('athletes.achievements.destroy');
+        Route::post('/athletes/{athlete}/reports', [AthleteController::class, 'storeReport'])->name('athletes.reports.store');
 
         Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
         Route::post('/finance/generate', [FinanceController::class, 'generateMonthly'])->name('finance.generate');
         Route::patch('/finance/{finance}', [FinanceController::class, 'update'])->name('finance.update');
         Route::post('/finance/{finance}/customize', [FinanceController::class, 'customize'])->name('finance.customize');
+        Route::prefix('/finance-api/billing/dynamic')->group(function () {
+            Route::get('/defaults', [DynamicBillingController::class, 'defaults'])->name('finance-api.billing.defaults.index');
+            Route::post('/defaults', [DynamicBillingController::class, 'storeDefault'])->name('finance-api.billing.defaults.store');
+            Route::get('/overrides', [DynamicBillingController::class, 'overrides'])->name('finance-api.billing.overrides.index');
+            Route::post('/overrides', [DynamicBillingController::class, 'storeOverride'])->name('finance-api.billing.overrides.store');
+            Route::get('/override-requests', [DynamicBillingController::class, 'overrideRequests'])->name('finance-api.billing.override-requests.index');
+            Route::post('/override-requests', [DynamicBillingController::class, 'storeOverrideRequest'])->name('finance-api.billing.override-requests.store');
+            Route::patch('/override-requests/{overrideRequest}/review', [DynamicBillingController::class, 'reviewOverrideRequest'])->name('finance-api.billing.override-requests.review');
+            Route::post('/generate', [DynamicBillingController::class, 'generate'])->name('finance-api.billing.generate');
+            Route::get('/invoices', [DynamicBillingController::class, 'invoices'])->name('finance-api.billing.invoices.index');
+        });
 
         Route::get('/physical-condition', [PhysicalConditionController::class, 'index'])->name('physical-condition.index');
 
@@ -50,9 +65,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics.index');
         Route::get('/statistics/ppa-preview', [StatisticsController::class, 'ppaPreview'])->name('statistics.ppa-preview');
+        Route::post('/statistics/ppa-import', [StatisticsController::class, 'importPpa'])->name('statistics.ppa-import');
 
         Route::get('/ai-assistant', [AiAssistantController::class, 'index'])->name('ai-assistant.index');
         Route::post('/ai-assistant/chat', [AiAssistantController::class, 'chat'])->name('ai-assistant.chat');
+
+        Route::get('/senpai-notifications', [SenpaiNotificationController::class, 'index'])->name('senpai-notifications.index');
+        Route::post('/senpai-notifications', [SenpaiNotificationController::class, 'store'])->name('senpai-notifications.store');
+        Route::patch('/senpai-notifications/{notification}', [SenpaiNotificationController::class, 'update'])->name('senpai-notifications.update');
+        Route::delete('/senpai-notifications/{notification}', [SenpaiNotificationController::class, 'destroy'])->name('senpai-notifications.destroy');
     });
 
     Route::middleware('role:super_admin,landing_admin')->group(function () {
@@ -81,6 +102,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/super-admin/dojos', [DojoController::class, 'store'])->name('super-admin.dojos.store');
         Route::patch('/super-admin/dojos/{dojo}', [DojoController::class, 'update'])->name('super-admin.dojos.update');
         Route::delete('/super-admin/dojos/{dojo}', [DojoController::class, 'destroy'])->name('super-admin.dojos.destroy');
+
+        Route::get('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'index'])->name('super-admin.system-settings.index');
+        Route::patch('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'update'])->name('super-admin.system-settings.update');
     });
 
     Route::middleware('role:dojo_admin,super_admin')->group(function () {
@@ -91,8 +115,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
     });
 
-    Route::middleware('role:super_admin,sensei,murid')->group(function () {
+    Route::middleware('role:super_admin,sensei,head_coach,assistant,murid')->group(function () {
         Route::post('/attendance/scan-dojo', [AttendanceController::class, 'scanDojo'])->name('attendance.scan-dojo');
+        Route::post('/attendance/mark-status', [AttendanceController::class, 'markStatus'])->name('attendance.mark-status');
     });
 
     Route::middleware('role:murid')->group(function () {
@@ -100,14 +125,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/scan', [PwaController::class, 'scan'])->name('scan.index');
         Route::get('/schedule', [PwaController::class, 'schedule'])->name('schedule.index');
         Route::get('/billing', [PwaController::class, 'billing'])->name('billing.index');
+        Route::get('/kondisi-fisik', [PwaController::class, 'condition'])->name('condition.index');
         Route::get('/profile-pwa', [PwaController::class, 'profile'])->name('profile.pwa');
         Route::get('/personal-info', [PwaController::class, 'personalInfo'])->name('profile.info');
         Route::get('/achievement-history', [PwaController::class, 'achievementHistory'])->name('profile.achievements');
         Route::get('/settings', [PwaController::class, 'settings'])->name('profile.settings');
     });
+
+    Route::middleware('role:murid')->group(function () {
+        Route::post('/pwa-notifications/{notification}/read', [SenpaiNotificationController::class, 'markRead'])->name('pwa-notifications.read');
+        Route::get('/pwa-notifications/feed', [SenpaiNotificationController::class, 'feed'])->name('pwa-notifications.feed');
+    });
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'tenant.access'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

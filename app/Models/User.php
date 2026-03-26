@@ -4,14 +4,17 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Dojo;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -54,6 +57,23 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function sentNotifications()
+    {
+        return $this->hasMany(AthleteNotification::class, 'sender_id');
+    }
+
+    public function guardianAthletes(): BelongsToMany
+    {
+        return $this->belongsToMany(Athlete::class, 'athlete_guardians', 'guardian_user_id', 'athlete_id')
+            ->withPivot(['tenant_id', 'relation_type', 'is_primary', 'emergency_contact'])
+            ->withTimestamps();
+    }
+
+    public function notificationDevices(): HasMany
+    {
+        return $this->hasMany(NotificationDevice::class);
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';
@@ -69,13 +89,38 @@ class User extends Authenticatable
         return $this->role === 'sensei';
     }
 
+    public function isHeadCoach(): bool
+    {
+        return $this->role === 'head_coach';
+    }
+
+    public function isAssistant(): bool
+    {
+        return $this->role === 'assistant';
+    }
+
     public function isDojoAdmin(): bool
     {
         return $this->role === 'dojo_admin';
     }
 
+    public function isParent(): bool
+    {
+        return $this->role === 'parent';
+    }
+
+    public function isMedicalStaff(): bool
+    {
+        return $this->role === 'medical_staff';
+    }
+
     public function isMurid(): bool
     {
-        return $this->role === 'murid';
+        return in_array($this->role, ['murid', 'athlete'], true);
+    }
+
+    public function isCoachGroup(): bool
+    {
+        return $this->isSuperAdmin() || $this->isDojoAdmin() || $this->isHeadCoach() || $this->isSensei() || $this->isAssistant();
     }
 }

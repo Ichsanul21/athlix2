@@ -94,15 +94,27 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     };
 
     const addAgendaItem = () => {
+        const lastItem = data.agenda_items[data.agenda_items.length - 1];
+        const start_time = lastItem?.end_time || data.start_time || '';
+        const end_time = start_time ? addMinutesToTime(start_time, 15) : '';
+
         setData('agenda_items', [
             ...data.agenda_items,
-            { start_time: '', end_time: '', title: '', description: '' },
+            { start_time, end_time, title: '', description: '' },
         ]);
     };
 
     const updateAgendaItem = (index, field, value) => {
         const next = [...data.agenda_items];
+        const previousEnd = next[index]?.end_time;
         next[index] = { ...next[index], [field]: value };
+
+        if (field === 'end_time' && next[index + 1]) {
+            if (!next[index + 1].start_time || next[index + 1].start_time === previousEnd) {
+                next[index + 1] = { ...next[index + 1], start_time: value };
+            }
+        }
+
         setData('agenda_items', next);
     };
 
@@ -313,7 +325,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
             </div>
 
             <Modal show={isModalOpen} onClose={closeModal} maxWidth="2xl">
-                <div className="p-6">
+                <div className="p-6 sm:p-7">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-black uppercase tracking-tighter">
                             {editingProgram ? 'Edit Program Latihan' : 'Tambah Program Baru'}
@@ -444,4 +456,20 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
             </Modal>
         </AdminLayout>
     );
+}
+
+function addMinutesToTime(time, minutes) {
+    if (!time || !time.includes(':')) return '';
+
+    const [hourRaw, minuteRaw] = time.split(':');
+    const hour = Number(hourRaw);
+    const minute = Number(minuteRaw);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return '';
+
+    const total = (hour * 60) + minute + minutes;
+    const normalized = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const nextHour = String(Math.floor(normalized / 60)).padStart(2, '0');
+    const nextMinute = String(normalized % 60).padStart(2, '0');
+
+    return `${nextHour}:${nextMinute}`;
 }

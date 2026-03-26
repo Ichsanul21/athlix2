@@ -1,23 +1,32 @@
-import { Link } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { 
     Home, 
     Calendar,
     ScanLine,
-    CreditCard,
+    Activity,
     User,
     Download,
-    Bell,
-    Sun,
-    Moon
+    Bell
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { useTheme } from '@/Components/ThemeProvider';
+import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '@/Components/LanguageProvider';
+import LanguageSwitch from '@/Components/LanguageSwitch';
+import { registerWebNotificationDevice } from '@/lib/notificationDevice';
 
 export default function PwaLayout({ user, header, children }) {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [showInstallBanner, setShowInstallBanner] = useState(false);
     const [forceInstallModal, setForceInstallModal] = useState(false);
-    const { theme, toggleTheme } = useTheme();
+    const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+    const [popupNotification, setPopupNotification] = useState(null);
+    const [notificationPermission, setNotificationPermission] = useState(
+        typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+    );
+    const { t } = useLanguage();
+    const { props } = usePage();
+    const pwaNotifications = props?.pwaNotifications || { items: [], unread_count: 0, latest_popup: null };
+    const [notificationFeed, setNotificationFeed] = useState(pwaNotifications);
+    const latestKnownNotificationId = useRef(0);
 
     useEffect(() => {
         const handleInstallPrompt = (e) => {
@@ -47,6 +56,116 @@ export default function PwaLayout({ user, header, children }) {
         };
     }, []);
 
+    useEffect(() => {
+        if (!user) return;
+        if (!['murid', 'athlete', 'parent'].includes(String(user.role || '').toLowerCase())) return;
+        if (notificationPermission !== 'granted') return;
+
+        registerWebNotificationDevice();
+    }, [user?.id, user?.role, notificationPermission]);
+
+    useEffect(() => {
+        setNotificationFeed(pwaNotifications);
+    }, [pwaNotifications]);
+
+    useEffect(() => {
+        const maxId = Math.max(0, ...(notificationFeed?.items || []).map((item) => Number(item.id) || 0));
+        if (maxId > latestKnownNotificationId.current) {
+            latestKnownNotificationId.current = maxId;
+        }
+    }, [notificationFeed?.items]);
+
+    useEffect(() => {
+        if (!user || !['murid', 'athlete'].includes(String(user.role || '').toLowerCase())) {
+            return undefined;
+        }
+
+        let cancelled = false;
+
+        const fetchFeed = async () => {
+            try {
+                const response = await fetch(
+                    `${route('pwa-notifications.feed')}?since_id=${latestKnownNotificationId.current}`,
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                    }
+                );
+
+                if (!response.ok || cancelled) {
+                    return;
+                }
+
+                const payload = await response.json();
+                if (cancelled || !payload) {
+                    return;
+                }
+
+                if (Array.isArray(payload.items) && payload.items.length > 0) {
+                    for (const item of payload.items) {
+                        const nextId = Number(item?.id) || 0;
+                        if (nextId > latestKnownNotificationId.current) {
+                            latestKnownNotificationId.current = nextId;
+                        }
+
+                        if (!item?.is_read) {
+                            triggerNativeNotification(item, notificationPermission);
+                        }
+                    }
+                }
+
+                setNotificationFeed((previous) => {
+                    const currentItems = previous?.items || [];
+                    const incoming = Array.isArray(payload.items) ? payload.items : [];
+                    const merged = [...incoming, ...currentItems];
+                    const deduped = [];
+                    const seen = new Set();
+
+                    for (const item of merged) {
+                        const key = Number(item?.id) || 0;
+                        if (key <= 0 || seen.has(key)) continue;
+                        seen.add(key);
+                        deduped.push(item);
+                    }
+
+                    deduped.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+                    return {
+                        items: deduped,
+                        latest_popup: payload.latest_popup ?? previous?.latest_popup ?? null,
+                        unread_count: typeof payload.unread_count === 'number'
+                            ? payload.unread_count
+                            : deduped.filter((item) => !item.is_read).length,
+                    };
+                });
+            } catch (error) {
+                // noop
+            }
+        };
+
+        fetchFeed();
+        const intervalId = window.setInterval(fetchFeed, 20000);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+        };
+    }, [user?.id, user?.role, notificationPermission]);
+
+    useEffect(() => {
+        const latestPopup = notificationFeed?.latest_popup;
+        if (!latestPopup?.id) return;
+
+        const storageKey = `athlix_popup_seen_${latestPopup.id}`;
+        if (window.localStorage.getItem(storageKey)) return;
+        if (latestPopup.is_read) return;
+
+        setPopupNotification(latestPopup);
+    }, [notificationFeed?.latest_popup?.id]);
+
     const handleInstallClick = async () => {
         if (deferredPrompt) {
             deferredPrompt.prompt();
@@ -58,16 +177,59 @@ export default function PwaLayout({ user, header, children }) {
         }
     };
 
+    const markNotificationRead = (notificationId) => {
+        if (!notificationId) return;
+
+        setNotificationFeed((previous) => {
+            const nextItems = (previous?.items || []).map((item) => {
+                if (Number(item.id) === Number(notificationId)) {
+                    return { ...item, is_read: true };
+                }
+                return item;
+            });
+
+            return {
+                ...previous,
+                items: nextItems,
+                unread_count: Math.max(0, (previous?.unread_count || 0) - 1),
+            };
+        });
+
+        router.post(route('pwa-notifications.read', notificationId), {}, { preserveScroll: true, preserveState: true });
+    };
+
+    const requestNativePermission = async () => {
+        if (!('Notification' in window)) {
+            setNotificationPermission('unsupported');
+            return;
+        }
+
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+
+        if (permission === 'granted') {
+            registerWebNotificationDevice();
+        }
+    };
+
+    const closePopupNotification = () => {
+        if (popupNotification?.id) {
+            window.localStorage.setItem(`athlix_popup_seen_${popupNotification.id}`, '1');
+            markNotificationRead(popupNotification.id);
+        }
+        setPopupNotification(null);
+    };
+
     const tabs = [
-        { name: 'Home', route: 'pwa.home', icon: Home },
-        { name: 'Jadwal', route: 'schedule.index', icon: Calendar },
-        { name: 'Scan', route: 'scan.index', icon: ScanLine, isPrimary: true },
-        { name: 'Billing', route: 'billing.index', icon: CreditCard },
-        { name: 'Profile', route: 'profile.pwa', icon: User, subRoutes: 'profile.*' },
+        { name: t('common.home', 'Home'), route: 'pwa.home', icon: Home },
+        { name: t('common.schedule', 'Jadwal'), route: 'schedule.index', icon: Calendar },
+        { name: t('common.scan', 'Scan'), route: 'scan.index', icon: ScanLine, isPrimary: true },
+        { name: t('common.condition', 'Kondisi'), route: 'condition.index', icon: Activity },
+        { name: t('common.profile', 'Profile'), route: 'profile.pwa', icon: User, subRoutes: 'profile.*' },
     ];
 
     return (
-        <div className="min-h-[100dvh] bg-neutral-50 dark:bg-athlix-black text-athlix-black  flex flex-col relative font-sans selection:bg-athlix-red selection:text-white pb-safe transition-colors duration-300">
+        <div className="min-h-[100dvh] bg-neutral-50 text-athlix-black flex flex-col relative font-sans selection:bg-athlix-red selection:text-white pb-safe transition-colors duration-300">
             
             {/* Install Banner */}
             {showInstallBanner && (
@@ -77,8 +239,8 @@ export default function PwaLayout({ user, header, children }) {
                             <Download size={18} />
                         </div>
                         <div className="min-w-0">
-                            <span className="text-sm font-black uppercase tracking-widest block">Instal Aplikasi</span>
-                            <span className="text-[11px] opacity-80">Akses cepat dari layar utama</span>
+                            <span className="text-sm font-black uppercase tracking-widest block">{t('pwa.install_app', 'Instal Aplikasi')}</span>
+                            <span className="text-[11px] opacity-80">{t('pwa.quick_access', 'Akses cepat dari layar utama')}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -86,21 +248,73 @@ export default function PwaLayout({ user, header, children }) {
                             onClick={handleInstallClick}
                             className="bg-white text-athlix-red px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
                         >
-                            PASANG
+                            {t('common.install', 'Pasang')}
                         </button>
-                        <button onClick={() => setShowInstallBanner(false)} className="p-2 opacity-70 underline text-xs font-bold uppercase">Nanti</button>
+                        <button onClick={() => setShowInstallBanner(false)} className="p-2 opacity-70 underline text-xs font-bold uppercase">{t('common.later', 'Nanti')}</button>
                     </div>
                 </div>
             )}
 
             {forceInstallModal && (
                 <div className="fixed inset-0 z-[110] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-xl space-y-3">
+                    <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl space-y-3">
                         <h3 className="text-lg font-black tracking-tight">Install ATHLIX PWA</h3>
-                        <p className="text-sm text-neutral-600 ">Pasang aplikasi agar notifikasi, absensi, dan reminder berjalan optimal di perangkat kamu.</p>
+                        <p className="text-sm text-neutral-600 ">{t('pwa.install_modal_desc', 'Pasang aplikasi agar notifikasi, absensi, dan reminder berjalan optimal di perangkat kamu.')}</p>
                         <div className="flex gap-2 justify-end">
-                            <button onClick={() => setForceInstallModal(false)} className="px-4 py-2 rounded-xl border text-sm font-bold">Nanti</button>
-                            <button onClick={handleInstallClick} className="px-4 py-2 rounded-xl bg-athlix-red text-white text-sm font-bold">Install Sekarang</button>
+                            <button onClick={() => setForceInstallModal(false)} className="px-4 py-2 rounded-xl border text-sm font-bold">{t('common.later', 'Nanti')}</button>
+                            <button onClick={handleInstallClick} className="px-4 py-2 rounded-xl bg-athlix-red text-white text-sm font-bold">{t('pwa.install_now', 'Install Sekarang')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showNotificationPanel && (
+                <div className="fixed inset-0 z-[115] bg-black/35 backdrop-blur-sm flex items-start justify-end p-4" onClick={() => setShowNotificationPanel(false)}>
+                    <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl p-4 space-y-3" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-black uppercase tracking-widest">{t('pwa.notifications_title', 'Notifikasi Senpai')}</h3>
+                            <button onClick={() => setShowNotificationPanel(false)} className="text-xs font-bold text-neutral-400">{t('common.close', 'Tutup')}</button>
+                        </div>
+                        {notificationPermission !== 'granted' && (
+                            <div className="rounded-xl border border-athlix-red/20 bg-athlix-red/5 p-3 space-y-2">
+                                <p className="text-xs text-neutral-600">{t('pwa.enable_native_desc', 'Aktifkan notifikasi perangkat agar update senpai tampil native di perangkat.')}</p>
+                                <button
+                                    type="button"
+                                    onClick={requestNativePermission}
+                                    className="text-xs font-black uppercase tracking-widest text-athlix-red"
+                                >
+                                    {t('pwa.enable_native', 'Aktifkan Notifikasi Native')}
+                                </button>
+                            </div>
+                        )}
+                        <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                            {(notificationFeed?.items || []).length > 0 ? (notificationFeed.items.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => markNotificationRead(item.id)}
+                                    className={`w-full text-left rounded-xl border p-3 transition-colors ${item.is_read ? 'border-neutral-200 bg-neutral-50' : 'border-athlix-red/30 bg-athlix-red/5'}`}
+                                >
+                                    <p className="text-sm font-bold">{item.title}</p>
+                                    <p className="text-xs text-neutral-500 mt-1">{item.message}</p>
+                                    <p className="text-[11px] text-neutral-400 mt-1">{item.published_label}</p>
+                                </button>
+                            ))) : (
+                                <p className="text-sm text-neutral-400">{t('pwa.notifications_empty', 'Belum ada notifikasi.')}</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {popupNotification && (
+                <div className="fixed inset-0 z-[118] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-sm rounded-2xl bg-white p-5 space-y-3 shadow-xl">
+                        <p className="text-xs font-black uppercase tracking-widest text-athlix-red">{t('pwa.latest_notification', 'Notifikasi Terbaru')}</p>
+                        <h3 className="text-lg font-black">{popupNotification.title}</h3>
+                        <p className="text-sm text-neutral-600 ">{popupNotification.message}</p>
+                        <div className="flex justify-end">
+                            <button onClick={closePopupNotification} className="px-4 py-2 rounded-xl bg-athlix-red text-white text-sm font-bold">{t('common.close', 'Tutup')}</button>
                         </div>
                     </div>
                 </div>
@@ -111,27 +325,27 @@ export default function PwaLayout({ user, header, children }) {
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
                         <img src="/logo.png" alt="ATHLIX Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-athlix-red/20 object-cover transition-transform duration-300 hover:scale-105" />
-                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 animate-pulse"></div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
                     </div>
                     <div className="min-w-0">
                         <h1 className="text-sm sm:text-base font-black uppercase tracking-tight leading-none truncate">{header || 'ATHLIX'}</h1>
-                        <p className="text-xs font-bold text-neutral-400 uppercase tracking-[0.18em] mt-0.5 truncate">Dojo Management</p>
+                        <p className="text-xs font-bold text-neutral-400 uppercase tracking-[0.18em] mt-0.5 truncate">{t('pwa.dojo_management', 'Dojo Management')}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    {/* Dark/Light Toggle */}
+                    <LanguageSwitch compact />
                     <button
-                        onClick={toggleTheme}
-                        className="p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 transition-all duration-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-95 text-neutral-500 "
-                        aria-label="Toggle theme"
+                        onClick={() => setShowNotificationPanel(true)}
+                        className="text-neutral-400 p-2 rounded-xl border border-neutral-200/80 transition-all duration-300 hover:bg-neutral-100 active:scale-95 relative"
                     >
-                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
-                    <button className="text-neutral-400 p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 transition-all duration-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-95 relative">
                         <Bell size={18} />
-                        <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-athlix-red rounded-full"></div>
+                        {notificationFeed?.unread_count > 0 && (
+                            <div className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-athlix-red text-white text-[10px] font-black flex items-center justify-center">
+                                {notificationFeed.unread_count > 9 ? '9+' : notificationFeed.unread_count}
+                            </div>
+                        )}
                     </button>
-                    <div className="w-9 h-9 rounded-xl bg-athlix-red text-white flex items-center justify-center font-black text-xs shadow-md shadow-athlix-red/20 transition-transform duration-300 hover:scale-105 ring-2 ring-neutral-100 dark:ring-neutral-800 overflow-hidden">
+                    <div className="w-9 h-9 rounded-xl bg-athlix-red text-white flex items-center justify-center font-black text-xs shadow-md shadow-athlix-red/20 transition-transform duration-300 hover:scale-105 ring-2 ring-neutral-100 overflow-hidden">
                         {user?.profile_photo_url ? (
                             <img src={user.profile_photo_url} alt={user?.name || 'User'} className="w-full h-full object-cover" />
                         ) : (
@@ -148,7 +362,7 @@ export default function PwaLayout({ user, header, children }) {
 
             {/* Floating Premium Bottom Bar */}
             <div className="fixed bottom-3 sm:bottom-4 w-full px-3 sm:px-5 z-50 pointer-events-none">
-                <nav className="max-w-md mx-auto h-[68px] bg-neutral-900/95 dark:bg-neutral-800/95 backdrop-blur-2xl rounded-[26px] border border-white/10 shadow-nav-float flex items-center justify-between px-2 sm:px-3 pointer-events-auto transition-colors duration-300">
+                <nav className="max-w-md mx-auto h-[68px] bg-neutral-900/95 backdrop-blur-2xl rounded-[26px] border border-white/10 shadow-nav-float flex items-center justify-between px-2 sm:px-3 pointer-events-auto transition-colors duration-300">
                     {tabs.map((tab) => {
                         const isMainActive = route().current(tab.route);
                         const isActive = tab.subRoutes ? (route().current(tab.route) || route().current(tab.subRoutes)) : isMainActive;
@@ -160,10 +374,10 @@ export default function PwaLayout({ user, header, children }) {
                                     href={route(tab.route)}
                                     className="flex flex-col items-center justify-center relative -mt-8 shrink-0"
                                 >
-                                    <div className={`w-[56px] h-[56px] rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-500 border-4 border-neutral-100 dark:border-neutral-900 ${
+                                    <div className={`w-[56px] h-[56px] rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-500 border-4 border-neutral-100 ${
                                         isMainActive 
                                         ? 'bg-athlix-red text-white scale-110 shadow-athlix-red/40 animate-pulse-glow' 
-                                        : 'bg-white dark:bg-neutral-900 text-athlix-red hover:scale-105 active:scale-95'
+                                        : 'bg-white text-athlix-red hover:scale-105 active:scale-95'
                                     }`}>
                                         <tab.icon size={22} strokeWidth={2.5} />
                                     </div>
@@ -196,5 +410,25 @@ export default function PwaLayout({ user, header, children }) {
             </div>
         </div>
     );
+}
+
+function triggerNativeNotification(notification, permission) {
+    if (permission !== 'granted') return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    try {
+        const nativeNotification = new Notification(notification.title || 'Notifikasi ATHLIX', {
+            body: notification.message || '',
+            icon: '/logo.png',
+            tag: `athlix-notif-${notification.id}`,
+        });
+
+        nativeNotification.onclick = () => {
+            window.focus();
+            nativeNotification.close();
+        };
+    } catch (error) {
+        // noop
+    }
 }
 

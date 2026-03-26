@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Athlete;
 use App\Models\AthleteAchievement;
+use App\Models\AthleteReport;
 use App\Models\Belt;
 use App\Models\Dojo;
 use Illuminate\Http\Request;
@@ -20,9 +21,14 @@ class AthleteController extends Controller
         $athleteQuery = Athlete::with([
                 'belt',
                 'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
+                'latestReport',
             ]);
 
         $athleteQuery = $this->scopeAthletesForUser($athleteQuery, $user)
+            ->withCount([
+                'attendances as attendance_total',
+                'attendances as attendance_present' => fn ($query) => $query->where('status', 'present'),
+            ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
                     $nested
@@ -46,7 +52,29 @@ class AthleteController extends Controller
                 if (!$athlete->class_note) {
                     $athlete->class_note = 'Umum';
                 }
-                $athlete->health_status = $this->resolveHealthStatus($latestMetric?->bmi);
+                $attendanceTotal = (int) ($athlete->attendance_total ?? 0);
+                $attendancePresent = (int) ($athlete->attendance_present ?? 0);
+                $attendanceRate = $attendanceTotal > 0
+                    ? (int) round(($attendancePresent / $attendanceTotal) * 100)
+                    : 0;
+                $computedConditionScore = $this->resolveConditionScore($latestMetric?->bmi, $attendanceRate);
+                $athlete->physical_condition_percentage = (int) ($athlete->latestReport?->condition_percentage ?? $computedConditionScore);
+                $bmiScore = $this->resolveBmiScore($latestMetric?->bmi);
+                $defaultAbilityScores = [
+                    max(0, min(100, $attendanceRate)),
+                    max(0, min(100, $bmiScore)),
+                    max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2))),
+                    max(0, min(100, (int) round(($attendanceRate * 0.4) + ($bmiScore * 0.6)))),
+                    max(0, min(100, (int) round(($attendanceRate * 0.5) + ($bmiScore * 0.5)))),
+                ];
+                $reportScores = collect([
+                    $athlete->latestReport?->stamina,
+                    $athlete->latestReport?->balance,
+                    $athlete->latestReport?->speed,
+                    $athlete->latestReport?->strength,
+                    $athlete->latestReport?->agility,
+                ])->filter(fn ($value) => $value !== null)->all();
+                $athlete->ability_status = $this->resolveAbilityStatus(! empty($reportScores) ? $reportScores : $defaultAbilityScores);
                 $athlete->category = match ($athlete->specialization) {
                     'kata' => 'Kata',
                     'kumite' => 'Kumite',
@@ -123,6 +151,7 @@ class AthleteController extends Controller
             'achievements',
             'attendances',
             'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
+            'latestReport',
         ]);
         $athlete->age = \Carbon\Carbon::parse($athlete->dob)->age;
         $latestMetric = $athlete->physicalMetrics->first();
@@ -160,39 +189,71 @@ class AthleteController extends Controller
         $attendanceRate = $attendanceTotal > 0 ? round(($attendancePresent / $attendanceTotal) * 100) : 0;
 
         $bmi = $latestMetric?->bmi;
-        $bmiScore = 0;
-        if ($bmi) {
-            if ($bmi >= 18.5 && $bmi <= 24.9) {
-                $bmiScore = 92;
-            } elseif ($bmi < 18.5) {
-                $bmiScore = max(55, 82 - (18.5 - $bmi) * 6);
-            } else {
-                $bmiScore = max(50, 82 - ($bmi - 24.9) * 4);
-            }
-        }
+        $bmiScore = $this->resolveBmiScore($bmi);
+        $conditionScore = $this->resolveConditionScore($bmi, $attendanceRate);
+        $latestReport = $athlete->latestReport;
 
-        $conditionScore = (int) round((($bmiScore * 0.6) + ($attendanceRate * 0.4)));
-        $conditionScore = max(0, min(100, $conditionScore));
+        $categories = [
+            ['label' => 'Stamina', 'score' => (int) ($latestReport?->stamina ?? max(0, min(100, $attendanceRate)))],
+            ['label' => 'Keseimbangan', 'score' => (int) ($latestReport?->balance ?? max(0, min(100, $bmiScore)))],
+            ['label' => 'Kecepatan', 'score' => (int) ($latestReport?->speed ?? max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2))))],
+            ['label' => 'Kekuatan', 'score' => (int) ($latestReport?->strength ?? max(0, min(100, (int) round(($attendanceRate * 0.4) + ($bmiScore * 0.6)))) )],
+            ['label' => 'Kelincahan', 'score' => (int) ($latestReport?->agility ?? max(0, min(100, (int) round(($attendanceRate * 0.5) + ($bmiScore * 0.5)))) )],
+        ];
 
         $performance = [
             'condition' => [
-                ['label' => 'Kondisi Ideal', 'value' => $conditionScore],
-                ['label' => 'Perlu Perbaikan', 'value' => 100 - $conditionScore],
+                ['label' => 'Kondisi Fisik', 'value' => (int) ($latestReport?->condition_percentage ?? $conditionScore)],
+                ['label' => 'Gap', 'value' => 100 - (int) ($latestReport?->condition_percentage ?? $conditionScore)],
             ],
-            'categories' => [
-                ['label' => 'Stamina', 'score' => max(0, min(100, $attendanceRate))],
-                ['label' => 'Keseimbangan', 'score' => max(0, min(100, $bmiScore))],
-                ['label' => 'Kecepatan', 'score' => max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2)))],
-                ['label' => 'Kekuatan', 'score' => max(0, min(100, (int) round(($attendanceRate * 0.4) + ($bmiScore * 0.6))))],
-                ['label' => 'Kelincahan', 'score' => max(0, min(100, (int) round(($attendanceRate * 0.5) + ($bmiScore * 0.5))))],
-            ],
+            'categories' => $categories,
+            'ability_status' => $this->resolveAbilityStatus(collect($categories)->pluck('score')->all()),
         ];
 
         return Inertia::render('Athletes/Show', [
             'athlete' => Inertia::defer(fn () => $athlete),
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
+            'latestReport' => Inertia::defer(fn () => $latestReport ? [
+                'id' => $latestReport->id,
+                'condition_percentage' => (int) $latestReport->condition_percentage,
+                'stamina' => (int) $latestReport->stamina,
+                'balance' => (int) $latestReport->balance,
+                'speed' => (int) $latestReport->speed,
+                'strength' => (int) $latestReport->strength,
+                'agility' => (int) $latestReport->agility,
+                'notes' => $latestReport->notes,
+                'recorded_at' => optional($latestReport->recorded_at)->toDateString() ?? now()->toDateString(),
+            ] : null),
         ]);
+    }
+
+    public function storeReport(Request $request, Athlete $athlete)
+    {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+
+        if (! auth()->user()?->isSuperAdmin() && ! auth()->user()?->isSensei()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'condition_percentage' => 'required|integer|min:0|max:100',
+            'stamina' => 'required|integer|min:0|max:100',
+            'balance' => 'required|integer|min:0|max:100',
+            'speed' => 'required|integer|min:0|max:100',
+            'strength' => 'required|integer|min:0|max:100',
+            'agility' => 'required|integer|min:0|max:100',
+            'notes' => 'nullable|string|max:2000',
+            'recorded_at' => 'required|date',
+        ]);
+
+        AthleteReport::create([
+            ...$validated,
+            'athlete_id' => $athlete->id,
+            'evaluator_id' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Rapor kemampuan atlet berhasil disimpan.');
     }
 
     public function storeAchievement(Request $request, Athlete $athlete)
@@ -267,5 +328,53 @@ class AthleteController extends Controller
         }
 
         return 'Pemulihan';
+    }
+
+    private function resolveBmiScore(?float $bmi): int
+    {
+        if (! $bmi) {
+            return 0;
+        }
+
+        if ($bmi >= 18.5 && $bmi <= 24.9) {
+            return 92;
+        }
+
+        if ($bmi < 18.5) {
+            return (int) max(55, 82 - (18.5 - $bmi) * 6);
+        }
+
+        return (int) max(50, 82 - ($bmi - 24.9) * 4);
+    }
+
+    private function resolveConditionScore(?float $bmi, int $attendanceRate): int
+    {
+        $bmiScore = $this->resolveBmiScore($bmi);
+        $conditionScore = (int) round((($bmiScore * 0.6) + ($attendanceRate * 0.4)));
+
+        return max(0, min(100, $conditionScore));
+    }
+
+    private function resolveAbilityStatus(array $scores): string
+    {
+        if (empty($scores)) {
+            return 'Belum Dinilai';
+        }
+
+        $average = (int) round(collect($scores)->avg());
+
+        if ($average >= 85) {
+            return 'Sangat Baik';
+        }
+
+        if ($average >= 70) {
+            return 'Baik';
+        }
+
+        if ($average >= 55) {
+            return 'Cukup';
+        }
+
+        return 'Perlu Pembinaan';
     }
 }

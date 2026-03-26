@@ -12,8 +12,6 @@ use Inertia\Inertia;
 
 class AttendanceController extends Controller
 {
-    private const TOTP_PERIOD = 30;
-
     public function index()
     {
         $user = auth()->user();
@@ -86,6 +84,8 @@ class AttendanceController extends Controller
             'athlete_code' => 'required|string',
             'dojo_payload' => 'required|string',
             'action' => 'nullable|in:checkin,checkout',
+            'check_in_feedback' => 'nullable|string|max:1000',
+            'check_in_mood' => 'nullable|string|max:30',
             'athlete_feedback' => 'nullable|string|max:1000',
             'athlete_mood' => 'nullable|string|max:30',
         ]);
@@ -114,7 +114,7 @@ class AttendanceController extends Controller
         }
 
         $dojo = Dojo::find($payload['dojo_id']);
-        if (!$dojo || !$dojo->attendance_secret) {
+        if (!$dojo) {
             throw ValidationException::withMessages([
                 'dojo_payload' => 'QR Dojo tidak dapat diverifikasi.',
             ]);
@@ -126,22 +126,8 @@ class AttendanceController extends Controller
             ]);
         }
 
-        $currentStep = intdiv(time(), self::TOTP_PERIOD);
-        if (abs($payload['step'] - $currentStep) > 1) {
-            throw ValidationException::withMessages([
-                'dojo_payload' => 'QR Dojo sudah kedaluwarsa. Silakan scan QR terbaru.',
-            ]);
-        }
-
-        $expectedCode = $this->generateTotp($dojo->attendance_secret, $payload['step']);
-        if (!hash_equals($expectedCode, $payload['code'])) {
-            throw ValidationException::withMessages([
-                'dojo_payload' => 'Kode TOTP tidak cocok.',
-            ]);
-        }
-
         $action = $validated['action'] ?? 'checkin';
-        $attendance = $this->recordAttendance($athlete, $action, $validated);
+        $this->recordAttendance($athlete, $action, $validated);
 
         $message = $action === 'checkout'
             ? 'Check-out berhasil. Terima kasih untuk feedback latihan hari ini.'
@@ -178,6 +164,63 @@ class AttendanceController extends Controller
         return back()->with('success', 'Feedback sensei berhasil disimpan.');
     }
 
+    public function markStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'athlete_code' => 'required|string',
+            'status' => 'required|in:sick,excused',
+            'absence_reason' => 'nullable|string|max:1000',
+        ]);
+
+        $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
+        $user = auth()->user();
+        if ($user?->isMurid()) {
+            if ((int) $user->athlete_id !== (int) $athlete->id) {
+                throw ValidationException::withMessages([
+                    'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
+                ]);
+            }
+        } elseif ($user?->isSensei()) {
+            $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
+            if (! $allowed) {
+                throw ValidationException::withMessages([
+                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar murid Anda.',
+                ]);
+            }
+        }
+
+        $attendance = Attendance::query()
+            ->where('athlete_id', $athlete->id)
+            ->whereDate('recorded_at', now()->toDateString())
+            ->first();
+
+        if ($attendance && ($attendance->check_in_at || $attendance->check_out_at)) {
+            throw ValidationException::withMessages([
+                'status' => 'Status izin/sakit tidak bisa diubah karena absensi check-in/check-out sudah tercatat.',
+            ]);
+        }
+
+        if (! $attendance) {
+            Attendance::create([
+                'athlete_id' => $athlete->id,
+                'status' => $validated['status'],
+                'recorded_at' => now(),
+                'absence_reason' => $validated['absence_reason'] ?? null,
+            ]);
+        } else {
+            $attendance->update([
+                'status' => $validated['status'],
+                'absence_reason' => $validated['absence_reason'] ?? null,
+                'check_in_at' => null,
+                'check_out_at' => null,
+            ]);
+        }
+
+        $label = $validated['status'] === 'sick' ? 'sakit' : 'izin';
+
+        return back()->with('success', 'Status absensi berhasil dikirim sebagai ' . $label . '.');
+    }
+
     private function recordAttendance(Athlete $athlete, string $action = 'checkin', array $payload = []): Attendance
     {
         $attendance = Attendance::query()
@@ -200,11 +243,15 @@ class AttendanceController extends Controller
                     'status' => 'present',
                     'recorded_at' => now(),
                     'check_in_at' => now(),
+                    'check_in_feedback' => $payload['check_in_feedback'] ?? null,
+                    'check_in_mood' => $payload['check_in_mood'] ?? null,
                 ]);
             } else {
                 $attendance->update([
                     'status' => 'present',
                     'check_in_at' => now(),
+                    'check_in_feedback' => $payload['check_in_feedback'] ?? null,
+                    'check_in_mood' => $payload['check_in_mood'] ?? null,
                 ]);
             }
 
@@ -257,43 +304,32 @@ class AttendanceController extends Controller
         if (!$dojo) {
             return [
                 'payload' => null,
-                'expires_in' => 0,
+                'expires_in' => null,
                 'dojo_name' => null,
             ];
         }
 
-        if (!$dojo->attendance_secret) {
-            $dojo->attendance_secret = $this->generateBase32Secret();
-            $dojo->save();
-        }
-
-        $step = intdiv(time(), self::TOTP_PERIOD);
-        $totp = $this->generateTotp($dojo->attendance_secret, $step);
-        $expiresIn = self::TOTP_PERIOD - (time() % self::TOTP_PERIOD);
-
         return [
-            'payload' => "ATHLIX-DOJO|{$dojo->id}|{$step}|{$totp}",
-            'expires_in' => $expiresIn,
+            'payload' => "ATHLIX-DOJO|{$dojo->id}",
+            'expires_in' => null,
             'dojo_name' => $dojo->name,
-            'generated_at' => now()->format('H:i:s'),
+            'generated_at' => null,
         ];
     }
 
     private function parseDojoPayload(string $payload): ?array
     {
         $parts = explode('|', trim($payload));
-        if (count($parts) !== 4 || $parts[0] !== 'ATHLIX-DOJO') {
+        if (count($parts) !== 2 || $parts[0] !== 'ATHLIX-DOJO') {
             return null;
         }
 
-        if (!is_numeric($parts[1]) || !is_numeric($parts[2])) {
+        if (!is_numeric($parts[1])) {
             return null;
         }
 
         return [
             'dojo_id' => (int) $parts[1],
-            'step' => (int) $parts[2],
-            'code' => trim($parts[3]),
         ];
     }
 
@@ -334,54 +370,4 @@ class AttendanceController extends Controller
         return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $value)) ?: null;
     }
 
-    private function generateBase32Secret(int $length = 16): string
-    {
-        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-        $secret = '';
-        for ($i = 0; $i < $length; $i++) {
-            $secret .= $chars[random_int(0, strlen($chars) - 1)];
-        }
-
-        return $secret;
-    }
-
-    private function generateTotp(string $secret, int $step): string
-    {
-        $key = $this->base32Decode($secret);
-        $binaryStep = pack('N*', 0) . pack('N*', $step);
-        $hash = hash_hmac('sha1', $binaryStep, $key, true);
-        $offset = ord(substr($hash, -1)) & 0x0F;
-        $value = (
-            ((ord($hash[$offset]) & 0x7F) << 24) |
-            ((ord($hash[$offset + 1]) & 0xFF) << 16) |
-            ((ord($hash[$offset + 2]) & 0xFF) << 8) |
-            (ord($hash[$offset + 3]) & 0xFF)
-        );
-
-        return str_pad((string) ($value % 1000000), 6, '0', STR_PAD_LEFT);
-    }
-
-    private function base32Decode(string $secret): string
-    {
-        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-        $secret = strtoupper(preg_replace('/[^A-Z2-7]/', '', $secret));
-        $bits = '';
-
-        foreach (str_split($secret) as $char) {
-            $position = strpos($alphabet, $char);
-            if ($position === false) {
-                continue;
-            }
-            $bits .= str_pad(decbin($position), 5, '0', STR_PAD_LEFT);
-        }
-
-        $binary = '';
-        foreach (str_split($bits, 8) as $chunk) {
-            if (strlen($chunk) === 8) {
-                $binary .= chr(bindec($chunk));
-            }
-        }
-
-        return $binary;
-    }
 }

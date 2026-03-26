@@ -61,8 +61,12 @@ export default function Index({ auth, athlete }) {
                             <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 mb-2 transition-transform duration-300 hover:scale-110">
                                 <ShieldCheck size={20} />
                             </div>
-                            <p className="text-xs text-neutral-500 uppercase font-black tracking-widest">Status</p>
-                            <p className="font-bold text-sm leading-tight text-green-600">AKTIF</p>
+                            <p className="text-xs text-neutral-500 uppercase font-black tracking-widest">Kondisi Fisik</p>
+                            <p className="font-bold text-sm leading-tight text-green-600">
+                                {athlete.latest_report?.condition_percentage !== undefined && athlete.latest_report?.condition_percentage !== null
+                                    ? `${athlete.latest_report.condition_percentage}%`
+                                    : 'Belum dinilai'}
+                            </p>
                         </CardContent>
                     </Card>
                 </div>

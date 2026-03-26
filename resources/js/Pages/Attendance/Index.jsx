@@ -124,7 +124,15 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
                             {qrState?.payload ? (
                                 <div className="grid md:grid-cols-2 gap-6 items-center">
                                     <div className="flex justify-center"><div className="bg-white p-4 rounded-xl border border-neutral-200"><QRCodeSVG value={qrState.payload} size={220} level="Q" /></div></div>
-                                    <div className="space-y-2 text-sm"><p className="font-semibold">Dojo: {qrState.dojo_name || '-'}</p><p className="text-neutral-600 ">Atlet scan QR ini untuk check-in/check-out.</p><p className="text-neutral-500">Kedaluwarsa dalam <span className="font-black text-athlix-red">{qrState.expires_in ?? 0} detik</span>.</p></div>
+                                    <div className="space-y-2 text-sm">
+                                        <p className="font-semibold">Dojo: {qrState.dojo_name || '-'}</p>
+                                        <p className="text-neutral-600 ">Atlet scan QR ini untuk check-in/check-out.</p>
+                                        {qrState.expires_in !== null && qrState.expires_in !== undefined ? (
+                                            <p className="text-neutral-500">Kedaluwarsa dalam <span className="font-black text-athlix-red">{qrState.expires_in ?? 0} detik</span>.</p>
+                                        ) : (
+                                            <p className="text-neutral-500">QR ini bersifat static untuk dojo terpilih.</p>
+                                        )}
+                                    </div>
                                 </div>
                             ) : <p className="text-sm text-neutral-400">QR dojo belum tersedia.</p>}
                         </CardContent>
@@ -145,6 +153,12 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
                                             <p>OUT: {attendance.check_out_at ? new Date(attendance.check_out_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2">
+                                            {attendance.status && attendance.status !== 'present' && (
+                                                <span className="px-2 py-1 rounded-lg bg-yellow-100 text-yellow-700 text-xs uppercase font-bold">
+                                                    {attendance.status === 'sick' ? 'Sakit' : 'Izin'}
+                                                </span>
+                                            )}
+                                            {attendance.check_in_mood && <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs">Check-in: {attendance.check_in_mood}</span>}
                                             {attendance.athlete_mood && <span className="px-2 py-1 rounded-lg bg-neutral-100 text-xs">Mood: {attendance.athlete_mood}</span>}
                                             <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => openFeedback(attendance)}><MessageSquare size={14} className="mr-1" />Feedback Sensei</Button>
                                         </div>

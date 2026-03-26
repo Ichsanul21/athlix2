@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { ArrowLeft, Trophy, Star, FileText } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 export default function AchievementHistory({ auth, athlete }) {
     if (!athlete) {
@@ -51,7 +52,7 @@ export default function AchievementHistory({ auth, athlete }) {
                                     <p className="text-xs text-neutral-500">Lokasi: {achievement.location || '-'} | Penyelenggara: {achievement.organizer || '-'}</p>
                                     {(achievement.certificate_url || achievement.certificate_path) && (
                                         <a
-                                            href={achievement.certificate_url || `/storage/${achievement.certificate_path}`}
+                                            href={achievement.certificate_url || resolveMediaUrl(achievement.certificate_path)}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="inline-flex items-center gap-1 text-xs font-bold text-athlix-red"
