@@ -213,7 +213,17 @@ class PwaController extends Controller
             ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id))
             ->with([
                 'belt:id,name',
-                'latestReport:id,athlete_id,recorded_at,condition_percentage,stamina,balance,speed,strength,agility',
+                'latestReport' => fn ($query) => $query->select([
+                    'athlete_reports.id',
+                    'athlete_reports.athlete_id',
+                    'athlete_reports.recorded_at',
+                    'athlete_reports.condition_percentage',
+                    'athlete_reports.stamina',
+                    'athlete_reports.balance',
+                    'athlete_reports.speed',
+                    'athlete_reports.strength',
+                    'athlete_reports.agility',
+                ]),
                 'physicalMetrics' => fn ($query) => $query->latest('recorded_at')->limit(1),
             ])
             ->withCount([
