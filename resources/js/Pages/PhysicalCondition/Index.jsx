@@ -175,8 +175,8 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                                 Analisis Tren Fisik
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="h-[250px] sm:h-[300px]">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                        <CardContent className="h-[250px] sm:h-[300px] min-h-[220px] min-w-0">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                                 <LineChart data={chartData}>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
                                                     <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />

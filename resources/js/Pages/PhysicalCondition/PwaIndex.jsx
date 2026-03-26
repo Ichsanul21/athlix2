@@ -9,6 +9,20 @@ import { useEffect, useMemo, useState } from 'react';
 export default function PwaCondition({ auth, athlete, performanceSummary, trend = [] }) {
     const isLoading = athlete === undefined || performanceSummary === undefined;
     const [wellnessDashboard, setWellnessDashboard] = useState(null);
+    const radarData = useMemo(() => {
+        return (performanceSummary?.categories || []).map((item) => ({
+            label: item.label,
+            score: item.score,
+        }));
+    }, [performanceSummary?.categories]);
+
+    const readinessTrend = useMemo(() => {
+        const items = wellnessDashboard?.readiness?.trend_7d || [];
+        return items.map((item) => ({
+            date: item.date ? item.date.slice(5) : '-',
+            readiness_percentage: item.readiness_percentage ?? 0,
+        }));
+    }, [wellnessDashboard?.readiness?.trend_7d]);
 
     useEffect(() => {
         if (!athlete) return;
@@ -68,19 +82,6 @@ export default function PwaCondition({ auth, athlete, performanceSummary, trend 
         );
     }
 
-    const radarData = (performanceSummary.categories || []).map((item) => ({
-        label: item.label,
-        score: item.score,
-    }));
-
-    const readinessTrend = useMemo(() => {
-        const items = wellnessDashboard?.readiness?.trend_7d || [];
-        return items.map((item) => ({
-            date: item.date ? item.date.slice(5) : '-',
-            readiness_percentage: item.readiness_percentage ?? 0,
-        }));
-    }, [wellnessDashboard?.readiness?.trend_7d]);
-
     const workload = wellnessDashboard?.workload;
 
     return (
@@ -102,8 +103,8 @@ export default function PwaCondition({ auth, athlete, performanceSummary, trend 
                             <Activity size={16} className="text-athlix-red" />
                             <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Diagram Kemampuan</p>
                         </div>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-64 min-h-[220px] min-w-0">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                 <RadarChart data={radarData}>
                                     <PolarGrid stroke="#88888833" />
                                     <PolarAngleAxis dataKey="label" tick={{ fontSize: 11 }} />
@@ -121,8 +122,8 @@ export default function PwaCondition({ auth, athlete, performanceSummary, trend 
                             <HeartPulse size={16} className="text-blue-500" />
                             <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Tren Berat & IMT</p>
                         </div>
-                        <div className="h-56">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-56 min-h-[220px] min-w-0">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                 <LineChart data={trend}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
                                     <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -143,8 +144,8 @@ export default function PwaCondition({ auth, athlete, performanceSummary, trend 
                                 <HeartPulse size={16} className="text-athlix-red" />
                                 <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Readiness 7 Hari</p>
                             </div>
-                            <div className="h-52">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-52 min-h-[220px] min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                     <LineChart data={readinessTrend}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
                                         <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />

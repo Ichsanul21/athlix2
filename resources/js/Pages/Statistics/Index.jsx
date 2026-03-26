@@ -171,8 +171,8 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                                     Pertumbuhan Atlet (Semester)
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="h-[250px] sm:h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <CardContent className="h-[250px] sm:h-[300px] min-h-[220px] min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                     <AreaChart data={growthData}>
                                         <defs>
                                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
@@ -200,8 +200,8 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                                     Komposisi Sabuk
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="h-[250px] sm:h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <CardContent className="h-[250px] sm:h-[300px] min-h-[220px] min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                     <PieChart>
                                         <Pie
                                             data={beltDistribution}
@@ -238,8 +238,8 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                                 Tren Kehadiran (30 Hari Terakhir)
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="h-[250px] sm:h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <CardContent className="h-[250px] sm:h-[300px] min-h-[220px] min-w-0">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                                 <BarChart data={attendanceData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
                                     <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
