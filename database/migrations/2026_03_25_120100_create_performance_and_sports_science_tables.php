@@ -23,8 +23,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->index(['tenant_id', 'athlete_id', 'assessed_at']);
-            $table->index(['tenant_id', 'recommendation']);
+            $table->index(['tenant_id', 'athlete_id', 'assessed_at'], 'grading_assess_tenant_athlete_assessed_idx');
+            $table->index(['tenant_id', 'recommendation'], 'grading_assess_tenant_reco_idx');
         });
 
         Schema::create('coach_session_notes', function (Blueprint $table) {
@@ -40,8 +40,8 @@ return new class extends Migration
             $table->enum('visibility', ['coach_only', 'athlete_visible', 'parent_visible'])->default('coach_only');
             $table->timestamps();
 
-            $table->index(['tenant_id', 'session_date']);
-            $table->index(['tenant_id', 'athlete_id', 'session_date']);
+            $table->index(['tenant_id', 'session_date'], 'coach_notes_tenant_session_idx');
+            $table->index(['tenant_id', 'athlete_id', 'session_date'], 'coach_notes_tenant_athlete_session_idx');
         });
 
         Schema::create('medical_logs', function (Blueprint $table) {
@@ -59,8 +59,8 @@ return new class extends Migration
             $table->text('note')->nullable();
             $table->timestamps();
 
-            $table->index(['tenant_id', 'athlete_id', 'incident_date']);
-            $table->index(['tenant_id', 'clearance_status']);
+            $table->index(['tenant_id', 'athlete_id', 'incident_date'], 'medical_logs_tenant_athlete_incident_idx');
+            $table->index(['tenant_id', 'clearance_status'], 'medical_logs_tenant_clearance_idx');
         });
 
         Schema::create('strength_conditioning_metrics', function (Blueprint $table) {
@@ -77,8 +77,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->index(['tenant_id', 'athlete_id', 'recorded_on']);
-            $table->index(['tenant_id', 'recorded_on']);
+            $table->index(['tenant_id', 'athlete_id', 'recorded_on'], 'sc_metrics_tenant_athlete_recorded_idx');
+            $table->index(['tenant_id', 'recorded_on'], 'sc_metrics_tenant_recorded_idx');
         });
 
         Schema::create('athlete_health_preferences', function (Blueprint $table) {
@@ -88,7 +88,7 @@ return new class extends Migration
             $table->boolean('menstrual_tracking_enabled')->default(false);
             $table->timestamps();
 
-            $table->unique(['tenant_id', 'athlete_id']);
+            $table->unique(['tenant_id', 'athlete_id'], 'athlete_health_pref_tenant_athlete_uq');
         });
 
         Schema::create('menstrual_cycle_logs', function (Blueprint $table) {
@@ -101,7 +101,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->index(['tenant_id', 'athlete_id', 'recorded_on']);
+            $table->index(['tenant_id', 'athlete_id', 'recorded_on'], 'menstrual_cycle_tenant_athlete_recorded_idx');
             $table->unique(['tenant_id', 'athlete_id', 'recorded_on'], 'menstrual_cycle_unique_daily');
         });
     }
