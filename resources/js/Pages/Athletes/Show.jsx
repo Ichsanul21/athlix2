@@ -3,11 +3,11 @@ import { Head, Link, useForm, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Skeleton } from '@/Components/ui/skeleton';
-import { ArrowLeft, Award, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, Award, Trash2, FileText, HandCoins } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useEffect } from 'react';
 
-export default function Show({ auth, athlete, performance, achievementHistory, latestReport }) {
+export default function Show({ auth, athlete, performance, achievementHistory, latestReport, canRequestOverride = false, tenantId = null }) {
     const COLORS = ['#DC2626', '#404040'];
 
     const isLoading = !athlete || !performance || !achievementHistory;
@@ -42,6 +42,14 @@ export default function Show({ auth, athlete, performance, achievementHistory, l
         agility: latestReport?.agility ?? performance?.categories?.find((item) => item.label === 'Kelincahan')?.score ?? 0,
         notes: latestReport?.notes ?? '',
         recorded_at: latestReport?.recorded_at ?? new Date().toISOString().slice(0, 10),
+    });
+
+    const overrideForm = useForm({
+        override_mode: 'discount_amount',
+        override_value: '',
+        reason: '',
+        valid_from: '',
+        valid_to: '',
     });
 
     useEffect(() => {
@@ -117,6 +125,30 @@ export default function Show({ auth, athlete, performance, achievementHistory, l
         router.delete(route('athletes.achievements.destroy', [athlete.id, achievementId]));
     };
 
+    const submitOverrideRequest = (event) => {
+        event.preventDefault();
+        if (!tenantId || !athlete?.id) {
+            return;
+        }
+
+        overrideForm.post(route('finance-api.billing.override-requests.store'), {
+            preserveScroll: true,
+            data: {
+                tenant_id: tenantId,
+                athlete_id: athlete.id,
+                override_mode: overrideForm.data.override_mode,
+                override_value: Number(overrideForm.data.override_value),
+                reason: overrideForm.data.reason || null,
+                valid_from: overrideForm.data.valid_from || null,
+                valid_to: overrideForm.data.valid_to || null,
+            },
+            onSuccess: () => {
+                overrideForm.reset('override_value', 'reason', 'valid_from', 'valid_to');
+                overrideForm.setData('override_mode', 'discount_amount');
+            },
+        });
+    };
+
     if (isLoading) {
         return (
             <AdminLayout
@@ -153,6 +185,23 @@ export default function Show({ auth, athlete, performance, achievementHistory, l
                             Biodata Athlet {athlete.dojo?.name || 'Dojo'}
                         </div>
                         <CardContent className="p-0">
+                            <div className="border-b border-neutral-100 dark:border-neutral-800 p-4 flex items-center gap-4 bg-white dark:bg-neutral-950">
+                                {athlete.photo_url ? (
+                                    <img src={athlete.photo_url} alt={athlete.full_name} className="w-16 h-16 rounded-2xl object-cover border border-neutral-200" />
+                                ) : (
+                                    <div className="w-16 h-16 rounded-2xl bg-athlix-red/10 text-athlix-red font-black text-xl flex items-center justify-center border border-athlix-red/20">
+                                        {athlete.full_name?.charAt(0)}
+                                    </div>
+                                )}
+                                <div className="space-y-1 text-xs">
+                                    <p className="font-black uppercase tracking-widest text-neutral-500">Dokumen Registrasi</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <a href={athlete.documents?.kk || '#'} target={athlete.documents?.kk ? '_blank' : undefined} rel="noreferrer" className={`px-2 py-1 rounded-lg border text-[11px] font-bold ${athlete.documents?.kk ? 'border-green-200 text-green-700 bg-green-50' : 'border-neutral-200 text-neutral-400'}`}>KK</a>
+                                        <a href={athlete.documents?.akte || '#'} target={athlete.documents?.akte ? '_blank' : undefined} rel="noreferrer" className={`px-2 py-1 rounded-lg border text-[11px] font-bold ${athlete.documents?.akte ? 'border-green-200 text-green-700 bg-green-50' : 'border-neutral-200 text-neutral-400'}`}>Akte</a>
+                                        <a href={athlete.documents?.ktp || '#'} target={athlete.documents?.ktp ? '_blank' : undefined} rel="noreferrer" className={`px-2 py-1 rounded-lg border text-[11px] font-bold ${athlete.documents?.ktp ? 'border-green-200 text-green-700 bg-green-50' : 'border-neutral-200 text-neutral-400'}`}>KTP</a>
+                                    </div>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 text-sm">
                                 <div className="border-b md:border-b-0 md:border-r border-neutral-100 dark:border-neutral-800">
                                     <div className="flex border-b border-neutral-100 dark:border-neutral-800">
@@ -199,6 +248,55 @@ export default function Show({ auth, athlete, performance, achievementHistory, l
                             </div>
                         </CardContent>
                     </Card>
+
+                    {canRequestOverride && (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                    <HandCoins size={14} />
+                                    Form Pengajuan Nominal Atlet
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={submitOverrideRequest} className="space-y-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Mode
+                                            <select className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={overrideForm.data.override_mode} onChange={(e) => overrideForm.setData('override_mode', e.target.value)}>
+                                                <option value="discount_amount">Potongan Nominal</option>
+                                                <option value="discount_percent">Potongan Persen</option>
+                                                <option value="fixed">Nominal Tetap</option>
+                                            </select>
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Nilai
+                                            <input type="number" min="0" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={overrideForm.data.override_value} onChange={(e) => overrideForm.setData('override_value', e.target.value)} required />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Berlaku Dari
+                                            <input type="date" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={overrideForm.data.valid_from} onChange={(e) => overrideForm.setData('valid_from', e.target.value)} />
+                                        </label>
+                                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                            Berlaku Sampai
+                                            <input type="date" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={overrideForm.data.valid_to} onChange={(e) => overrideForm.setData('valid_to', e.target.value)} />
+                                        </label>
+                                    </div>
+                                    <label className="block text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                        Alasan Pengajuan
+                                        <textarea className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm min-h-20" value={overrideForm.data.reason} onChange={(e) => overrideForm.setData('reason', e.target.value)} placeholder="Contoh: beasiswa / diskon keluarga / program elit." />
+                                    </label>
+                                    {Object.values(overrideForm.errors).length > 0 && (
+                                        <p className="text-xs text-athlix-red">{Object.values(overrideForm.errors)[0]}</p>
+                                    )}
+                                    <div className="flex justify-end">
+                                        <Button type="submit" disabled={overrideForm.processing || !tenantId}>
+                                            {overrideForm.processing ? 'Mengirim...' : 'Kirim Pengajuan'}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card className="min-w-0 bg-neutral-50/50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">

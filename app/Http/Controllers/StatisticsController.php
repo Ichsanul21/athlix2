@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\Belt;
 use App\Models\Dojo;
 use App\Models\PhysicalMetric;
+use App\Models\TrainingProgram;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -70,10 +71,70 @@ class StatisticsController extends Controller
             ];
         });
 
+        $programBaseQuery = TrainingProgram::query()
+            ->when($selectedDojoId, fn ($query) => $query->where('dojo_id', $selectedDojoId))
+            ->when(! $selectedDojoId && ! $user?->isSuperAdmin(), fn ($query) => $query->where('dojo_id', $user?->dojo_id));
+
+        $programByDayMap = (clone $programBaseQuery)
+            ->select('day', DB::raw('COUNT(*) as total'))
+            ->groupBy('day')
+            ->pluck('total', 'day');
+        $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $programByDay = collect($days)->map(function ($day) use ($programByDayMap) {
+            return [
+                'day' => $day,
+                'total' => (int) ($programByDayMap[$day] ?? 0),
+            ];
+        });
+
+        $programByType = (clone $programBaseQuery)
+            ->select('type', DB::raw('COUNT(*) as total'))
+            ->groupBy('type')
+            ->orderByDesc('total')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'type' => $row->type,
+                    'total' => (int) $row->total,
+                ];
+            });
+
+        $totalPrograms = (int) $programByDay->sum('total');
+        $activeDays = (int) $programByDay->filter(fn ($item) => $item['total'] > 0)->count();
+
+        $latestReportIdSubquery = DB::table('athlete_reports')
+            ->whereIn('athlete_id', $athleteIdSubquery)
+            ->groupBy('athlete_id')
+            ->selectRaw('MAX(id)');
+
+        $latestConditions = DB::table('athlete_reports')
+            ->whereIn('id', $latestReportIdSubquery)
+            ->pluck('condition_percentage');
+
+        $conditionThreshold = [
+            'target_threshold' => 70,
+            'critical_threshold' => 55,
+            'avg_condition' => $latestConditions->isNotEmpty() ? (int) round($latestConditions->avg()) : 0,
+            'below_target_count' => (int) $latestConditions->filter(fn ($value) => (int) $value < 70)->count(),
+            'critical_count' => (int) $latestConditions->filter(fn ($value) => (int) $value < 55)->count(),
+        ];
+
+        $trainingProgramAnalytics = [
+            'summary' => [
+                'total_programs' => $totalPrograms,
+                'active_days' => $activeDays,
+                'avg_per_day' => $activeDays > 0 ? round($totalPrograms / $activeDays, 1) : 0,
+            ],
+            'by_day' => $programByDay,
+            'by_type' => $programByType,
+        ];
+
         return Inertia::render('Statistics/Index', [
             'growthData' => Inertia::defer(fn () => $growthData),
             'attendanceData' => Inertia::defer(fn () => $attendanceData),
             'beltDistribution' => Inertia::defer(fn () => $beltDistribution),
+            'trainingProgramAnalytics' => Inertia::defer(fn () => $trainingProgramAnalytics),
+            'conditionThreshold' => Inertia::defer(fn () => $conditionThreshold),
             'athletes' => Inertia::defer(fn () => (clone $athleteScope)->select('id', 'full_name')->orderBy('full_name')->get()),
             'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),

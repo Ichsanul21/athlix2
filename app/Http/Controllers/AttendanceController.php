@@ -7,6 +7,7 @@ use App\Models\Athlete;
 use App\Models\Dojo;
 use App\Models\FinanceRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -130,10 +131,57 @@ class AttendanceController extends Controller
         $this->recordAttendance($athlete, $action, $validated);
 
         $message = $action === 'checkout'
-            ? 'Check-out berhasil. Terima kasih untuk feedback latihan hari ini.'
+            ? 'Check-out berhasil. Silakan isi feedback latihan.'
             : 'Check-in berhasil dicatat. Selamat berlatih!';
 
         return back()->with('success', $message);
+    }
+
+    public function submitPostTrainingFeedback(Request $request)
+    {
+        $validated = $request->validate([
+            'athlete_code' => 'required|string',
+            'mood_rating' => 'required|integer|min:1|max:10',
+            'load_rating' => 'required|integer|min:1|max:10',
+        ]);
+
+        $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
+        $user = auth()->user();
+        if ($user?->isMurid()) {
+            if ((int) $user->athlete_id !== (int) $athlete->id) {
+                throw ValidationException::withMessages([
+                    'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
+                ]);
+            }
+        } elseif ($user?->isSensei()) {
+            $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
+            if (! $allowed) {
+                throw ValidationException::withMessages([
+                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar murid Anda.',
+                ]);
+            }
+        }
+
+        $attendance = Attendance::query()
+            ->where('athlete_id', $athlete->id)
+            ->whereDate('recorded_at', now()->toDateString())
+            ->first();
+
+        if (! $attendance || ! $attendance->check_out_at) {
+            throw ValidationException::withMessages([
+                'mood_rating' => 'Feedback hanya bisa dikirim setelah check-out berhasil.',
+            ]);
+        }
+
+        $attendance->update([
+            'post_training_mood_rating' => (int) $validated['mood_rating'],
+            'post_training_load_rating' => (int) $validated['load_rating'],
+            'post_training_submitted_at' => now(),
+            'athlete_mood' => 'Mood ' . (int) $validated['mood_rating'] . '/10',
+            'athlete_feedback' => 'Penilaian beban latihan ' . (int) $validated['load_rating'] . '/10',
+        ]);
+
+        return back()->with('success', 'Feedback pasca latihan berhasil dikirim.');
     }
 
     public function senseiFeedback(Request $request, Attendance $attendance)
@@ -170,6 +218,12 @@ class AttendanceController extends Controller
             'athlete_code' => 'required|string',
             'status' => 'required|in:sick,excused',
             'absence_reason' => 'nullable|string|max:1000',
+            'absence_document' => [
+                'required',
+                'file',
+                'mimes:jpg,jpeg,png,pdf',
+                'max:5120',
+            ],
         ]);
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
@@ -200,19 +254,31 @@ class AttendanceController extends Controller
             ]);
         }
 
+        $newDocumentPath = null;
+        $newDocumentMime = null;
+        $newDocumentPath = $request->file('absence_document')->store('attendance-documents', 'public');
+        $newDocumentMime = $request->file('absence_document')->getClientMimeType();
         if (! $attendance) {
             Attendance::create([
                 'athlete_id' => $athlete->id,
                 'status' => $validated['status'],
                 'recorded_at' => now(),
                 'absence_reason' => $validated['absence_reason'] ?? null,
+                'absence_document_path' => $newDocumentPath,
+                'absence_document_mime' => $newDocumentMime,
             ]);
         } else {
+            if ($attendance->absence_document_path) {
+                Storage::disk('public')->delete($attendance->absence_document_path);
+            }
+
             $attendance->update([
                 'status' => $validated['status'],
                 'absence_reason' => $validated['absence_reason'] ?? null,
                 'check_in_at' => null,
                 'check_out_at' => null,
+                'absence_document_path' => $newDocumentPath,
+                'absence_document_mime' => $newDocumentMime,
             ]);
         }
 

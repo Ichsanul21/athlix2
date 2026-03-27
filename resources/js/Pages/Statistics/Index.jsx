@@ -1,113 +1,34 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, Calendar, Award } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, Users, Calendar, Award, ShieldAlert } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
-import { Button } from '@/Components/ui/button';
 import { useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
 
 const COLORS = ['#E61E32', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
-export default function Index({ auth, growthData, attendanceData, beltDistribution, athletes, dojos = [], selectedDojoId = null, flash }) {
-    const [previewScope, setPreviewScope] = useState('dojo');
-    const [selectedAthleteId, setSelectedAthleteId] = useState(athletes?.[0]?.id || '');
+export default function Index({
+    auth,
+    growthData,
+    attendanceData,
+    beltDistribution,
+    trainingProgramAnalytics,
+    conditionThreshold,
+    dojos = [],
+    selectedDojoId = null,
+    flash,
+}) {
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
-    const importForm = useForm({
-        file: null,
-        rows: [],
-        source_file_name: '',
-        dojo_id: selectedDojoId || '',
-    });
-    const [importInputKey, setImportInputKey] = useState(0);
-    const [importParseError, setImportParseError] = useState('');
-    const isLoading = growthData === undefined || attendanceData === undefined || beltDistribution === undefined || athletes === undefined;
+    const isLoading = growthData === undefined
+        || attendanceData === undefined
+        || beltDistribution === undefined
+        || trainingProgramAnalytics === undefined
+        || conditionThreshold === undefined;
 
     useEffect(() => {
         setDojoId(selectedDojoId || '');
-        importForm.setData('dojo_id', selectedDojoId || '');
     }, [selectedDojoId]);
-
-    useEffect(() => {
-        if (athletes && athletes.length > 0) {
-            setSelectedAthleteId(athletes[0].id);
-        }
-    }, [athletes]);
-
-    const openPpaPreview = (format) => {
-        const params = new URLSearchParams({ scope: previewScope, format });
-        if (previewScope === 'athlete' && selectedAthleteId) {
-            params.set('athlete_id', selectedAthleteId);
-        }
-        if (dojoId) {
-            params.set('dojo_id', dojoId);
-        }
-        window.open(`${route('statistics.ppa-preview')}?${params.toString()}`, '_blank');
-    };
-
-    const submitPpaImport = (event) => {
-        event.preventDefault();
-
-        const file = importForm.data.file;
-        if (!file) {
-            return;
-        }
-
-        const lowerFileName = String(file.name || '').toLowerCase();
-        const isSpreadsheet = lowerFileName.endsWith('.xls') || lowerFileName.endsWith('.xlsx');
-
-        if (isSpreadsheet) {
-            setImportParseError('');
-            parseSpreadsheetRows(file)
-                .then((rows) => {
-                    importForm
-                        .transform(() => ({
-                            rows,
-                            dojo_id: dojoId || '',
-                            source_file_name: file.name,
-                        }))
-                        .post(route('statistics.ppa-import'), {
-                            preserveScroll: true,
-                            onSuccess: () => {
-                                importForm.setData('file', null);
-                                importForm.setData('rows', []);
-                                importForm.setData('source_file_name', '');
-                                setImportInputKey((prev) => prev + 1);
-                                setImportParseError('');
-                            },
-                            onFinish: () => {
-                                importForm.transform((data) => data);
-                            },
-                        });
-                })
-                .catch(() => {
-                    setImportParseError('File XLS/XLSX tidak bisa diproses. Pastikan sheet pertama memiliki header yang valid.');
-                });
-            return;
-        }
-
-        setImportParseError('');
-        importForm
-            .transform((data) => ({
-                file: data.file,
-                dojo_id: data.dojo_id,
-                source_file_name: data.file?.name || '',
-            }))
-            .post(route('statistics.ppa-import'), {
-                forceFormData: true,
-                preserveScroll: true,
-                onSuccess: () => {
-                    importForm.setData('file', null);
-                    importForm.setData('rows', []);
-                    importForm.setData('source_file_name', '');
-                    setImportInputKey((prev) => prev + 1);
-                },
-                onFinish: () => {
-                    importForm.transform((data) => data);
-                },
-            });
-    };
 
     if (isLoading) {
         return (
@@ -142,7 +63,6 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                     {flash?.success && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{flash.success}</div>}
                     {flash?.warning && <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm">{flash.warning}</div>}
                     {flash?.error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{flash.error}</div>}
-                    {importParseError && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{importParseError}</div>}
                     
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">Ringkasan Dojo</h3>
@@ -161,6 +81,35 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                                 ))}
                             </select>
                         )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card className="border-neutral-200/80">
+                            <CardContent className="p-4">
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Threshold Target</p>
+                                <p className="text-2xl font-black text-athlix-red mt-1">{conditionThreshold.target_threshold}%</p>
+                                <p className="text-xs text-neutral-500 mt-1">Atlet di bawah nilai ini masuk monitoring.</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-neutral-200/80">
+                            <CardContent className="p-4">
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Rata-rata Kondisi</p>
+                                <p className="text-2xl font-black mt-1">{conditionThreshold.avg_condition}%</p>
+                                <p className="text-xs text-neutral-500 mt-1">Berbasis rapor kondisi terbaru per atlet.</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-neutral-200/80">
+                            <CardContent className="p-4">
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                                    <ShieldAlert size={12} className="text-red-500" />
+                                    Atlet Perlu Atensi
+                                </p>
+                                <p className="text-2xl font-black mt-1">{conditionThreshold.below_target_count}</p>
+                                <p className="text-xs text-neutral-500 mt-1">
+                                    {conditionThreshold.critical_count} atlet berada di bawah batas kritis {conditionThreshold.critical_threshold}%.
+                                </p>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
@@ -254,88 +203,70 @@ export default function Index({ auth, growthData, attendanceData, beltDistributi
                         </CardContent>
                     </Card>
 
-                    <Card className="border-none bg-neutral-900 dark:bg-neutral-900 animate-fade-in-up fill-both overflow-hidden relative" style={{ animationDelay: '300ms' }}>
-                        <CardContent className="p-6 sm:p-8 border-b border-neutral-800/70 relative z-10 space-y-4">
-                            <h3 className="text-sm font-black uppercase text-white tracking-widest">Preview PPA (PDF / Excel)</h3>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <select
-                                    value={previewScope}
-                                    onChange={(event) => setPreviewScope(event.target.value)}
-                                    className="w-full sm:w-48 rounded-xl border border-neutral-700 bg-neutral-900 text-white text-sm"
-                                >
-                                    <option value="dojo">Per Dojo</option>
-                                    <option value="athlete">Per Atlet</option>
-                                </select>
-                                {previewScope === 'athlete' && (
-                                    <select
-                                        value={selectedAthleteId}
-                                        onChange={(event) => setSelectedAthleteId(event.target.value)}
-                                        className="w-full rounded-xl border border-neutral-700 bg-neutral-900 text-white text-sm"
-                                    >
-                                        {athletes.map((athlete) => (
-                                            <option key={athlete.id} value={athlete.id}>{athlete.full_name}</option>
-                                        ))}
-                                    </select>
-                                )}
-                                <div className="flex items-center gap-2">
-                                    <Button type="button" variant="outline" className="border-neutral-700 text-white hover:bg-neutral-800" onClick={() => openPpaPreview('pdf')}>
-                                        Preview PDF
-                                    </Button>
-                                    <Button type="button" className="bg-athlix-red hover:bg-red-700 text-white" onClick={() => openPpaPreview('excel')}>
-                                        Preview Excel
-                                    </Button>
+                    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+                        <Card className="border-neutral-200/80 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                    <Users size={16} className="text-athlix-red" />
+                                    Analitik Program Latihan
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="rounded-xl border border-neutral-200 p-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-widest text-neutral-500">Total Program</p>
+                                        <p className="text-xl font-black">{trainingProgramAnalytics.summary.total_programs}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-neutral-200 p-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-widest text-neutral-500">Hari Aktif</p>
+                                        <p className="text-xl font-black">{trainingProgramAnalytics.summary.active_days}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-neutral-200 p-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-widest text-neutral-500">Rata/Hari</p>
+                                        <p className="text-xl font-black">{trainingProgramAnalytics.summary.avg_per_day}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <form onSubmit={submitPpaImport} className="space-y-2">
-                                <p className="text-xs text-neutral-400">Import PPA (XLS/XLSX/CSV) untuk update data tinggi/berat/IMT.</p>
-                                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                                    <input
-                                        key={importInputKey}
-                                        type="file"
-                                        accept=".xls,.xlsx,.csv,.txt"
-                                        className="text-xs text-neutral-300"
-                                        onChange={(event) => importForm.setData('file', event.target.files?.[0] ?? null)}
-                                        required
-                                    />
-                                    <Button type="submit" variant="outline" className="border-neutral-700 text-white hover:bg-neutral-800" disabled={importForm.processing}>
-                                        {importForm.processing ? 'Importing...' : 'Import PPA'}
-                                    </Button>
+                                <div className="h-[240px] min-h-[220px] min-w-0">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
+                                        <BarChart data={trainingProgramAnalytics.by_day}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
+                                            <XAxis dataKey="day" fontSize={10} axisLine={false} tickLine={false} />
+                                            <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                                            <Tooltip />
+                                            <Bar dataKey="total" fill="#E61E32" radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 </div>
-                            </form>
-                        </CardContent>
-                        <div className="absolute inset-0 bg-gradient-to-br from-athlix-red/5 via-transparent to-transparent"></div>
-                        <CardContent className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-4 relative z-10">
-                            <div className="w-16 h-16 rounded-2xl bg-athlix-red/10 flex items-center justify-center text-athlix-red animate-float">
-                                <Users size={32} />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-black uppercase text-white tracking-tighter">Laporan Agregat Dojo</h3>
-                                <p className="text-xs text-neutral-500 max-w-xs mx-auto mt-2">Data ini diperbarui secara real-time berdasarkan input absensi dan pendaftaran atlet baru di sistem ATHLIX.</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-neutral-200/80 animate-fade-in-up fill-both" style={{ animationDelay: '340ms' }}>
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">
+                                    Distribusi Tipe Program
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <p className="text-xs text-neutral-500">Blok PPA dinonaktifkan. Statistik fokus penuh pada program latihan.</p>
+                                <div className="space-y-2">
+                                    {trainingProgramAnalytics.by_type.length > 0 ? (
+                                        trainingProgramAnalytics.by_type.map((item, index) => (
+                                            <div key={`${item.type}-${index}`} className="rounded-xl border border-neutral-200 p-3 flex items-center justify-between">
+                                                <p className="text-sm font-bold capitalize">{item.type || '-'}</p>
+                                                <p className="text-sm font-black">{item.total}</p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-neutral-400">Belum ada data tipe program.</p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
         </AdminLayout>
     );
-}
-
-async function parseSpreadsheetRows(file) {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
-    const firstSheetName = workbook.SheetNames?.[0];
-    if (!firstSheetName) {
-        return [];
-    }
-
-    const sheet = workbook.Sheets[firstSheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-
-    return rows.map((row) => (
-        Array.isArray(row)
-            ? row.map((cell) => (typeof cell === 'string' ? cell.trim() : cell))
-            : []
-    ));
 }
 
 

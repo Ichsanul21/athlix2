@@ -144,6 +144,11 @@ class PwaController extends Controller
 
     public function senseiSchedule()
     {
+        return $this->senseiTrainingProgram();
+    }
+
+    public function senseiTrainingProgram()
+    {
         $user = auth()->user();
         $dojo = $this->resolveSenseiDojo($user?->dojo_id);
         $today = Carbon::now();
@@ -201,6 +206,60 @@ class PwaController extends Controller
             'todayPrograms' => $todayPrograms,
             'upcomingPrograms' => $upcomingPrograms,
             'allAgenda' => $allAgenda,
+        ]);
+    }
+
+    public function senseiCondition()
+    {
+        $user = auth()->user();
+        $dojo = $this->resolveSenseiDojo($user?->dojo_id);
+
+        $athletes = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id))
+            ->with([
+                'latestReport' => fn ($query) => $query->select([
+                    'athlete_reports.id',
+                    'athlete_reports.athlete_id',
+                    'athlete_reports.recorded_at',
+                    'athlete_reports.condition_percentage',
+                    'athlete_reports.stamina',
+                    'athlete_reports.balance',
+                    'athlete_reports.speed',
+                    'athlete_reports.strength',
+                    'athlete_reports.agility',
+                ]),
+            ])
+            ->orderBy('full_name')
+            ->get()
+            ->map(function (Athlete $athlete) {
+                $report = $athlete->latestReport;
+                $abilityScores = collect([
+                    $report?->stamina,
+                    $report?->balance,
+                    $report?->speed,
+                    $report?->strength,
+                    $report?->agility,
+                ])->filter(fn ($value) => $value !== null)->values();
+
+                $abilityAverage = $abilityScores->isNotEmpty() ? (int) round($abilityScores->avg()) : null;
+
+                return [
+                    'id' => $athlete->id,
+                    'full_name' => $athlete->full_name,
+                    'athlete_code' => $athlete->athlete_code,
+                    'condition_percentage' => (int) ($report?->condition_percentage ?? 0),
+                    'ability_average' => $abilityAverage,
+                    'latest_report_date' => optional($report?->recorded_at)->translatedFormat('d M Y'),
+                ];
+            })
+            ->values();
+
+        return Inertia::render('SenseiPwa/Condition', [
+            'dojo' => [
+                'id' => $dojo?->id,
+                'name' => $dojo?->name ?? '-',
+            ],
+            'athletes' => $athletes,
         ]);
     }
 
@@ -476,8 +535,50 @@ class PwaController extends Controller
 
     public function scan()
     {
+        $athlete = $this->resolveAthleteForUser();
+        $attendanceLog = collect();
+        $todayAttendance = null;
+
+        if ($athlete) {
+            $attendanceLog = Attendance::query()
+                ->where('athlete_id', $athlete->id)
+                ->latest('recorded_at')
+                ->take(10)
+                ->get()
+                ->map(function (Attendance $attendance) {
+                    return [
+                        'id' => $attendance->id,
+                        'date' => Carbon::parse($attendance->recorded_at)->translatedFormat('d M Y'),
+                        'status' => $attendance->status,
+                        'check_in_at' => $attendance->check_in_at ? Carbon::parse($attendance->check_in_at)->format('H:i') : null,
+                        'check_out_at' => $attendance->check_out_at ? Carbon::parse($attendance->check_out_at)->format('H:i') : null,
+                        'post_training_mood_rating' => $attendance->post_training_mood_rating,
+                        'post_training_load_rating' => $attendance->post_training_load_rating,
+                    ];
+                })
+                ->values();
+
+            $todayAttendanceModel = Attendance::query()
+                ->where('athlete_id', $athlete->id)
+                ->whereDate('recorded_at', now()->toDateString())
+                ->first();
+
+            if ($todayAttendanceModel) {
+                $todayAttendance = [
+                    'id' => $todayAttendanceModel->id,
+                    'status' => $todayAttendanceModel->status,
+                    'check_in_at' => $todayAttendanceModel->check_in_at ? Carbon::parse($todayAttendanceModel->check_in_at)->format('H:i') : null,
+                    'check_out_at' => $todayAttendanceModel->check_out_at ? Carbon::parse($todayAttendanceModel->check_out_at)->format('H:i') : null,
+                    'post_training_mood_rating' => $todayAttendanceModel->post_training_mood_rating,
+                    'post_training_load_rating' => $todayAttendanceModel->post_training_load_rating,
+                ];
+            }
+        }
+
         return Inertia::render('Scan/Index', [
-            'athlete' => Inertia::defer(fn () => $this->resolveAthleteForUser()),
+            'athlete' => Inertia::defer(fn () => $athlete),
+            'attendanceLog' => Inertia::defer(fn () => $attendanceLog),
+            'todayAttendance' => Inertia::defer(fn () => $todayAttendance),
         ]);
     }
 

@@ -237,10 +237,10 @@ export default function PwaLayout({ user, header, children }) {
     const tabs = isSenseiPwaRole
         ? [
             { name: t('common.home', 'Home'), route: 'sensei-pwa.home', icon: Home },
-            { name: t('common.schedule', 'Jadwal'), route: 'sensei-pwa.schedule', icon: Calendar },
-            { name: t('common.scan', 'Scan'), route: 'sensei-pwa.scan', icon: ScanLine, isPrimary: true },
-            { name: t('admin.db_athlete', 'Atlet'), route: 'sensei-pwa.athletes', icon: Users },
-            { name: t('admin.athlete_notification', 'Notifikasi'), route: 'sensei-pwa.notifications', icon: Bell },
+            { name: t('admin.db_athlete', 'Database'), route: 'sensei-pwa.athletes', icon: Users },
+            { name: t('admin.athlete_notification', 'Notifikasi'), route: 'sensei-pwa.notifications', icon: Bell, isPrimary: true },
+            { name: t('common.condition', 'Kondisi'), route: 'sensei-pwa.condition', icon: Activity },
+            { name: t('common.training_program', 'Program'), route: 'sensei-pwa.training-program', icon: Calendar },
         ]
         : [
             { name: t('common.home', 'Home'), route: 'pwa.home', icon: Home },

@@ -5,14 +5,11 @@ import { Button } from '@/Components/ui/button';
 import { useEffect, useState } from 'react';
 
 export default function Index({ auth, notifications = [], athletes = [], dojos = [], selectedDojoId = null, flash }) {
-    const [editingNotification, setEditingNotification] = useState(null);
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const form = useForm({
         title: '',
         message: '',
         athlete_id: '',
-        is_popup: true,
-        is_active: true,
         dojo_id: selectedDojoId || '',
     });
 
@@ -23,49 +20,18 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
 
     const submit = (event) => {
         event.preventDefault();
-        if (editingNotification) {
-            form.patch(route('senpai-notifications.update', editingNotification.id), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setEditingNotification(null);
-                    form.reset();
-                    form.setData('is_popup', true);
-                    form.setData('is_active', true);
-                    form.setData('dojo_id', dojoId || '');
-                },
-            });
-            return;
-        }
-
         form.post(route('senpai-notifications.store'), {
             preserveScroll: true,
+            data: {
+                ...form.data,
+                is_popup: true,
+                is_active: true,
+            },
             onSuccess: () => {
                 form.reset();
-                form.setData('is_popup', true);
-                form.setData('is_active', true);
                 form.setData('dojo_id', dojoId || '');
             },
         });
-    };
-
-    const startEdit = (notification) => {
-        setEditingNotification(notification);
-        form.setData({
-            title: notification.title || '',
-            message: notification.message || '',
-            athlete_id: notification.athlete_id || '',
-            is_popup: Boolean(notification.is_popup),
-            is_active: Boolean(notification.is_active),
-            dojo_id: dojoId || '',
-        });
-    };
-
-    const resetForm = () => {
-        setEditingNotification(null);
-        form.reset();
-        form.setData('is_popup', true);
-        form.setData('is_active', true);
-        form.setData('dojo_id', dojoId || '');
     };
 
     return (
@@ -79,7 +45,7 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>{editingNotification ? 'Edit Notifikasi Senpai' : 'Kirim Notifikasi Senpai ke Atlet'}</CardTitle>
+                        <CardTitle>Kirim Notifikasi Senpai ke Atlet</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={submit} className="space-y-3">
@@ -123,25 +89,11 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
                                     <option key={athlete.id} value={athlete.id}>{athlete.full_name} ({athlete.athlete_code})</option>
                                 ))}
                             </select>
-                            <div className="grid grid-cols-2 gap-3">
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" checked={Boolean(form.data.is_popup)} onChange={(event) => form.setData('is_popup', event.target.checked)} />
-                                    Tampilkan popup
-                                </label>
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" checked={Boolean(form.data.is_active)} onChange={(event) => form.setData('is_active', event.target.checked)} />
-                                    Notifikasi aktif
-                                </label>
-                            </div>
+                            <p className="text-xs text-neutral-500">Notifikasi akan langsung aktif dan tampil sebagai popup di PWA atlet.</p>
                             <div className="flex items-center gap-2">
                                 <Button type="submit" disabled={form.processing}>
-                                    {form.processing ? 'Menyimpan...' : editingNotification ? 'Simpan Perubahan' : 'Kirim Notifikasi'}
+                                    {form.processing ? 'Menyimpan...' : 'Kirim Notifikasi'}
                                 </Button>
-                                {editingNotification && (
-                                    <Button type="button" variant="outline" onClick={resetForm}>
-                                        Batal
-                                    </Button>
-                                )}
                             </div>
                         </form>
                     </CardContent>
@@ -162,20 +114,9 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
                                             Target: {notification.athlete_name ? notification.athlete_name : 'Semua Atlet Dojo'}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button type="button" className="text-xs font-bold text-blue-600" onClick={() => startEdit(notification)}>Edit</button>
-                                        <button type="button" className="text-xs font-bold text-red-600" onClick={() => router.delete(route('senpai-notifications.destroy', notification.id), { preserveScroll: true })}>Hapus</button>
-                                    </div>
                                 </div>
                                 <p className="text-sm text-neutral-700 ">{notification.message}</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className={`px-2 py-1 text-[11px] rounded-lg ${notification.is_active ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-500'}`}>
-                                        {notification.is_active ? 'Aktif' : 'Nonaktif'}
-                                    </span>
-                                    <span className={`px-2 py-1 text-[11px] rounded-lg ${notification.is_popup ? 'bg-athlix-red/10 text-athlix-red' : 'bg-neutral-100 text-neutral-500'}`}>
-                                        {notification.is_popup ? 'Popup' : 'Tanpa Popup'}
-                                    </span>
-                                </div>
+                                <div className="inline-flex px-2 py-1 text-[11px] rounded-lg bg-athlix-red/10 text-athlix-red">Aktif + Popup</div>
                             </div>
                         )) : (
                             <p className="text-sm text-neutral-400">Belum ada notifikasi yang dikirim.</p>
@@ -186,4 +127,3 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
         </AdminLayout>
     );
 }
-

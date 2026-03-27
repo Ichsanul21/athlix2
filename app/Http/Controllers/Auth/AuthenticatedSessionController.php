@@ -45,6 +45,7 @@ class AuthenticatedSessionController extends Controller
                     : 'Login ditolak: dojo sedang nonaktif atau diblokir.';
 
                 throw ValidationException::withMessages([
+                    'identifier' => $message,
                     'email' => $message,
                 ]);
             }

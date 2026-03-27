@@ -27,7 +27,12 @@ class SuperAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'phone_number' => 'required|string|max:20',
+            'phone_number' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::when($request->input('role') === 'murid', ['regex:/^08[0-9]{8,13}$/']),
+            ],
             'password' => 'required|string|min:8',
             'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
             'dojo_id' => [
@@ -71,7 +76,12 @@ class SuperAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'phone_number' => 'required|string|max:20',
+            'phone_number' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::when($request->input('role') === 'murid', ['regex:/^08[0-9]{8,13}$/']),
+            ],
             'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
             'dojo_id' => [
                 'nullable',

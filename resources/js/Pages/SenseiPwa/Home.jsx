@@ -102,7 +102,7 @@ export default function Home({ auth, dojo, stats, todayPrograms = [], recentAtte
                 <section className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                         <p className="text-xs uppercase tracking-widest text-neutral-500 font-black">Program Hari Ini</p>
-                        <Link href={route('sensei-pwa.schedule')} className="text-xs font-black text-athlix-red uppercase tracking-widest">
+                        <Link href={route('sensei-pwa.training-program')} className="text-xs font-black text-athlix-red uppercase tracking-widest">
                             Lihat Semua
                         </Link>
                     </div>
@@ -173,4 +173,3 @@ export default function Home({ auth, dojo, stats, todayPrograms = [], recentAtte
         </PwaLayout>
     );
 }
-

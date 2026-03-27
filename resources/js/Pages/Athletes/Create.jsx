@@ -23,6 +23,10 @@ export default function Create({ auth, belts, suggestedAthleteCode, dojos = [] }
         latest_height: '',
         latest_weight: '',
         class_note: '',
+        photo: null,
+        doc_kk: null,
+        doc_akte: null,
+        doc_ktp: null,
     });
 
     useEffect(() => {
@@ -45,7 +49,7 @@ export default function Create({ auth, belts, suggestedAthleteCode, dojos = [] }
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('athletes.store'));
+        post(route('athletes.store'), { forceFormData: true });
     };
 
     if (isLoading) {
@@ -216,6 +220,49 @@ export default function Create({ auth, belts, suggestedAthleteCode, dojos = [] }
                                             placeholder="Contoh: Senior -67kg"
                                         />
                                         {errors.class_note && <p className="text-xs text-athlix-red">{errors.class_note}</p>}
+                                    </div>
+
+                                    <div className="col-span-2 space-y-1">
+                                        <label className="text-sm font-medium">Foto Atlet (Opsional)</label>
+                                        <Input
+                                            type="file"
+                                            accept=".jpg,.jpeg,.png,.webp"
+                                            onChange={(event) => setData('photo', event.target.files?.[0] || null)}
+                                        />
+                                        {errors.photo && <p className="text-xs text-athlix-red">{errors.photo}</p>}
+                                    </div>
+
+                                    <div className="col-span-2 space-y-3 rounded-xl border border-dashed border-neutral-300 p-4">
+                                        <p className="text-sm font-semibold">Dokumen Registrasi (minimal 1 wajib)</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KK</label>
+                                                <Input
+                                                    type="file"
+                                                    accept=".jpg,.jpeg,.png,.pdf"
+                                                    onChange={(event) => setData('doc_kk', event.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Akte</label>
+                                                <Input
+                                                    type="file"
+                                                    accept=".jpg,.jpeg,.png,.pdf"
+                                                    onChange={(event) => setData('doc_akte', event.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KTP</label>
+                                                <Input
+                                                    type="file"
+                                                    accept=".jpg,.jpeg,.png,.pdf"
+                                                    onChange={(event) => setData('doc_ktp', event.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                        </div>
+                                        {(errors.doc_kk || errors.doc_akte || errors.doc_ktp) && (
+                                            <p className="text-xs text-athlix-red">{errors.doc_kk || errors.doc_akte || errors.doc_ktp}</p>
+                                        )}
                                     </div>
                                 </div>
 

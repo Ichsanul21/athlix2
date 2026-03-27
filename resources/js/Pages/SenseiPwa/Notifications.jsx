@@ -10,8 +10,6 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
         title: '',
         message: '',
         athlete_id: '',
-        is_popup: true,
-        is_active: true,
     });
     const [submitting, setSubmitting] = useState(false);
 
@@ -30,8 +28,8 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
                 title: form.title,
                 message: form.message,
                 athlete_id: form.athlete_id || null,
-                is_popup: form.is_popup ? 1 : 0,
-                is_active: form.is_active ? 1 : 0,
+                is_popup: 1,
+                is_active: 1,
             },
             {
                 preserveScroll: true,
@@ -109,15 +107,7 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
                                     </option>
                                 ))}
                             </select>
-
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={form.is_popup}
-                                    onChange={(event) => setForm((prev) => ({ ...prev, is_popup: event.target.checked }))}
-                                />
-                                Tampilkan sebagai popup
-                            </label>
+                            <p className="text-xs text-neutral-500">Notifikasi akan otomatis aktif dan tampil sebagai popup.</p>
 
                             <button
                                 type="submit"
@@ -174,4 +164,3 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
         </PwaLayout>
     );
 }
-

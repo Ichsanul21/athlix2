@@ -9,6 +9,7 @@ use App\Models\Belt;
 use App\Models\Dojo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AthleteController extends Controller
@@ -52,6 +53,7 @@ class AthleteController extends Controller
                 if (!$athlete->class_note) {
                     $athlete->class_note = 'Umum';
                 }
+                $athlete->photo_url = $athlete->photo_path ? Storage::url($athlete->photo_path) : null;
                 $attendanceTotal = (int) ($athlete->attendance_total ?? 0);
                 $attendancePresent = (int) ($athlete->attendance_present ?? 0);
                 $attendanceRate = $attendanceTotal > 0
@@ -115,8 +117,18 @@ class AthleteController extends Controller
             'latest_height' => 'nullable|numeric|min:50|max:260',
             'latest_weight' => 'nullable|numeric',
             'class_note' => 'nullable|string|max:255',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'doc_kk' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'doc_akte' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'doc_ktp' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
         ]);
+
+        if (! $request->hasFile('doc_kk') && ! $request->hasFile('doc_akte') && ! $request->hasFile('doc_ktp')) {
+            throw ValidationException::withMessages([
+                'doc_kk' => 'Minimal unggah satu dokumen identitas (KK/Akte/KTP).',
+            ]);
+        }
 
         $validated['athlete_code'] = strtoupper($validated['athlete_code'] ?? $this->generateAthleteCode());
         if (! $user?->isSuperAdmin()) {
@@ -126,6 +138,21 @@ class AthleteController extends Controller
             $validated['dojo_id'] = $user->dojo_id;
         }
         $validated['class_note'] = $validated['class_note'] ?: 'Umum';
+
+        if ($request->hasFile('photo')) {
+            $validated['photo_path'] = $request->file('photo')->store('athletes/photos', 'public');
+        }
+        if ($request->hasFile('doc_kk')) {
+            $validated['doc_kk_path'] = $request->file('doc_kk')->store('athletes/documents', 'public');
+        }
+        if ($request->hasFile('doc_akte')) {
+            $validated['doc_akte_path'] = $request->file('doc_akte')->store('athletes/documents', 'public');
+        }
+        if ($request->hasFile('doc_ktp')) {
+            $validated['doc_ktp_path'] = $request->file('doc_ktp')->store('athletes/documents', 'public');
+        }
+
+        unset($validated['photo'], $validated['doc_kk'], $validated['doc_akte'], $validated['doc_ktp']);
 
         $athlete = Athlete::create($validated);
 
@@ -143,7 +170,8 @@ class AthleteController extends Controller
 
     public function show(Athlete $athlete)
     {
-        $this->ensureAthleteAccessible($athlete, auth()->user());
+        $user = auth()->user();
+        $this->ensureAthleteAccessible($athlete, $user);
 
         $athlete->load([
             'belt',
@@ -164,6 +192,12 @@ class AthleteController extends Controller
         if (!$athlete->class_note) {
             $athlete->class_note = 'Umum';
         }
+        $athlete->photo_url = $athlete->photo_path ? Storage::url($athlete->photo_path) : null;
+        $athlete->documents = [
+            'kk' => $athlete->doc_kk_path ? Storage::url($athlete->doc_kk_path) : null,
+            'akte' => $athlete->doc_akte_path ? Storage::url($athlete->doc_akte_path) : null,
+            'ktp' => $athlete->doc_ktp_path ? Storage::url($athlete->doc_ktp_path) : null,
+        ];
 
         $achievementHistory = $athlete->achievements
             ->sortByDesc('competition_date')
@@ -214,6 +248,8 @@ class AthleteController extends Controller
             'athlete' => Inertia::defer(fn () => $athlete),
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
+            'canRequestOverride' => Inertia::defer(fn () => (bool) ($user?->isCoachGroup() || $user?->isParent())),
+            'tenantId' => Inertia::defer(fn () => (int) ($athlete->dojo_id ?? $user?->dojo_id)),
             'latestReport' => Inertia::defer(fn () => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,

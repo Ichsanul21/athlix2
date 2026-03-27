@@ -14,7 +14,7 @@ import {
     X,
     Calendar,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Modal from '@/Components/Modal';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
@@ -24,10 +24,27 @@ import { Skeleton } from '@/Components/ui/skeleton';
 export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null }) {
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Drill Teknik', 'Kumite Drill', 'Kata Session', 'Sparring', 'Pendinginan', 'Evaluasi'];
+    const coachTemplates = ['Sensei Utama', 'Assistant Sensei', 'Head Coach'];
+    const programTitleTemplatesByType = {
+        teknik: ['Fundamental Kihon', 'Teknik Kuda-kuda', 'Teknik Timing & Distance'],
+        kata: ['Kata Inti Mingguan', 'Kata Kompetisi', 'Bunkai Kata'],
+        kumite: ['Kumite Speed Reaction', 'Kumite Tactical Session', 'Sparring Strategy'],
+        fisik: ['Conditioning Atlet', 'Power & Agility', 'Endurance Session'],
+    };
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState(null);
     const [expandedProgramId, setExpandedProgramId] = useState(null);
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
+
+    const coachOptions = useMemo(() => {
+        const fromSchedule = Object.values(weeklySchedule || {})
+            .flat()
+            .map((program) => program?.coach)
+            .filter(Boolean);
+
+        return Array.from(new Set([...coachTemplates, ...fromSchedule]));
+    }, [weeklySchedule]);
 
     const { data, setData, post, patch, delete: destroy, processing, errors, reset, clearErrors } = useForm({
         title: '',
@@ -100,7 +117,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
         setData('agenda_items', [
             ...data.agenda_items,
-            { start_time, end_time, title: '', description: '' },
+            { start_time, end_time, title: agendaTitleTemplates[0], description: '' },
         ]);
     };
 
@@ -135,6 +152,11 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         kata: 'bg-purple-500',
         teknik: 'bg-blue-500',
     };
+
+    const titleOptions = Array.from(new Set([
+        ...(programTitleTemplatesByType[data.type] || []),
+        data.title || '',
+    ].filter(Boolean)));
 
     if (isLoading) {
         return (
@@ -243,12 +265,19 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                                     className="w-full text-left"
                                                 >
                                                     <CardContent className="p-3 sm:p-4 space-y-3">
-                                                        <div>
-                                                            <h4 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors pr-10">{p.title}</h4>
-                                                            <div className="flex items-center gap-1.5 mt-1 text-xs text-neutral-500 font-mono">
-                                                                <Clock size={12} />
-                                                                {p.time}
-                                                            </div>
+                                                        <div className="flex items-start justify-between gap-2 pr-10">
+                                                            <h4 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors">{p.title}</h4>
+                                                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white ${typeColors[p.type] || 'bg-blue-500'}`}>
+                                                                {p.type}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
+                                                            <Calendar size={12} />
+                                                            {p.next_date}
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
+                                                            <Clock size={12} />
+                                                            {p.time}
                                                         </div>
 
                                                         <div className="space-y-1.5 pt-2 border-t border-neutral-50 dark:border-neutral-800">
@@ -256,9 +285,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                                                 <User size={12} className="text-athlix-red" />
                                                                 {p.coach}
                                                             </div>
-                                                            <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-tighter text-white ${typeColors[p.type] || 'bg-blue-500'}`}>
-                                                                {p.type}
-                                                            </span>
+                                                            <p className="text-[11px] text-neutral-500">Agenda: {(p.agenda_items || []).length} item</p>
                                                         </div>
                                                     </CardContent>
                                                 </button>
@@ -325,7 +352,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
             </div>
 
             <Modal show={isModalOpen} onClose={closeModal} maxWidth="2xl">
-                <div className="p-6 sm:p-7">
+                <div className="p-6 sm:p-7 mt-3 sm:mt-4 max-h-[78vh] overflow-y-auto">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-black uppercase tracking-tighter">
                             {editingProgram ? 'Edit Program Latihan' : 'Tambah Program Baru'}
@@ -338,8 +365,19 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                     <form onSubmit={submit} className="space-y-5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="col-span-1 sm:col-span-2">
-                                <InputLabel htmlFor="title" value="Nama Program" />
-                                <TextInput id="title" type="text" className="mt-1 block w-full" value={data.title} onChange={(e) => setData('title', e.target.value)} required />
+                                <InputLabel htmlFor="title" value="Template Program" />
+                                <select
+                                    id="title"
+                                    className="mt-1 block w-full border-neutral-300 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm"
+                                    value={data.title}
+                                    onChange={(e) => setData('title', e.target.value)}
+                                    required
+                                >
+                                    <option value="">Pilih template program</option>
+                                    {titleOptions.map((option) => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
                                 <InputError message={errors.title} className="mt-2" />
                             </div>
 
@@ -393,8 +431,19 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                             </div>
 
                             <div className="col-span-1 sm:col-span-2">
-                                <InputLabel htmlFor="coach_name" value="Nama Pelatih / Sensei" />
-                                <TextInput id="coach_name" type="text" className="mt-1 block w-full" value={data.coach_name} onChange={(e) => setData('coach_name', e.target.value)} required />
+                                <InputLabel htmlFor="coach_name" value="Pelatih / Sensei" />
+                                <select
+                                    id="coach_name"
+                                    className="mt-1 block w-full border-neutral-300 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm"
+                                    value={data.coach_name}
+                                    onChange={(e) => setData('coach_name', e.target.value)}
+                                    required
+                                >
+                                    <option value="">Pilih pelatih</option>
+                                    {coachOptions.map((coachName) => (
+                                        <option key={coachName} value={coachName}>{coachName}</option>
+                                    ))}
+                                </select>
                                 <InputError message={errors.coach_name} className="mt-2" />
                             </div>
 
@@ -423,7 +472,15 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                                             <TextInput type="time" value={item.start_time} onChange={(e) => updateAgendaItem(idx, 'start_time', e.target.value)} />
                                             <TextInput type="time" value={item.end_time} onChange={(e) => updateAgendaItem(idx, 'end_time', e.target.value)} />
-                                            <TextInput type="text" placeholder="Judul (Briefing)" value={item.title} onChange={(e) => updateAgendaItem(idx, 'title', e.target.value)} />
+                                            <select
+                                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                                value={item.title}
+                                                onChange={(e) => updateAgendaItem(idx, 'title', e.target.value)}
+                                            >
+                                                {Array.from(new Set([...agendaTitleTemplates, item.title || ''])).filter(Boolean).map((agendaTitle) => (
+                                                    <option key={`${idx}-${agendaTitle}`} value={agendaTitle}>{agendaTitle}</option>
+                                                ))}
+                                            </select>
                                             <button type="button" onClick={() => removeAgendaItem(idx)} className="rounded-lg border border-red-200 text-red-600 text-xs font-bold">Hapus</button>
                                         </div>
                                         <textarea

@@ -35,7 +35,6 @@ export default function Index({
     const [dynamicLoading, setDynamicLoading] = useState(false);
     const [dynamicError, setDynamicError] = useState('');
     const [dynamicSuccess, setDynamicSuccess] = useState('');
-    const [requestLoading, setRequestLoading] = useState(false);
     const [reviewLoadingId, setReviewLoadingId] = useState(null);
     const [defaultForm, setDefaultForm] = useState({
         monthly_fee: '',
@@ -44,14 +43,6 @@ export default function Index({
         effective_to: '',
     });
     const [overrideForm, setOverrideForm] = useState({
-        athlete_id: '',
-        override_mode: 'discount_amount',
-        override_value: '',
-        reason: '',
-        valid_from: '',
-        valid_to: '',
-    });
-    const [overrideRequestForm, setOverrideRequestForm] = useState({
         athlete_id: '',
         override_mode: 'discount_amount',
         override_value: '',
@@ -309,61 +300,6 @@ export default function Index({
         }
     };
 
-    const submitOverrideRequest = async (event) => {
-        event.preventDefault();
-        const tenantId = resolveTenantId();
-        if (tenantId <= 0) {
-            setDynamicError('Tenant dojo belum dipilih.');
-            return;
-        }
-
-        if (!overrideRequestForm.athlete_id) {
-            setDynamicError('Pilih atlet terlebih dahulu untuk pengajuan override.');
-            return;
-        }
-
-        setRequestLoading(true);
-        setDynamicError('');
-        setDynamicSuccess('');
-
-        try {
-            const response = await fetch(`${DYNAMIC_BILLING_BASE}/override-requests`, {
-                method: 'POST',
-                headers: jsonHeaders(true),
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    tenant_id: tenantId,
-                    athlete_id: Number(overrideRequestForm.athlete_id),
-                    override_mode: overrideRequestForm.override_mode,
-                    override_value: Number(overrideRequestForm.override_value),
-                    reason: overrideRequestForm.reason || null,
-                    valid_from: overrideRequestForm.valid_from || null,
-                    valid_to: overrideRequestForm.valid_to || null,
-                }),
-            });
-
-            if (!response.ok) {
-                const message = await parseApiError(response, 'Gagal mengirim pengajuan override.');
-                setDynamicError(message);
-                return;
-            }
-
-            setDynamicSuccess('Pengajuan override berhasil dikirim. Menunggu approval dojo admin.');
-            setOverrideRequestForm({
-                athlete_id: '',
-                override_mode: 'discount_amount',
-                override_value: '',
-                reason: '',
-                valid_from: '',
-                valid_to: '',
-            });
-            await fetchOverrideRequests();
-        } catch (error) {
-            setDynamicError('Terjadi gangguan saat mengirim pengajuan override.');
-        } finally {
-            setRequestLoading(false);
-        }
-    };
 
     const reviewOverrideRequest = async (requestId, decision) => {
         setReviewLoadingId(requestId);
@@ -417,14 +353,18 @@ export default function Index({
 
     const totalRevenue = filteredRecords.filter((r) => r.status === 'paid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
     const totalOutstanding = filteredRecords.filter((r) => r.status !== 'paid').reduce((acc, r) => acc + parseFloat(r.total_amount || r.amount), 0);
-    const unpaidCount = filteredRecords.filter((r) => r.status !== 'paid').length;
+    const unpaidAthleteCount = new Set(
+        filteredRecords
+            .filter((r) => r.status !== 'paid')
+            .map((r) => r.athlete?.id)
+            .filter(Boolean)
+    ).size;
 
     const formatIDR = (amount) => new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
         maximumFractionDigits: 0,
     }).format(amount || 0);
-    const showOverrideRequestForm = canRequestDynamicBilling && !canManageDynamicBilling;
     const statusBadgeClass = (status) => {
         if (status === 'approved') {
             return 'bg-green-100 text-green-700';
@@ -528,7 +468,7 @@ export default function Index({
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Tagihan Belum Bayar</p>
-                                        <h3 className="text-xl sm:text-2xl font-black mt-1">{unpaidCount} Atlet</h3>
+                                        <h3 className="text-xl sm:text-2xl font-black mt-1">{unpaidAthleteCount} Atlet</h3>
                                     </div>
                                     <div className="p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
                                         <CreditCard size={20} />
@@ -682,14 +622,20 @@ export default function Index({
                         </Card>
                     )}
 
-                    {(showOverrideRequestForm || canManageDynamicBilling) && (
+                    {(canRequestDynamicBilling || canManageDynamicBilling) && (
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
                             <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">
-                                    {canManageDynamicBilling ? 'Approval Pengajuan Override' : 'Ajukan Override Billing'}
+                                    {canManageDynamicBilling ? 'Approval Pengajuan Override' : 'Queue Pengajuan Override'}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 sm:p-6 space-y-4">
+                                {!canManageDynamicBilling && (
+                                    <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+                                        Form pengajuan override sudah dipindahkan ke halaman detail atlet. Queue approval tetap dipantau di modul pembayaran ini.
+                                    </div>
+                                )}
+
                                 {!canManageDynamicBilling && (dynamicError || dynamicSuccess) && (
                                     <div className={`rounded-xl border px-3 py-2 text-sm ${
                                         dynamicError
@@ -698,65 +644,6 @@ export default function Index({
                                     }`}>
                                         {dynamicError || dynamicSuccess}
                                     </div>
-                                )}
-
-                                {showOverrideRequestForm && (
-                                    <form onSubmit={submitOverrideRequest} className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
-                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Form Pengajuan</p>
-                                        <select
-                                            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-                                            value={overrideRequestForm.athlete_id}
-                                            onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, athlete_id: e.target.value }))}
-                                            required
-                                        >
-                                            <option value="">Pilih Atlet</option>
-                                            {athletes.map((athlete) => (
-                                                <option key={athlete.id} value={athlete.id}>
-                                                    {athlete.full_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <select
-                                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-                                                value={overrideRequestForm.override_mode}
-                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, override_mode: e.target.value }))}
-                                            >
-                                                <option value="fixed">Fixed</option>
-                                                <option value="discount_amount">Diskon Nominal</option>
-                                                <option value="discount_percent">Diskon Persen</option>
-                                            </select>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                placeholder="Nilai override"
-                                                value={overrideRequestForm.override_value}
-                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, override_value: e.target.value }))}
-                                                required
-                                            />
-                                        </div>
-                                        <Input
-                                            type="text"
-                                            placeholder="Alasan pengajuan"
-                                            value={overrideRequestForm.reason}
-                                            onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, reason: e.target.value }))}
-                                        />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Input
-                                                type="date"
-                                                value={overrideRequestForm.valid_from}
-                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, valid_from: e.target.value }))}
-                                            />
-                                            <Input
-                                                type="date"
-                                                value={overrideRequestForm.valid_to}
-                                                onChange={(e) => setOverrideRequestForm((prev) => ({ ...prev, valid_to: e.target.value }))}
-                                            />
-                                        </div>
-                                        <Button type="submit" size="sm" disabled={requestLoading}>
-                                            {requestLoading ? 'Mengirim...' : 'Kirim Pengajuan'}
-                                        </Button>
-                                    </form>
                                 )}
 
                                 <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">

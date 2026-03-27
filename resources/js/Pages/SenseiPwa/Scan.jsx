@@ -25,6 +25,7 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
         athlete_code: '',
         status: 'excused',
         absence_reason: '',
+        absence_document: null,
     });
     const [submittingScan, setSubmittingScan] = useState(false);
     const [submittingStatus, setSubmittingStatus] = useState(false);
@@ -68,15 +69,20 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
 
     const submitStatus = (event) => {
         event.preventDefault();
+        if (!statusForm.absence_document) {
+            return;
+        }
 
         setSubmittingStatus(true);
         router.post(route('attendance.mark-status'), statusForm, {
             preserveScroll: true,
+            forceFormData: true,
             onFinish: () => setSubmittingStatus(false),
             onSuccess: () => {
                 setStatusForm((prev) => ({
                     ...prev,
                     absence_reason: '',
+                    absence_document: null,
                 }));
             },
         });
@@ -241,9 +247,20 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
                                 placeholder="Alasan (opsional)"
                             />
 
+                            <div className="space-y-1">
+                                <p className="text-xs text-neutral-500">Dokumen pendukung (wajib untuk izin/sakit)</p>
+                                <input
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    onChange={(event) => setStatusForm((prev) => ({ ...prev, absence_document: event.target.files?.[0] || null }))}
+                                    className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                                    required
+                                />
+                            </div>
+
                             <button
                                 type="submit"
-                                disabled={submittingStatus}
+                                disabled={submittingStatus || !statusForm.absence_document}
                                 className="w-full rounded-xl border border-athlix-red px-4 py-2.5 text-sm font-black text-athlix-red disabled:opacity-70"
                             >
                                 {submittingStatus ? 'Mengirim...' : 'Kirim Status'}
@@ -288,4 +305,3 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
         </PwaLayout>
     );
 }
-

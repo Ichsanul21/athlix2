@@ -1,5 +1,5 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -18,19 +18,21 @@ export default function Index({ auth, athletes, flash, filters }) {
     };
 
     const isLoading = !athletes;
-    const normalizedSearch = search.trim().toLowerCase();
-    const filteredAthletes = isLoading ? [] : athletes.filter((athlete) => {
-        const haystacks = [
-            athlete.full_name,
-            athlete.athlete_code,
-            athlete.category,
-            athlete.class_note,
-        ]
-            .filter(Boolean)
-            .map((value) => value.toString().toLowerCase());
+    const filteredAthletes = isLoading ? [] : athletes;
 
-        return haystacks.some((value) => value.includes(normalizedSearch));
-    });
+    const applyFilter = () => {
+        const keyword = search.trim();
+        router.get(
+            route('athletes.index'),
+            keyword ? { search: keyword } : {},
+            { preserveScroll: true, preserveState: true }
+        );
+    };
+
+    const resetFilter = () => {
+        setSearch('');
+        router.get(route('athletes.index'), {}, { preserveScroll: true, preserveState: true });
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return '-';
@@ -86,15 +88,23 @@ export default function Index({ auth, athletes, flash, filters }) {
 
                     {/* Header Actions */}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-in-up">
-                        <div className="relative w-full sm:max-w-xs">
-                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-                            <Input 
-                                type="text" 
-                                placeholder="Cari atlet..." 
-                                className="pl-10 bg-white dark:bg-neutral-900/50"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
+                        <div className="flex w-full sm:max-w-xl gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
+                                <Input 
+                                    type="text" 
+                                    placeholder="Filter nama atlet..." 
+                                    className="pl-10 bg-white dark:bg-neutral-900/50"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                            <Button type="button" variant="outline" onClick={applyFilter}>
+                                Apply
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={resetFilter}>
+                                Reset
+                            </Button>
                         </div>
                         <Link href={route('athletes.create')}>
                             <Button>
@@ -123,9 +133,17 @@ export default function Index({ auth, athletes, flash, filters }) {
                                         <tr key={athlete.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-all duration-300 animate-fade-in-up fill-both" style={{ animationDelay: `${150 + idx * 40}ms` }}>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 dark:from-athlix-red/30 dark:to-athlix-red/10 border border-athlix-red/10 flex items-center justify-center text-sm font-bold text-athlix-red transition-transform duration-300 hover:scale-110">
-                                                        {athlete.full_name?.charAt(0)}
-                                                    </div>
+                                                    {athlete.photo_url ? (
+                                                        <img
+                                                            src={athlete.photo_url}
+                                                            alt={athlete.full_name}
+                                                            className="w-10 h-10 rounded-xl object-cover border border-athlix-red/20"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 dark:from-athlix-red/30 dark:to-athlix-red/10 border border-athlix-red/10 flex items-center justify-center text-sm font-bold text-athlix-red transition-transform duration-300 hover:scale-110">
+                                                            {athlete.full_name?.charAt(0)}
+                                                        </div>
+                                                    )}
                                                     <div className="font-bold text-neutral-900  truncate">
                                                         {athlete.full_name}
                                                     </div>
@@ -179,9 +197,17 @@ export default function Index({ auth, athletes, flash, filters }) {
                                 <CardContent className="p-4 flex flex-col gap-4">
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 flex items-center justify-center text-athlix-red font-bold">
-                                                {athlete.full_name?.charAt(0)}
-                                            </div>
+                                            {athlete.photo_url ? (
+                                                <img
+                                                    src={athlete.photo_url}
+                                                    alt={athlete.full_name}
+                                                    className="w-11 h-11 rounded-xl object-cover border border-athlix-red/20"
+                                                />
+                                            ) : (
+                                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 flex items-center justify-center text-athlix-red font-bold">
+                                                    {athlete.full_name?.charAt(0)}
+                                                </div>
+                                            )}
                                             <div>
                                                 <h3 className="font-bold text-base">{athlete.full_name}</h3>
                                                 <p className="text-xs text-neutral-500">{athlete.category} | {athlete.class_note || '-'}</p>

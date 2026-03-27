@@ -20,7 +20,9 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => 'sensei',
+        ]);
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -28,12 +30,46 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_athletes_can_authenticate_using_phone_number_only(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'murid',
+            'phone_number' => '081234567890',
+        ]);
+
+        $response = $this->post('/login', [
+            'identifier' => $user->phone_number,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
         $response->assertRedirect(route('pwa.home', absolute: false));
+    }
+
+    public function test_athletes_cannot_authenticate_using_email(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'murid',
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors('identifier');
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => 'sensei',
+        ]);
 
         $this->post('/login', [
             'email' => $user->email,
@@ -84,6 +120,29 @@ class AuthenticationTest extends TestCase
 
         $user = User::factory()->create([
             'role' => 'dojo_admin',
+            'dojo_id' => $dojo->id,
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors('email');
+    }
+
+    public function test_tenant_users_cannot_login_when_dojo_is_blocked(): void
+    {
+        $dojo = Dojo::factory()->create([
+            'is_saas_blocked' => true,
+            'blocked_at' => now()->subDay(),
+            'saas_block_reason' => 'Manual block test',
+        ]);
+
+        $user = User::factory()->create([
+            'role' => 'head_coach',
             'dojo_id' => $dojo->id,
         ]);
 

@@ -4,11 +4,11 @@ import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
-import { Loader2, Mail, Lock, LogIn } from 'lucide-react';
+import { Loader2, Smartphone, Lock, LogIn } from 'lucide-react';
 
 export default function Login({ status, canResetPassword }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        email: '',
+        identifier: '',
         password: '',
         remember: false,
     });
@@ -39,21 +39,22 @@ export default function Login({ status, canResetPassword }) {
 
                 <form onSubmit={submit} className="space-y-5">
                     <div className="space-y-1.5">
-                        <InputLabel htmlFor="email" value="Email" className="text-xs font-bold uppercase tracking-widest text-neutral-500" />
+                        <InputLabel htmlFor="identifier" value="Email / No HP Atlet" className="text-xs font-bold uppercase tracking-widest text-neutral-500" />
                         <div className="relative">
-                            <Mail size={16} className="absolute left-3 top-3 text-neutral-400" />
+                            <Smartphone size={16} className="absolute left-3 top-3 text-neutral-400" />
                             <TextInput
-                                id="email"
-                                type="email"
-                                name="email"
-                                value={data.email}
+                                id="identifier"
+                                type="text"
+                                name="identifier"
+                                value={data.identifier}
                                 className="mt-0 block w-full pl-10 h-11 rounded-xl border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 focus:border-athlix-red focus:ring-athlix-red/30"
                                 autoComplete="username"
                                 isFocused={true}
-                                onChange={(e) => setData('email', e.target.value)}
+                                onChange={(e) => setData('identifier', e.target.value)}
+                                placeholder="contoh: user@email.com / 08xxxxxxxxxx"
                             />
                         </div>
-                        <InputError message={errors.email} className="mt-1" />
+                        <InputError message={errors.identifier} className="mt-1" />
                     </div>
 
                     <div className="space-y-1.5">

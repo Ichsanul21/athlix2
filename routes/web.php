@@ -64,8 +64,6 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::delete('/training-programs/{trainingProgram}', [TrainingProgramController::class, 'destroy'])->name('training-programs.destroy');
 
         Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics.index');
-        Route::get('/statistics/ppa-preview', [StatisticsController::class, 'ppaPreview'])->name('statistics.ppa-preview');
-        Route::post('/statistics/ppa-import', [StatisticsController::class, 'importPpa'])->name('statistics.ppa-import');
 
         Route::get('/ai-assistant', [AiAssistantController::class, 'index'])->name('ai-assistant.index');
         Route::post('/ai-assistant/chat', [AiAssistantController::class, 'chat'])->name('ai-assistant.chat');
@@ -118,6 +116,7 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
     Route::middleware('role:super_admin,sensei,head_coach,assistant,murid')->group(function () {
         Route::post('/attendance/scan-dojo', [AttendanceController::class, 'scanDojo'])->name('attendance.scan-dojo');
         Route::post('/attendance/mark-status', [AttendanceController::class, 'markStatus'])->name('attendance.mark-status');
+        Route::post('/attendance/post-training-feedback', [AttendanceController::class, 'submitPostTrainingFeedback'])->name('attendance.post-training-feedback');
     });
 
     Route::middleware('role:sensei,head_coach,assistant')->group(function () {
@@ -125,6 +124,8 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::get('/sensei-pwa/home', [PwaController::class, 'senseiHome'])->name('sensei-pwa.home');
         Route::get('/sensei-pwa/scan', [PwaController::class, 'senseiScan'])->name('sensei-pwa.scan');
         Route::get('/sensei-pwa/schedule', [PwaController::class, 'senseiSchedule'])->name('sensei-pwa.schedule');
+        Route::get('/sensei-pwa/training-program', [PwaController::class, 'senseiTrainingProgram'])->name('sensei-pwa.training-program');
+        Route::get('/sensei-pwa/condition', [PwaController::class, 'senseiCondition'])->name('sensei-pwa.condition');
         Route::get('/sensei-pwa/athletes', [PwaController::class, 'senseiAthletes'])->name('sensei-pwa.athletes');
         Route::get('/sensei-pwa/notifications', [PwaController::class, 'senseiNotifications'])->name('sensei-pwa.notifications');
     });
