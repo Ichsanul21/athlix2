@@ -2,6 +2,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
+import DbSelect from '@/Components/DbSelect';
 import { useEffect, useState } from 'react';
 
 export default function Index({ auth, notifications = [], athletes = [], dojos = [], selectedDojoId = null, flash }) {
@@ -50,20 +51,17 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
                     <CardContent>
                         <form onSubmit={submit} className="space-y-3">
                             {dojos.length > 0 && (
-                                <select
-                                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                                <DbSelect
+                                    inputId="notifications-dojo-filter"
+                                    options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                     value={dojoId || ''}
-                                    onChange={(event) => {
-                                        const next = event.target.value;
+                                    placeholder="Pilih Dojo"
+                                    onChange={(next) => {
                                         setDojoId(next);
                                         form.setData('dojo_id', next);
                                         router.get(route('senpai-notifications.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                     }}
-                                >
-                                    {dojos.map((dojo) => (
-                                        <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                    ))}
-                                </select>
+                                />
                             )}
                             <input
                                 className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -79,16 +77,16 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
                                 onChange={(event) => form.setData('message', event.target.value)}
                                 required
                             />
-                            <select
-                                className="w-full rounded-lg border px-3 py-2 text-sm"
+                            <DbSelect
+                                inputId="notifications-athlete-filter"
+                                options={[
+                                    { value: '', label: 'Semua Atlet Dojo' },
+                                    ...athletes.map((athlete) => ({ value: String(athlete.id), label: `${athlete.full_name} (${athlete.athlete_code})` })),
+                                ]}
                                 value={form.data.athlete_id || ''}
-                                onChange={(event) => form.setData('athlete_id', event.target.value)}
-                            >
-                                <option value="">Semua Atlet Dojo</option>
-                                {athletes.map((athlete) => (
-                                    <option key={athlete.id} value={athlete.id}>{athlete.full_name} ({athlete.athlete_code})</option>
-                                ))}
-                            </select>
+                                placeholder="Pilih Atlet"
+                                onChange={(next) => form.setData('athlete_id', next)}
+                            />
                             <p className="text-xs text-neutral-500">Notifikasi akan langsung aktif dan tampil sebagai popup di PWA atlet.</p>
                             <div className="flex items-center gap-2">
                                 <Button type="submit" disabled={form.processing}>

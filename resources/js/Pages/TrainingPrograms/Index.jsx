@@ -20,6 +20,7 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { Skeleton } from '@/Components/ui/skeleton';
+import DbSelect from '@/Components/DbSelect';
 
 export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null }) {
     const isLoading = !weeklySchedule;
@@ -36,6 +37,10 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     const [editingProgram, setEditingProgram] = useState(null);
     const [expandedProgramId, setExpandedProgramId] = useState(null);
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
+    const dojoOptions = useMemo(
+        () => dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name })),
+        [dojos]
+    );
 
     const coachOptions = useMemo(() => {
         const fromSchedule = Object.values(weeklySchedule || {})
@@ -157,6 +162,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         ...(programTitleTemplatesByType[data.type] || []),
         data.title || '',
     ].filter(Boolean)));
+    const titleSelectOptions = useMemo(
+        () => titleOptions.map((option) => ({ value: option, label: option })),
+        [titleOptions],
+    );
+    const coachSelectOptions = useMemo(
+        () => coachOptions.map((coachName) => ({ value: coachName, label: coachName })),
+        [coachOptions],
+    );
 
     if (isLoading) {
         return (
@@ -195,20 +208,18 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         </div>
                         <div className="flex items-center gap-3">
                             {dojos.length > 0 && (
-                                <select
-                                    className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                <DbSelect
+                                    inputId="training-programs-dojo-filter"
+                                    className="min-w-[220px]"
+                                    options={dojoOptions}
                                     value={dojoId || ''}
-                                    onChange={(e) => {
-                                        const next = e.target.value;
+                                    placeholder="Pilih Dojo"
+                                    onChange={(next) => {
                                         setDojoId(next);
                                         setData('dojo_id', next);
                                         router.get(route('training-programs.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                     }}
-                                >
-                                    {dojos.map((dojo) => (
-                                        <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                    ))}
-                                </select>
+                                />
                             )}
                             <Button
                                 onClick={() => openModal()}
@@ -232,8 +243,11 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                                 <div className="space-y-3">
                                     {weeklySchedule[day] && weeklySchedule[day].length > 0 ? (
-                                        weeklySchedule[day].map((p) => (
-                                            <Card key={p.id} className="border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/30 transition-all duration-300 overflow-hidden relative card-hover">
+                                        weeklySchedule[day].map((p) => {
+                                            const isExpanded = expandedProgramId === p.id;
+
+                                            return (
+                                            <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/30 transition-all duration-300 overflow-visible relative card-hover ${isExpanded ? 'shadow-xl shadow-athlix-red/10 z-20' : ''}`}>
                                                 <div className={`h-1 w-full ${typeColors[p.type] || 'bg-blue-500'} transition-all duration-300 group-hover:h-1.5`}></div>
 
                                                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
@@ -261,7 +275,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                                                 <button
                                                     type="button"
-                                                    onClick={() => setExpandedProgramId(expandedProgramId === p.id ? null : p.id)}
+                                                    onClick={() => setExpandedProgramId(isExpanded ? null : p.id)}
                                                     className="w-full text-left"
                                                 >
                                                     <CardContent className="p-3 sm:p-4 space-y-3">
@@ -290,9 +304,10 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                                     </CardContent>
                                                 </button>
 
-                                                {expandedProgramId === p.id && (
-                                                    <div className="px-4 pb-4 space-y-3 text-xs border-t border-neutral-100 dark:border-neutral-800">
-                                                        <div className="pt-3 flex items-center gap-2 text-neutral-600 ">
+                                                {isExpanded && (
+                                                    <div className="relative">
+                                                        <div className="mt-2 px-4 pb-4 pt-3 space-y-3 text-xs border border-neutral-100 dark:border-neutral-800 rounded-xl bg-white dark:bg-neutral-950 md:w-[min(34rem,calc(100vw-4rem))] md:-ml-6 lg:-ml-8">
+                                                        <div className="flex items-center gap-2 text-neutral-600 ">
                                                             <Calendar size={12} className="text-athlix-red" />
                                                             <span>Tanggal latihan terdekat: <span className="font-bold">{p.next_date}</span></span>
                                                         </div>
@@ -310,10 +325,12 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                                         ) : (
                                                             <p className="text-neutral-500">Belum ada rincian child agenda untuk sesi ini.</p>
                                                         )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </Card>
-                                        ))
+                                        );
+                                        })
                                     ) : (
                                         <div className="p-4 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 text-xs text-neutral-400 italic text-center bg-neutral-50/50 dark:bg-neutral-900/30">
                                             Libur / Mandiri
@@ -366,35 +383,28 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="col-span-1 sm:col-span-2">
                                 <InputLabel htmlFor="title" value="Template Program" />
-                                <select
-                                    id="title"
-                                    className="mt-1 block w-full border-neutral-300 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm"
+                                <DbSelect
+                                    inputId="title"
+                                    className="mt-1"
+                                    options={titleSelectOptions}
                                     value={data.title}
-                                    onChange={(e) => setData('title', e.target.value)}
-                                    required
-                                >
-                                    <option value="">Pilih template program</option>
-                                    {titleOptions.map((option) => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
+                                    onChange={(next) => setData('title', next)}
+                                    placeholder="Pilih template program"
+                                />
                                 <InputError message={errors.title} className="mt-2" />
                             </div>
 
                             {dojos.length > 0 && (
                                 <div className="col-span-1 sm:col-span-2">
                                     <InputLabel htmlFor="dojo_id" value="Dojo" />
-                                    <select
-                                        id="dojo_id"
-                                        className="mt-1 block w-full border-neutral-300 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm"
+                                    <DbSelect
+                                        inputId="training-programs-dojo-form"
+                                        className="mt-1"
+                                        options={dojoOptions}
                                         value={data.dojo_id || ''}
-                                        onChange={(e) => setData('dojo_id', e.target.value)}
-                                        required
-                                    >
-                                        {dojos.map((dojo) => (
-                                            <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                        ))}
-                                    </select>
+                                        placeholder="Pilih dojo"
+                                        onChange={(next) => setData('dojo_id', next)}
+                                    />
                                     <InputError message={errors.dojo_id} className="mt-2" />
                                 </div>
                             )}
@@ -432,18 +442,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                             <div className="col-span-1 sm:col-span-2">
                                 <InputLabel htmlFor="coach_name" value="Pelatih / Sensei" />
-                                <select
-                                    id="coach_name"
-                                    className="mt-1 block w-full border-neutral-300 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm"
+                                <DbSelect
+                                    inputId="coach_name"
+                                    className="mt-1"
+                                    options={coachSelectOptions}
                                     value={data.coach_name}
-                                    onChange={(e) => setData('coach_name', e.target.value)}
-                                    required
-                                >
-                                    <option value="">Pilih pelatih</option>
-                                    {coachOptions.map((coachName) => (
-                                        <option key={coachName} value={coachName}>{coachName}</option>
-                                    ))}
-                                </select>
+                                    onChange={(next) => setData('coach_name', next)}
+                                    placeholder="Pilih pelatih"
+                                />
                                 <InputError message={errors.coach_name} className="mt-2" />
                             </div>
 

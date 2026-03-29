@@ -6,6 +6,7 @@ import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { Button } from '@/Components/ui/button';
 import Modal from '@/Components/Modal';
+import DbSelect from '@/Components/DbSelect';
 import { useEffect, useMemo, useState } from 'react';
 
 const DYNAMIC_BILLING_BASE = '/finance-api/billing/dynamic';
@@ -24,6 +25,7 @@ export default function Index({
     overrideRequests = [],
     canManageDynamicBilling = false,
     canRequestDynamicBilling = false,
+    canDirectSenseiNominal = false,
 }) {
     const [search, setSearch] = useState(filters?.search || '');
     const [confirmationModal, setConfirmationModal] = useState({ show: false, action: null, record: null });
@@ -50,6 +52,7 @@ export default function Index({
         valid_from: '',
         valid_to: '',
     });
+    const canAdjustNominalDirectly = canManageDynamicBilling || canDirectSenseiNominal;
     const {
         data: customForm,
         setData: setCustomForm,
@@ -397,7 +400,7 @@ export default function Index({
     };
 
     const openCustomModal = (record) => {
-        if (!canManageDynamicBilling) {
+        if (!canAdjustNominalDirectly) {
             return;
         }
         setCustomModal({ show: true, record });
@@ -410,7 +413,7 @@ export default function Index({
     };
 
     const submitCustomNominal = () => {
-        if (!customModal.record || !canManageDynamicBilling) return;
+        if (!customModal.record || !canAdjustNominalDirectly) return;
         postCustomNominal(route('finance.customize', customModal.record.id), {
             preserveScroll: true,
             data: {
@@ -535,19 +538,13 @@ export default function Index({
 
                                     <form onSubmit={submitOverrideRule} className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
                                         <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Override Atlet</p>
-                                        <select
-                                            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                        <DbSelect
+                                            inputId="finance-override-athlete"
+                                            options={athletes.map((athlete) => ({ value: String(athlete.id), label: athlete.full_name }))}
                                             value={overrideForm.athlete_id}
-                                            onChange={(e) => setOverrideForm((prev) => ({ ...prev, athlete_id: e.target.value }))}
-                                            required
-                                        >
-                                            <option value="">Pilih Atlet</option>
-                                            {athletes.map((athlete) => (
-                                                <option key={athlete.id} value={athlete.id}>
-                                                    {athlete.full_name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            placeholder="Pilih Atlet"
+                                            onChange={(next) => setOverrideForm((prev) => ({ ...prev, athlete_id: next }))}
+                                        />
                                         <div className="grid grid-cols-2 gap-2">
                                             <select
                                                 className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
@@ -622,6 +619,19 @@ export default function Index({
                         </Card>
                     )}
 
+                    {canDirectSenseiNominal && (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Penyesuaian Nominal SPP (Sensei)</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6">
+                                <p className="text-sm text-neutral-600">
+                                    Fitur ini menggantikan pengajuan nominal di Database Atlet. Perubahan nominal dilakukan langsung di menu Pembayaran tanpa approval.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {(canRequestDynamicBilling || canManageDynamicBilling) && (
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
                             <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
@@ -632,7 +642,7 @@ export default function Index({
                             <CardContent className="p-4 sm:p-6 space-y-4">
                                 {!canManageDynamicBilling && (
                                     <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
-                                        Form pengajuan override sudah dipindahkan ke halaman detail atlet. Queue approval tetap dipantau di modul pembayaran ini.
+                                        Queue ini dipakai untuk pengajuan override dari role yang masih melalui proses approval.
                                     </div>
                                 )}
 
@@ -717,19 +727,17 @@ export default function Index({
                                     />
                                 </div>
                                 {dojos.length > 0 && (
-                                    <select
-                                        className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                    <DbSelect
+                                        inputId="finance-dojo-filter"
+                                        className="w-full sm:w-[220px]"
+                                        options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                         value={dojoId || ''}
-                                        onChange={(e) => {
-                                            const next = e.target.value;
+                                        placeholder="Pilih Dojo"
+                                        onChange={(next) => {
                                             setDojoId(next);
                                             router.get(route('finance.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                         }}
-                                    >
-                                        {dojos.map((dojo) => (
-                                            <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                        ))}
-                                    </select>
+                                    />
                                 )}
                                 {canManageDynamicBilling && (
                                     <Button
@@ -783,15 +791,17 @@ export default function Index({
                                                 <td className="px-6 py-4 text-xs font-mono text-neutral-500 whitespace-nowrap">{rec.due_date}</td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {canManageDynamicBilling && rec.status === 'unpaid' && (
+                                                        {canAdjustNominalDirectly && rec.status === 'unpaid' && (
                                                             <>
-                                                                <button
-                                                                    onClick={() => setConfirmationModal({ show: true, action: 'markPaid', record: rec })}
-                                                                    className="p-2 rounded-lg bg-blue-500/10 text-blue-600"
-                                                                    title="Tandai Lunas"
-                                                                >
-                                                                    <Check size={16} />
-                                                                </button>
+                                                                {canManageDynamicBilling && (
+                                                                    <button
+                                                                        onClick={() => setConfirmationModal({ show: true, action: 'markPaid', record: rec })}
+                                                                        className="p-2 rounded-lg bg-blue-500/10 text-blue-600"
+                                                                        title="Tandai Lunas"
+                                                                    >
+                                                                        <Check size={16} />
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     onClick={() => openCustomModal(rec)}
                                                                     className="p-2 rounded-lg bg-amber-500/10 text-amber-600"
@@ -869,9 +879,13 @@ export default function Index({
 
             <Modal show={customModal.show} onClose={() => setCustomModal({ show: false, record: null })} maxWidth="lg">
                 <div className="p-6 space-y-4">
-                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Custom Nominal Per Athlete</h3>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">
+                        {canDirectSenseiNominal ? 'Ubah Nominal SPP Atlet' : 'Custom Nominal Per Athlete'}
+                    </h3>
                     <p className="text-sm text-neutral-700">
-                        Gunakan form ini untuk skema cross-subsidi. Semua perubahan akan tercatat otomatis pada audit log.
+                        {canDirectSenseiNominal
+                            ? 'Perubahan nominal langsung diterapkan ke tagihan atlet dan tercatat pada audit log.'
+                            : 'Gunakan form ini untuk skema cross-subsidi. Semua perubahan akan tercatat otomatis pada audit log.'}
                     </p>
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-1">
@@ -885,20 +899,22 @@ export default function Index({
                             />
                             {customErrors.new_amount && <p className="text-xs text-athlix-red">{customErrors.new_amount}</p>}
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sumber Cross-Subsidi</label>
-                            <select
-                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
-                                value={customForm.source_athlete_id}
-                                onChange={(e) => setCustomForm('source_athlete_id', e.target.value)}
-                            >
-                                <option value="">Tidak ada (manual)</option>
-                                {athletes.map((athlete) => (
-                                    <option key={athlete.id} value={athlete.id}>{athlete.full_name}</option>
-                                ))}
-                            </select>
-                            {customErrors.source_athlete_id && <p className="text-xs text-athlix-red">{customErrors.source_athlete_id}</p>}
-                        </div>
+                        {!canDirectSenseiNominal && (
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sumber Cross-Subsidi</label>
+                                <DbSelect
+                                    inputId="finance-custom-source-athlete"
+                                    options={[
+                                        { value: '', label: 'Tidak ada (manual)' },
+                                        ...athletes.map((athlete) => ({ value: String(athlete.id), label: athlete.full_name })),
+                                    ]}
+                                    value={customForm.source_athlete_id}
+                                    onChange={(next) => setCustomForm('source_athlete_id', next)}
+                                    placeholder="Pilih atlet sumber"
+                                />
+                                {customErrors.source_athlete_id && <p className="text-xs text-athlix-red">{customErrors.source_athlete_id}</p>}
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alasan Penyesuaian</label>

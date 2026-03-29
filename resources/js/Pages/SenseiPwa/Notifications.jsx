@@ -1,6 +1,7 @@
 import PwaLayout from '@/Layouts/PwaLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
+import DbSelect from '@/Components/DbSelect';
 import { useMemo, useState } from 'react';
 import { ArrowRight, Megaphone } from 'lucide-react';
 
@@ -16,6 +17,16 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
     const sortedAthletes = useMemo(
         () => [...athletes].sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''))),
         [athletes],
+    );
+    const athleteOptions = useMemo(
+        () => [
+            { value: '', label: 'Broadcast semua atlet dojo' },
+            ...sortedAthletes.map((athlete) => ({
+                value: String(athlete.id),
+                label: `${athlete.full_name} (${athlete.athlete_code})`,
+            })),
+        ],
+        [sortedAthletes],
     );
 
     const submitForm = (event) => {
@@ -95,18 +106,14 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
                                 required
                             />
 
-                            <select
+                            <DbSelect
+                                inputId="sensei-pwa-notification-athlete"
+                                options={athleteOptions}
                                 value={form.athlete_id}
-                                onChange={(event) => setForm((prev) => ({ ...prev, athlete_id: event.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                            >
-                                <option value="">Broadcast semua atlet dojo</option>
-                                {sortedAthletes.map((athlete) => (
-                                    <option key={athlete.id} value={athlete.id}>
-                                        {athlete.full_name} ({athlete.athlete_code})
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(next) => setForm((prev) => ({ ...prev, athlete_id: next }))}
+                                placeholder="Pilih target atlet"
+                                menuPortal={false}
+                            />
                             <p className="text-xs text-neutral-500">Notifikasi akan otomatis aktif dan tampil sebagai popup.</p>
 
                             <button

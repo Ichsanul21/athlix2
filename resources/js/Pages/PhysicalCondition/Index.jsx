@@ -6,6 +6,7 @@ import { Ruler, Weight, Activity, Search, ChevronRight, Zap, TrendingUp } from '
 import { Input } from '@/Components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Skeleton } from '@/Components/ui/skeleton';
+import DbSelect from '@/Components/DbSelect';
 
 export default function Index({ auth, athletes, dojos = [], selectedDojoId = null }) {
     const [search, setSearch] = useState('');
@@ -87,19 +88,17 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">Ringkasan Kondisi</h3>
                         {dojos.length > 0 && (
-                            <select
-                                className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                            <DbSelect
+                                inputId="physical-condition-dojo-filter"
+                                className="w-full sm:w-[220px]"
+                                options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                 value={dojoId || ''}
-                                onChange={(e) => {
-                                    const next = e.target.value;
+                                placeholder="Pilih Dojo"
+                                onChange={(next) => {
                                     setDojoId(next);
                                     router.get(route('physical-condition.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                 }}
-                            >
-                                {dojos.map((dojo) => (
-                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                ))}
-                            </select>
+                            />
                         )}
                     </div>
 

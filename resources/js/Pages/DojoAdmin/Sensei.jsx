@@ -5,6 +5,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import Modal from '@/Components/Modal';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
+import DbSelect from '@/Components/DbSelect';
 import { useEffect, useState } from 'react';
 
 export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos = [], selectedDojoId = null, flash }) {
@@ -91,20 +92,18 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                         {dojos.length > 0 && (
-                            <select
-                                className="text-sm border rounded-lg px-3 py-2 md:col-span-2 xl:col-span-3"
+                            <DbSelect
+                                inputId="dojo-sensei-dojo-filter"
+                                className="md:col-span-2 xl:col-span-3"
+                                options={dojos.map((item) => ({ value: String(item.id), label: item.name }))}
                                 value={dojoId || ''}
-                                onChange={(e) => {
-                                    const next = e.target.value;
+                                placeholder="Pilih Dojo"
+                                onChange={(next) => {
                                     setDojoId(next);
                                     form.setData('dojo_id', next);
                                     router.get(route('dojo-admin.sensei.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                 }}
-                            >
-                                {dojos.map((item) => (
-                                    <option key={item.id} value={item.id}>{item.name}</option>
-                                ))}
-                            </select>
+                            />
                         )}
 
                         <Input className="text-sm" placeholder="Nama Sensei" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />

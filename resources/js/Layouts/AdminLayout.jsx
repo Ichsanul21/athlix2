@@ -37,7 +37,6 @@ export default function AdminLayout({ user, header, children }) {
                   { name: t('admin.physical_condition', 'Kondisi Fisik'), href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
                   { name: t('admin.training_program', 'Program Latihan'), href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
                   { name: t('admin.statistics', 'Statistik'), href: route('statistics.index'), icon: BarChart3, current: 'statistics.*' },
-                  { name: t('admin.ai_assistant', 'Asisten Gemini AI'), href: route('ai-assistant.index'), icon: Sparkles, current: 'ai-assistant.*' },
                   { name: t('admin.athlete_notification', 'Notifikasi Atlet'), href: route('senpai-notifications.index'), icon: BellRing, current: 'senpai-notifications.*' },
               ]
             : []),
@@ -62,6 +61,9 @@ export default function AdminLayout({ user, header, children }) {
             ? [{ name: t('admin.sensei_pwa', 'PWA Sensei'), href: route('sensei-pwa.home'), icon: Smartphone, current: 'sensei-pwa.*' }]
             : []),
     ];
+    const aiNavigation = ['super_admin', 'sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'].includes(role)
+        ? [{ name: t('admin.ai_assistant', 'Asisten Gemini AI'), href: route('ai-assistant.index'), icon: Sparkles, current: 'ai-assistant.*' }]
+        : [];
 
     return (
         <div className="min-h-screen bg-neutral-50 text-athlix-black transition-colors duration-300">
@@ -93,7 +95,7 @@ export default function AdminLayout({ user, header, children }) {
                 </div>
                 
                 {/* Navigation */}
-                <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-8rem)]">
+                <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)]">
                     {navigation.map((item, idx) => {
                         const isActive = route().current(item.current);
                         return (
@@ -117,8 +119,25 @@ export default function AdminLayout({ user, header, children }) {
                     })}
                 </nav>
 
-                {/* Logout */}
-                <div className="absolute bottom-0 w-full p-3 border-t border-neutral-200/80 bg-white">
+                {/* Bottom Actions */}
+                <div className="absolute bottom-0 w-full p-3 border-t border-neutral-200/80 bg-white space-y-1">
+                    {aiNavigation.map((item) => {
+                        const isActive = route().current(item.current);
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ${
+                                    isActive
+                                        ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
+                                        : 'text-neutral-600 hover:bg-neutral-100 hover:text-athlix-black'
+                                }`}
+                            >
+                                <item.icon className="w-5 h-5 mr-3" />
+                                {item.name}
+                            </Link>
+                        );
+                    })}
                     <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 hover:text-athlix-red transition-all duration-300">
                         <LogOut className="w-5 h-5 mr-3" />
                         {t('common.sign_out', 'Sign Out')}

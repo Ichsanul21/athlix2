@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Users, Calendar, Award, ShieldAlert } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
+import DbSelect from '@/Components/DbSelect';
 import { useEffect, useState } from 'react';
 
 const COLORS = ['#E61E32', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
@@ -67,19 +68,17 @@ export default function Index({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">Ringkasan Dojo</h3>
                         {dojos.length > 0 && (
-                            <select
-                                className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                            <DbSelect
+                                inputId="statistics-dojo-filter"
+                                className="w-full sm:w-[220px]"
+                                options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                 value={dojoId || ''}
-                                onChange={(e) => {
-                                    const next = e.target.value;
+                                placeholder="Pilih Dojo"
+                                onChange={(next) => {
                                     setDojoId(next);
                                     router.get(route('statistics.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                 }}
-                            >
-                                {dojos.map((dojo) => (
-                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                ))}
-                            </select>
+                            />
                         )}
                     </div>
 

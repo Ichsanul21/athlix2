@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Skeleton } from '@/Components/ui/skeleton';
+import DbSelect from '@/Components/DbSelect';
 import { QrCode, RefreshCw, CalendarCheck2, CheckCircle2, UserRound, MessageSquare } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useMemo, useState } from 'react';
@@ -101,19 +102,17 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
                             <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">QR Dojo Aktif</CardTitle>
                             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                 {dojos.length > 0 && (
-                                    <select
-                                        className="h-9 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                                    <DbSelect
+                                        inputId="attendance-dojo-filter"
+                                        className="w-full sm:w-[220px]"
+                                        options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                         value={dojoId || ''}
-                                        onChange={(e) => {
-                                            const next = e.target.value;
+                                        placeholder="Pilih Dojo"
+                                        onChange={(next) => {
                                             setDojoId(next);
                                             router.get(route('attendance.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                         }}
-                                    >
-                                        {dojos.map((dojo) => (
-                                            <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                        ))}
-                                    </select>
+                                    />
                                 )}
                                 <Button type="button" variant="outline" className="h-9" onClick={refreshDojoQr} disabled={refreshing}>
                                     <RefreshCw size={14} className={refreshing ? 'animate-spin mr-2' : 'mr-2'} />Refresh QR

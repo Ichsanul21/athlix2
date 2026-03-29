@@ -179,6 +179,7 @@ class AthleteController extends Controller
             'achievements',
             'attendances',
             'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
+            'reports' => fn ($query) => $query->latest('recorded_at')->latest('id'),
             'latestReport',
         ]);
         $athlete->age = \Carbon\Carbon::parse($athlete->dob)->age;
@@ -226,6 +227,26 @@ class AthleteController extends Controller
         $bmiScore = $this->resolveBmiScore($bmi);
         $conditionScore = $this->resolveConditionScore($bmi, $attendanceRate);
         $latestReport = $athlete->latestReport;
+        $reportHistory = $athlete->reports
+            ->sortByDesc('recorded_at')
+            ->values()
+            ->map(function (AthleteReport $report) {
+                $recordedAt = optional($report->recorded_at);
+
+                return [
+                    'id' => $report->id,
+                    'condition_percentage' => (int) $report->condition_percentage,
+                    'stamina' => (int) $report->stamina,
+                    'balance' => (int) $report->balance,
+                    'speed' => (int) $report->speed,
+                    'strength' => (int) $report->strength,
+                    'agility' => (int) $report->agility,
+                    'notes' => $report->notes,
+                    'recorded_at' => $recordedAt?->toDateString(),
+                    'recorded_label' => $recordedAt?->translatedFormat('d M Y') ?? '-',
+                    'created_label' => optional($report->created_at)?->translatedFormat('d M Y H:i'),
+                ];
+            });
 
         $categories = [
             ['label' => 'Stamina', 'score' => (int) ($latestReport?->stamina ?? max(0, min(100, $attendanceRate)))],
@@ -248,8 +269,7 @@ class AthleteController extends Controller
             'athlete' => Inertia::defer(fn () => $athlete),
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
-            'canRequestOverride' => Inertia::defer(fn () => (bool) ($user?->isCoachGroup() || $user?->isParent())),
-            'tenantId' => Inertia::defer(fn () => (int) ($athlete->dojo_id ?? $user?->dojo_id)),
+            'reportHistory' => Inertia::defer(fn () => $reportHistory),
             'latestReport' => Inertia::defer(fn () => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,

@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import DbSelect from '@/Components/DbSelect';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { useState } from 'react';
 
@@ -72,16 +73,26 @@ export default function Users({ auth, users = [], dojos = [], athletes = [], fla
                             <option value="murid">Murid (Atlet)</option>
                         </select>
 
-                        <select className="border rounded-lg px-3 py-2 text-sm" value={form.data.dojo_id} onChange={(e) => form.setData('dojo_id', e.target.value)} disabled={form.data.role === 'murid'}>
-                            <option value="">Tanpa Dojo</option>
-                            {dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.name}</option>)}
-                        </select>
+                        <DbSelect
+                            inputId="super-admin-user-dojo"
+                            options={[
+                                { value: '', label: 'Tanpa Dojo' },
+                                ...dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name })),
+                            ]}
+                            value={form.data.dojo_id}
+                            onChange={(next) => form.setData('dojo_id', next)}
+                            placeholder="Pilih Dojo"
+                            isDisabled={form.data.role === 'murid'}
+                        />
 
-                        <select
-                            className="border rounded-lg px-3 py-2 text-sm"
+                        <DbSelect
+                            inputId="super-admin-user-athlete"
+                            options={[
+                                { value: '', label: 'Pilih Atlet (khusus murid)' },
+                                ...athletes.map((athlete) => ({ value: String(athlete.id), label: `${athlete.full_name} (${athlete.athlete_code})` })),
+                            ]}
                             value={form.data.athlete_id}
-                            onChange={(e) => {
-                                const athleteId = e.target.value;
+                            onChange={(athleteId) => {
                                 form.setData('athlete_id', athleteId);
                                 if (form.data.role === 'murid') {
                                     const selectedAthlete = athletes.find((athlete) => String(athlete.id) === String(athleteId));
@@ -94,15 +105,9 @@ export default function Users({ auth, users = [], dojos = [], athletes = [], fla
                                     }
                                 }
                             }}
-                            disabled={form.data.role !== 'murid'}
-                        >
-                            <option value="">Pilih Atlet (khusus murid)</option>
-                            {athletes.map((athlete) => (
-                                <option key={athlete.id} value={athlete.id}>
-                                    {athlete.full_name} ({athlete.athlete_code})
-                                </option>
-                            ))}
-                        </select>
+                            placeholder="Pilih Atlet"
+                            isDisabled={form.data.role !== 'murid'}
+                        />
 
                         <div className="md:col-span-2 xl:col-span-3 flex flex-wrap gap-2">
                             <Button onClick={submit}>{editingUserId ? 'Simpan Perubahan' : 'Simpan Akun'}</Button>

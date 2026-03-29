@@ -184,6 +184,46 @@
     .theme-toggle-knob {
         @apply absolute top-0.5 w-6 h-6 rounded-full shadow-md transition-all duration-500 flex items-center justify-center;
     }
+
+    .article-content {
+        @apply text-slate-200 leading-relaxed;
+    }
+    .article-content h1,
+    .article-content h2,
+    .article-content h3,
+    .article-content h4,
+    .article-content h5,
+    .article-content h6 {
+        @apply mt-6 mb-3 font-black text-white leading-tight;
+    }
+    .article-content p {
+        @apply mb-4;
+    }
+    .article-content a {
+        @apply text-red-400 underline underline-offset-2 hover:text-red-300;
+    }
+    .article-content ul,
+    .article-content ol {
+        @apply mb-4 ml-5 space-y-2;
+    }
+    .article-content ul {
+        @apply list-disc;
+    }
+    .article-content ol {
+        @apply list-decimal;
+    }
+    .article-content img {
+        @apply my-5 h-auto max-w-full rounded-xl border border-slate-800;
+    }
+    .article-content blockquote {
+        @apply my-5 border-l-4 border-red-500 bg-slate-900/70 px-4 py-3 italic text-slate-300;
+    }
+    .article-content pre {
+        @apply my-5 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm;
+    }
+    .article-content code {
+        @apply rounded bg-slate-800 px-1.5 py-0.5 text-[13px];
+    }
 }
 
 @layer utilities {

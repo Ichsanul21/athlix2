@@ -2,6 +2,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Skeleton } from '@/Components/ui/skeleton';
+import DbSelect from '@/Components/DbSelect';
 import { Users, Dumbbell, Activity, CreditCard, Sparkles, ChevronRight, CheckCircle2, HeartPulse, AlertTriangle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -103,19 +104,17 @@ export default function Dashboard({
                     </p>
                     {dojos.length > 0 && (
                         <div className="pt-2">
-                            <select
-                                className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral-600"
+                            <DbSelect
+                                inputId="dashboard-dojo-filter"
+                                className="min-w-[220px]"
+                                options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                 value={dojoId || ''}
-                                onChange={(e) => {
-                                    const next = e.target.value;
+                                placeholder="Pilih Dojo"
+                                onChange={(next) => {
                                     setDojoId(next);
                                     router.get(route('dashboard'), next ? { dojo_id: next } : {}, { preserveScroll: true });
                                 }}
-                            >
-                                {dojos.map((dojo) => (
-                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                ))}
-                            </select>
+                            />
                         </div>
                     )}
                 </div>

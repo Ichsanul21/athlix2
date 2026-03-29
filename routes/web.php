@@ -21,6 +21,10 @@ use App\Http\Controllers\TrainingProgramController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing.index');
+Route::get('/sitemap.xml', [LandingController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('/robots.txt', [LandingController::class, 'robots'])->name('seo.robots');
+Route::get('/artikel/{slug}', [LandingController::class, 'showArticle'])->name('landing.articles.show');
+Route::get('/galeri/{slug}', [LandingController::class, 'showGallery'])->name('landing.galleries.show');
 
 Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
     Route::middleware('role:super_admin,sensei,head_coach,assistant,medical_staff,dojo_admin')->group(function () {
@@ -80,9 +84,12 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::get('/cms/galleries', [LandingCmsController::class, 'galleries'])->name('cms.galleries.index');
         Route::get('/cms/pricelists', [LandingCmsController::class, 'pricelists'])->name('cms.pricelists.index');
         Route::post('/cms/articles', [LandingCmsController::class, 'storeArticle'])->name('cms.articles.store');
+        Route::post('/cms/articles/editor-image', [LandingCmsController::class, 'uploadArticleEditorImage'])->name('cms.articles.editor-image');
+        Route::post('/cms/articles/{article}/preview-token', [LandingCmsController::class, 'refreshArticlePreviewToken'])->name('cms.articles.preview-token');
         Route::patch('/cms/articles/{article}', [LandingCmsController::class, 'updateArticle'])->name('cms.articles.update');
         Route::delete('/cms/articles/{article}', [LandingCmsController::class, 'destroyArticle'])->name('cms.articles.destroy');
         Route::post('/cms/galleries', [LandingCmsController::class, 'storeGallery'])->name('cms.galleries.store');
+        Route::post('/cms/galleries/{gallery}/preview-token', [LandingCmsController::class, 'refreshGalleryPreviewToken'])->name('cms.galleries.preview-token');
         Route::patch('/cms/galleries/{gallery}', [LandingCmsController::class, 'updateGallery'])->name('cms.galleries.update');
         Route::delete('/cms/galleries/{gallery}', [LandingCmsController::class, 'destroyGallery'])->name('cms.galleries.destroy');
         Route::post('/cms/pricelists', [LandingCmsController::class, 'storePriceList'])->name('cms.pricelists.store');

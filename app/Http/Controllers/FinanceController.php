@@ -89,7 +89,8 @@ class FinanceController extends Controller
         $billingOverrides = collect();
         $overrideRequests = collect();
         $canManageDynamicBilling = (bool) ($user?->isSuperAdmin() || $user?->isDojoAdmin());
-        $canRequestDynamicBilling = (bool) ($user?->isCoachGroup() || $user?->isParent());
+        $canRequestDynamicBilling = (bool) ($user?->isHeadCoach() || $user?->isAssistant());
+        $canDirectSenseiNominal = (bool) ($user?->isSensei() && ! $user?->isSuperAdmin());
 
         if ($tenantId > 0) {
             $billingDefaults = BillingDefault::query()
@@ -141,6 +142,7 @@ class FinanceController extends Controller
             'overrideRequests' => Inertia::defer(fn () => $overrideRequests),
             'canManageDynamicBilling' => Inertia::defer(fn () => $canManageDynamicBilling),
             'canRequestDynamicBilling' => Inertia::defer(fn () => $canRequestDynamicBilling),
+            'canDirectSenseiNominal' => Inertia::defer(fn () => $canDirectSenseiNominal),
             'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
         ]);
@@ -160,7 +162,7 @@ class FinanceController extends Controller
 
     public function customize(Request $request, FinanceRecord $finance)
     {
-        $this->ensureFinanceManager($finance);
+        $this->ensureFinanceCustomizer($finance);
 
         if (($request->input('source_athlete_id') ?? '') === '') {
             $request->merge(['source_athlete_id' => null]);
@@ -257,6 +259,31 @@ class FinanceController extends Controller
         $allowed = $user->dojo_id
             ? Athlete::query()->whereKey($finance->athlete_id)->where('dojo_id', $user->dojo_id)->exists()
             : false;
+        if (! $allowed) {
+            abort(403);
+        }
+    }
+
+    private function ensureFinanceCustomizer(FinanceRecord $finance): void
+    {
+        $user = auth()->user();
+        if (! $user) {
+            abort(403);
+        }
+
+        if (! $user->isSuperAdmin() && ! $user->isDojoAdmin() && ! $user->isSensei()) {
+            abort(403);
+        }
+
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        $allowed = $this->scopeAthletesForUser(
+            Athlete::query()->whereKey($finance->athlete_id),
+            $user
+        )->exists();
+
         if (! $allowed) {
             abort(403);
         }

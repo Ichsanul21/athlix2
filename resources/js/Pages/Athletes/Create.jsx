@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
+import DbSelect from '@/Components/DbSelect';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -117,30 +118,26 @@ export default function Create({ auth, belts, suggestedAthleteCode, dojos = [] }
                                     {dojos.length > 0 && (
                                         <div className="space-y-1">
                                             <label className="text-sm font-medium">Dojo</label>
-                                            <select
-                                                className="w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-athlix-red"
+                                            <DbSelect
+                                                inputId="athlete-create-dojo"
+                                                options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                                 value={data.dojo_id}
-                                                onChange={e => setData('dojo_id', e.target.value)}
-                                            >
-                                                {dojos.map((dojo) => (
-                                                    <option key={dojo.id} value={dojo.id}>{dojo.name}</option>
-                                                ))}
-                                            </select>
+                                                placeholder="Pilih Dojo"
+                                                onChange={(next) => setData('dojo_id', next)}
+                                            />
                                             {errors.dojo_id && <p className="text-xs text-athlix-red">{errors.dojo_id}</p>}
                                         </div>
                                     )}
 
                                     <div className="space-y-1">
                                         <label className="text-sm font-medium">Belt Level</label>
-                                        <select 
-                                            className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-athlix-red"
+                                        <DbSelect
+                                            inputId="athlete-create-belt"
+                                            options={belts.map((belt) => ({ value: String(belt.id), label: belt.name }))}
                                             value={data.current_belt_id}
-                                            onChange={e => setData('current_belt_id', e.target.value)}
-                                        >
-                                            {belts.map(belt => (
-                                                <option key={belt.id} value={belt.id}>{belt.name}</option>
-                                            ))}
-                                        </select>
+                                            placeholder="Pilih Belt"
+                                            onChange={(next) => setData('current_belt_id', next)}
+                                        />
                                     </div>
 
                                     <div className="space-y-1">

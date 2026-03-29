@@ -1,6 +1,7 @@
 import PwaLayout from '@/Layouts/PwaLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
+import DbSelect from '@/Components/DbSelect';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
 import { CalendarCheck2, ArrowRight } from 'lucide-react';
@@ -34,10 +35,17 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
         () => [...athletes].sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''))),
         [athletes],
     );
+    const athleteCodeOptions = useMemo(
+        () => sortedAthletes.map((athlete) => ({
+            value: String(athlete.athlete_code),
+            label: `${athlete.full_name} (${athlete.athlete_code})`,
+        })),
+        [sortedAthletes],
+    );
 
     const submitScan = (event) => {
         event.preventDefault();
-        if (!dojoQr?.payload) {
+        if (!dojoQr?.payload || !scanForm.athlete_code) {
             return;
         }
 
@@ -69,7 +77,7 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
 
     const submitStatus = (event) => {
         event.preventDefault();
-        if (!statusForm.absence_document) {
+        if (!statusForm.athlete_code || !statusForm.absence_document) {
             return;
         }
 
@@ -127,19 +135,14 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
                     <CardContent className="p-4 space-y-3">
                         <p className="text-xs uppercase tracking-widest text-neutral-500 font-black">Check-in / Check-out</p>
                         <form onSubmit={submitScan} className="space-y-3">
-                            <select
+                            <DbSelect
+                                inputId="sensei-pwa-scan-athlete"
+                                options={athleteCodeOptions}
                                 value={scanForm.athlete_code}
-                                onChange={(event) => setScanForm((prev) => ({ ...prev, athlete_code: event.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                                required
-                            >
-                                <option value="">Pilih atlet</option>
-                                {sortedAthletes.map((athlete) => (
-                                    <option key={athlete.id} value={athlete.athlete_code}>
-                                        {athlete.full_name} ({athlete.athlete_code})
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(next) => setScanForm((prev) => ({ ...prev, athlete_code: next }))}
+                                placeholder="Pilih atlet"
+                                menuPortal={false}
+                            />
 
                             <div className="grid grid-cols-2 gap-2">
                                 <button
@@ -217,19 +220,14 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
                     <CardContent className="p-4 space-y-3">
                         <p className="text-xs uppercase tracking-widest text-neutral-500 font-black">Input Izin / Sakit</p>
                         <form onSubmit={submitStatus} className="space-y-3">
-                            <select
+                            <DbSelect
+                                inputId="sensei-pwa-status-athlete"
+                                options={athleteCodeOptions}
                                 value={statusForm.athlete_code}
-                                onChange={(event) => setStatusForm((prev) => ({ ...prev, athlete_code: event.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                                required
-                            >
-                                <option value="">Pilih atlet</option>
-                                {sortedAthletes.map((athlete) => (
-                                    <option key={athlete.id} value={athlete.athlete_code}>
-                                        {athlete.full_name} ({athlete.athlete_code})
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(next) => setStatusForm((prev) => ({ ...prev, athlete_code: next }))}
+                                placeholder="Pilih atlet"
+                                menuPortal={false}
+                            />
 
                             <select
                                 value={statusForm.status}
