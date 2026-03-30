@@ -2,19 +2,32 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
-import { Users, CheckCircle, XCircle, Trash2, Phone, Mail } from 'lucide-react';
+import Modal from '@/Components/Modal';
+import { Users, CheckCircle, XCircle, Trash2, Phone, Mail, Eye } from 'lucide-react';
+import React, { useState } from 'react';
 
 export default function DojoRegistrations({ auth, registrations = [] }) {
+    const [selectedRegistration, setSelectedRegistration] = useState(null);
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const handleApprove = (id) => {
         if (confirm('Apakah Anda yakin ingin menyetujui pendaftaran ini? Akun admin akan otomatis dibuat.')) {
-            router.post(route('cms.dojo-registrations.approve', id));
+            router.post(route('cms.dojo-registrations.approve', id), {}, {
+                onSuccess: () => setIsDetailsModalOpen(false)
+            });
         }
     };
 
     const handleReject = (id) => {
         if (confirm('Apakah Anda yakin ingin menolak pendaftaran ini?')) {
-            router.post(route('cms.dojo-registrations.reject', id));
+            router.post(route('cms.dojo-registrations.reject', id), {}, {
+                onSuccess: () => setIsDetailsModalOpen(false)
+            });
         }
+    };
+
+    const openDetails = (registration) => {
+        setSelectedRegistration(registration);
+        setIsDetailsModalOpen(true);
     };
 
     const handleDelete = (id) => {
@@ -105,14 +118,9 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                                 </td>
                                                 <td className="px-6 py-4 items-center justify-end flex gap-2">
                                                     {item.status === 'pending' && (
-                                                        <>
-                                                            <Button size="sm" variant="outline" className="h-8 gap-1 text-green-700 hover:text-green-800 hover:bg-green-50 border-green-200" onClick={() => handleApprove(item.id)}>
-                                                                <CheckCircle size={14} /> <span className="hidden sm:inline">Setujui</span>
-                                                            </Button>
-                                                            <Button size="sm" variant="outline" className="h-8 gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200" onClick={() => handleReject(item.id)}>
-                                                                <XCircle size={14} /> <span className="hidden sm:inline">Tolak</span>
-                                                            </Button>
-                                                        </>
+                                                        <Button size="sm" variant="outline" className="h-8 gap-1 border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100" onClick={() => openDetails(item)}>
+                                                            <Eye size={14} /> <span className="hidden sm:inline">Detail</span>
+                                                        </Button>
                                                     )}
                                                     <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleDelete(item.id)}>
                                                         <Trash2 size={14} />
@@ -127,6 +135,90 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                     </CardContent>
                 </Card>
             </div>
+            
+            <Modal show={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} maxWidth="2xl">
+                {selectedRegistration && (
+                    <div className="flex flex-col h-full max-h-[90vh]">
+                        <div className="p-6 border-b border-neutral-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                            <div>
+                                <h3 className="text-xl font-black text-neutral-900 uppercase tracking-tight">Detail Pendaftaran</h3>
+                                <p className="text-xs font-semibold text-neutral-500 mt-1">ID: #{selectedRegistration.id} &bull; Diminta pada: {new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(selectedRegistration.created_at))}</p>
+                            </div>
+                            <div>{statusBadge(selectedRegistration.status)}</div>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto flex-1 bg-neutral-50/50">
+                            <div className="space-y-8">
+                                {/* Dojo Info */}
+                                <div>
+                                    <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Informasi Sasana</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Nama Dojo</p>
+                                            <p className="font-bold text-neutral-900 text-base">{selectedRegistration.dojo_name}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Negara / Zona Waktu</p>
+                                            <p className="font-bold text-neutral-900">{selectedRegistration.country} / {selectedRegistration.timezone}</p>
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Alamat Lengkap</p>
+                                            <p className="font-bold text-neutral-900 leading-relaxed bg-white p-3 rounded-xl border border-neutral-200 shadow-sm">{selectedRegistration.address_detail}, {selectedRegistration.village_name}, {selectedRegistration.district_name}, {selectedRegistration.regency_name}, {selectedRegistration.province_name}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* PIC Info */}
+                                <div>
+                                    <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Informasi PIC</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Nama Lengkap PIC</p>
+                                            <p className="font-bold text-neutral-900">{selectedRegistration.pic_name}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Email</p>
+                                            <a href={`mailto:${selectedRegistration.pic_email}`} className="font-bold text-neutral-900 hover:text-athlix-red transition-colors flex items-center gap-1.5"><Mail size={14}/> {selectedRegistration.pic_email}</a>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Nomor WhatsApp</p>
+                                            <a href={`https://wa.me/${selectedRegistration.pic_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="font-bold text-neutral-900 hover:text-green-600 transition-colors flex items-center gap-1.5"><Phone size={14}/> +{selectedRegistration.pic_phone}</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* SaaS Info */}
+                                <div>
+                                    <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Subscription</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-red-50 p-4 rounded-xl border border-red-100">
+                                        <div>
+                                            <p className="text-xs font-semibold text-red-700 mb-1">Pilihan Paket Awal</p>
+                                            <p className="font-black text-red-900 text-lg uppercase tracking-wider">{selectedRegistration.saas_plan_name}</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-neutral-500 mt-2 bg-neutral-100 p-2 rounded-lg italic font-medium">
+                                        Persetujuan registrasi ini akan secara otomatis membuat entry Dojo dan akun Admin (username = alamat email PIC, password = password@123), dan langsung mengaktifkan billing sesuai nominal paket "{selectedRegistration.saas_plan_name}".
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="p-4 border-t border-neutral-100 bg-white sticky bottom-0 z-10 flex gap-3 justify-end items-center">
+                            <Button variant="ghost" onClick={() => setIsDetailsModalOpen(false)} className="text-neutral-500 hover:text-neutral-700">Tutup</Button>
+                            {selectedRegistration.status === 'pending' && (
+                                <div className="flex gap-2 ml-auto">
+                                    <Button variant="outline" className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => handleReject(selectedRegistration.id)}>
+                                        <XCircle size={16} className="mr-1.5" /> Tolak Request
+                                    </Button>
+                                    <Button className="bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20 font-bold px-6" onClick={() => handleApprove(selectedRegistration.id)}>
+                                        <CheckCircle size={16} className="mr-1.5" /> Setujui Pendaftaran
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </AdminLayout>
     );
 }

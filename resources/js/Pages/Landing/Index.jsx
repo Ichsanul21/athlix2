@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
+import RegistrationModal from './RegistrationModal';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import {
     CalendarDays,
@@ -51,6 +52,7 @@ const formatDate = (value) => {
 export default function Index({ articles = [], galleries = [], localeAlternates = [] }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -125,7 +127,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                         <div className="flex flex-col gap-6 text-center lg:w-1/2 lg:text-left">
                             <div className="mx-auto inline-flex w-max items-center gap-2 rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 lg:mx-0">
                                 <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Ditenagai oleh Laravel</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Dojo Operating System</span>
                             </div>
 
                             <h1 className="text-5xl font-black uppercase leading-tight tracking-tight lg:text-7xl">
@@ -139,10 +141,10 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             </p>
 
                             <div className="mt-4 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
-                                <Link href={route('login')} className="group flex items-center justify-center gap-2 rounded-md bg-red-600 px-8 py-4 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-transform hover:-translate-y-1 hover:bg-red-700">
+                                <button onClick={() => setShowRegistrationModal(true)} className="group flex items-center justify-center gap-2 rounded-md bg-red-600 px-8 py-4 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-transform hover:-translate-y-1 hover:bg-red-700">
                                     MULAI GRATIS
                                     <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                                </Link>
+                                </button>
                                 <a href="#artikel" className="flex items-center justify-center gap-2 rounded-md border border-slate-700 bg-slate-800/80 px-8 py-4 font-bold text-white transition-colors hover:border-slate-500 hover:bg-slate-700">
                                     <Play className="h-5 w-5" /> LIHAT DEMO
                                 </a>
@@ -266,7 +268,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                                     Performa Maksimal.<br />Tanpa <span className="text-red-500">Keringat.</span>
                                 </h2>
                                 <p className="mb-8 text-lg leading-relaxed text-slate-400">
-                                    Dibangun dengan arsitektur tangguh Laravel, ATHLIX menjaga kecepatan, keamanan, dan reliability kelas enterprise. Kurangi pekerjaan administratif, fokus kembali ke matras.
+                                    Hadir dengan infrastruktur server mutakhir, ATHLIX menjamin kecepatan, keamanan, dan reliabilitas kelas enterprise. Kurangi pekerjaan administratif, fokus kembali ke matras.
                                 </p>
                                 <ul className="space-y-5">
                                     {[
@@ -389,9 +391,9 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                         <p className="mx-auto mb-10 max-w-2xl text-xl text-red-100">
                             Bergabung dengan ratusan pemilik dojo yang sudah mengoptimalkan manajemen sasana mereka bersama ATHLIX.
                         </p>
-                        <Link href={route('login')} className="flex items-center gap-3 rounded-lg border-b-4 border-slate-800 bg-slate-950 px-10 py-5 font-black uppercase tracking-widest text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:translate-y-1 active:border-b-0">
+                        <button onClick={() => setShowRegistrationModal(true)} className="flex items-center gap-3 rounded-lg border-b-4 border-slate-800 bg-slate-950 px-10 py-5 font-black uppercase tracking-widest text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:translate-y-1 active:border-b-0">
                             DAFTAR SEKARANG - GRATIS 14 HARI <ChevronRight className="h-5 w-5" />
-                        </Link>
+                        </button>
                     </div>
                 </section>
 
@@ -401,7 +403,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20" />
                             <span className="text-xl font-black tracking-wide text-white">ATHLIX</span>
                         </div>
-                        <p className="text-sm font-medium text-slate-500">(c) 2026 ATHLIX Dojo Operating System. Powered by Laravel.</p>
+                        <p className="text-sm font-medium text-slate-500">&copy; 2026 ATHLIX Dojo Operating System. All rights reserved.</p>
                         <div className="flex gap-4">
                             <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:border-slate-700 hover:bg-slate-800 hover:text-red-500">
                                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
@@ -415,6 +417,8 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
             </div>
 
             <style>{`@keyframes scrollX { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
+            
+            <RegistrationModal show={showRegistrationModal} onClose={() => setShowRegistrationModal(false)} />
         </>
     );
 }

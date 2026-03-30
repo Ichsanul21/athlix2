@@ -1,0 +1,340 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useForm } from '@inertiajs/react';
+import Modal from '@/Components/Modal';
+import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
+import { Loader2, ChevronDown, CheckCircle } from 'lucide-react';
+
+function StyledSelect({ value, onChange, options, placeholder, disabled, loading, required }) {
+    return (
+        <div className="relative">
+            <select
+                value={value || ''}
+                onChange={onChange}
+                disabled={disabled || loading}
+                required={required}
+                className="flex h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-athlix-red/30 focus-visible:border-athlix-red/50 disabled:cursor-not-allowed disabled:opacity-50 appearance-none cursor-pointer text-neutral-900"
+            >
+                <option value="" disabled>{loading ? 'Memuat...' : placeholder}</option>
+                {options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </option>
+                ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+            </div>
+        </div>
+    );
+}
+
+export default function RegistrationModal({ show, onClose }) {
+    const [provinces, setProvinces] = useState([]);
+    const [regencies, setRegencies] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [villages, setVillages] = useState([]);
+    
+    const [loadingProv, setLoadingProv] = useState(false);
+    const [loadingReg, setLoadingReg] = useState(false);
+    const [loadingDist, setLoadingDist] = useState(false);
+    const [loadingVill, setLoadingVill] = useState(false);
+
+    const [isSuccess, setIsSuccess] = useState(false);
+
+    const { data, setData, post, processing, errors, reset } = useForm({
+        dojo_name: '',
+        pic_name: '',
+        pic_email: '',
+        pic_phone: '',
+        saas_plan_name: 'Basic',
+        country: 'ID',
+        province_code: '',
+        province_name: '',
+        regency_code: '',
+        regency_name: '',
+        district_code: '',
+        district_name: '',
+        village_code: '',
+        village_name: '',
+        address_detail: '',
+        timezone: 'Asia/Jakarta',
+    });
+
+    useEffect(() => {
+        if (show && provinces.length === 0) {
+            setLoadingProv(true);
+            fetch(route('api.regions.provinces'))
+                .then(res => res.json())
+                .then(data => setProvinces(data || []))
+                .catch(() => {})
+                .finally(() => setLoadingProv(false));
+        }
+    }, [show]);
+
+    const fetchRegencies = useCallback(async (provinceCode) => {
+        if (!provinceCode) { setRegencies([]); return; }
+        setLoadingReg(true);
+        try {
+            const res = await fetch(route('api.regions.regencies', provinceCode));
+            const data = await res.json();
+            setRegencies(data || []);
+        } catch { setRegencies([]); }
+        setLoadingReg(false);
+    }, []);
+
+    const fetchDistricts = useCallback(async (regencyCode) => {
+        if (!regencyCode) { setDistricts([]); return; }
+        setLoadingDist(true);
+        try {
+            const res = await fetch(route('api.regions.districts', regencyCode));
+            const data = await res.json();
+            setDistricts(data || []);
+        } catch { setDistricts([]); }
+        setLoadingDist(false);
+    }, []);
+
+    const fetchVillages = useCallback(async (districtCode) => {
+        if (!districtCode) { setVillages([]); return; }
+        setLoadingVill(true);
+        try {
+            const res = await fetch(route('api.regions.villages', districtCode));
+            const data = await res.json();
+            setVillages(data || []);
+        } catch { setVillages([]); }
+        setLoadingVill(false);
+    }, []);
+
+    const submit = (e) => {
+        e.preventDefault();
+        post(route('landing.register-dojo'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsSuccess(true);
+                // Biarkan modal terbuka selama beberapa detik lalu tutup
+                setTimeout(() => {
+                    onClose();
+                    reset();
+                    setIsSuccess(false);
+                }, 4000);
+            },
+        });
+    };
+
+    if (isSuccess) {
+        return (
+            <Modal show={show} onClose={onClose} maxWidth="md">
+                <div className="p-8 text-center space-y-4">
+                    <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
+                    <h2 className="text-2xl font-black text-slate-900">Pendaftaran Berhasil!</h2>
+                    <p className="text-slate-500 text-sm">
+                        Terima kasih telah mendaftar. Tim kami akan segera meninjau permintaan Anda dan menghubungi Anda melalui email atau WhatsApp.
+                    </p>
+                    <Button onClick={onClose} className="mt-4 w-full bg-slate-900 text-white">
+                        Tutup
+                    </Button>
+                </div>
+            </Modal>
+        );
+    }
+
+    return (
+        <Modal show={show} onClose={onClose} maxWidth="2xl">
+            <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-200">
+                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Daftar Free Trial 14 Hari</h2>
+                <p className="text-sm text-slate-500 mt-1">Lengkapi data Dojo Anda. Bebas biaya tanpa kartu kredit.</p>
+            </div>
+            
+            <form onSubmit={submit} className="p-6 sm:p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Info Dojo & PIC */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b pb-2">Data Registrasi</h3>
+                        
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Nama Dojo / Sasana *</label>
+                            <Input 
+                                required 
+                                value={data.dojo_name} 
+                                onChange={e => setData('dojo_name', e.target.value)} 
+                                placeholder="Contoh: Garuda Karate Club" 
+                                className="h-11 bg-white text-neutral-900"
+                            />
+                            {errors.dojo_name && <p className="text-red-500 text-xs mt-1">{errors.dojo_name}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Nama Penanggung Jawab (PIC) *</label>
+                            <Input 
+                                required 
+                                value={data.pic_name} 
+                                onChange={e => setData('pic_name', e.target.value)} 
+                                placeholder="Nama Lengkap" 
+                                className="h-11 bg-white text-neutral-900"
+                            />
+                            {errors.pic_name && <p className="text-red-500 text-xs mt-1">{errors.pic_name}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Email Valid *</label>
+                            <Input 
+                                required 
+                                type="email"
+                                value={data.pic_email} 
+                                onChange={e => setData('pic_email', e.target.value)} 
+                                placeholder="alamat@email.com" 
+                                className="h-11 bg-white text-neutral-900"
+                            />
+                            {errors.pic_email && <p className="text-red-500 text-xs mt-1">{errors.pic_email}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">No. WhatsApp *</label>
+                            <Input 
+                                required 
+                                value={data.pic_phone} 
+                                onChange={e => setData('pic_phone', e.target.value)} 
+                                placeholder="081234567890" 
+                                className="h-11 bg-white text-neutral-900"
+                            />
+                            {errors.pic_phone && <p className="text-red-500 text-xs mt-1">{errors.pic_phone}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Paket Pilihan *</label>
+                            <StyledSelect
+                                required
+                                value={data.saas_plan_name}
+                                onChange={e => setData('saas_plan_name', e.target.value)}
+                                options={[
+                                    { value: 'Basic', label: 'Basic (Rp 300rb/bln)' },
+                                    { value: 'Pro', label: 'Pro (Rp 600rb/bln)' },
+                                    { value: 'Advance', label: 'Advance (Rp 1.2jt/bln)' }
+                                ]}
+                                placeholder="Pilih Paket Langganan"
+                            />
+                            {errors.saas_plan_name && <p className="text-red-500 text-xs mt-1">{errors.saas_plan_name}</p>}
+                        </div>
+                    </div>
+
+                    {/* Regional Selectors */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b pb-2">Informasi Lokasi</h3>
+                        
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Provinsi *</label>
+                            <StyledSelect
+                                required
+                                value={data.province_code}
+                                loading={loadingProv}
+                                options={provinces.map(p => ({ value: p.code, label: p.name }))}
+                                onChange={(e) => {
+                                    const code = e.target.value;
+                                    const name = e.target.options[e.target.selectedIndex].text;
+                                    setData(data => ({
+                                        ...data,
+                                        province_code: code,
+                                        province_name: name,
+                                        regency_code: '', regency_name: '',
+                                        district_code: '', district_name: '',
+                                        village_code: '', village_name: ''
+                                    }));
+                                    fetchRegencies(code);
+                                }}
+                                placeholder="Pilih Provinsi"
+                            />
+                            {errors.province_code && <p className="text-red-500 text-xs mt-1">{errors.province_code}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Kota / Kabupaten *</label>
+                            <StyledSelect
+                                required
+                                value={data.regency_code}
+                                loading={loadingReg}
+                                disabled={!data.province_code}
+                                options={regencies.map(r => ({ value: r.code, label: r.name }))}
+                                onChange={(e) => {
+                                    const code = e.target.value;
+                                    const name = e.target.options[e.target.selectedIndex].text;
+                                    setData(data => ({
+                                        ...data,
+                                        regency_code: code,
+                                        regency_name: name,
+                                        district_code: '', district_name: '',
+                                        village_code: '', village_name: ''
+                                    }));
+                                    fetchDistricts(code);
+                                }}
+                                placeholder="Pilih Kota/Kab"
+                            />
+                            {errors.regency_code && <p className="text-red-500 text-xs mt-1">{errors.regency_code}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Kecamatan *</label>
+                            <StyledSelect
+                                required
+                                value={data.district_code}
+                                loading={loadingDist}
+                                disabled={!data.regency_code}
+                                options={districts.map(d => ({ value: d.code, label: d.name }))}
+                                onChange={(e) => {
+                                    const code = e.target.value;
+                                    const name = e.target.options[e.target.selectedIndex].text;
+                                    setData(data => ({
+                                        ...data,
+                                        district_code: code,
+                                        district_name: name,
+                                        village_code: '', village_name: ''
+                                    }));
+                                    fetchVillages(code);
+                                }}
+                                placeholder="Pilih Kecamatan"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Kelurahan / Desa *</label>
+                            <StyledSelect
+                                required
+                                value={data.village_code}
+                                loading={loadingVill}
+                                disabled={!data.district_code}
+                                options={villages.map(v => ({ value: v.code, label: v.name }))}
+                                onChange={(e) => {
+                                    const code = e.target.value;
+                                    const name = e.target.options[e.target.selectedIndex].text;
+                                    setData('village_code', code);
+                                    setData('village_name', name);
+                                }}
+                                placeholder="Pilih Kelurahan"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">Detail Alamat Lengkap *</label>
+                            <textarea
+                                required
+                                value={data.address_detail}
+                                onChange={e => setData('address_detail', e.target.value)}
+                                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-athlix-red/30 focus:border-athlix-red/50 min-h-[80px] text-neutral-900"
+                                placeholder="Nama jalan, nomor gedung, dsb..."
+                            />
+                            {errors.address_detail && <p className="text-red-500 text-xs mt-1">{errors.address_detail}</p>}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex gap-3 justify-end pt-6 border-t border-slate-200">
+                    <Button type="button" variant="outline" className="border-slate-300 text-slate-700" onClick={onClose}>
+                        Batal
+                    </Button>
+                    <Button type="submit" disabled={processing} className="bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20 font-bold uppercase tracking-wide">
+                        {processing ? <Loader2 size={16} className="animate-spin mr-2" /> : 'Kirim Pendaftaran'}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}

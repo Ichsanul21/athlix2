@@ -152,7 +152,7 @@ const PHRASE_TRANSLATIONS = {
     'Fokus pada': 'Focus on',
     'Fokus pada Latihan.': 'Focus on Training.',
     'Kami urus sisanya.': 'We handle the rest.',
-    'Ditenagai oleh Laravel': 'Powered by Laravel',
+    'Dojo Operating System': 'Dojo Operating System',
     'Sistem operasi dojo yang dirancang khusus untuk sasana bela diri. Kelola anggota, jadwal kelas, tagihan, dan level sabuk dalam satu platform super cepat.': 'Dojo operating system designed specifically for martial arts gyms. Manage members, class schedules, billing, and belt levels in one super fast platform.',
     'MULAI GRATIS': 'START FREE',
     'LIHAT DEMO': 'VIEW DEMO',
