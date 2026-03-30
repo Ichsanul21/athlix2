@@ -18,6 +18,7 @@ use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperAdminSystemSettingController;
 use App\Http\Controllers\PasswordChangeController;
+use App\Http\Controllers\RegionController;
 use App\Http\Controllers\TrainingProgramController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,13 +27,19 @@ Route::get('/sitemap.xml', [LandingController::class, 'sitemap'])->name('seo.sit
 Route::get('/robots.txt', [LandingController::class, 'robots'])->name('seo.robots');
 Route::get('/artikel/{slug}', [LandingController::class, 'showArticle'])->name('landing.articles.show');
 Route::get('/galeri/{slug}', [LandingController::class, 'showGallery'])->name('landing.galleries.show');
+Route::post('/landing/register-dojo', [LandingController::class, 'registerDojo'])->name('landing.register_dojo');
 
-Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
+Route::prefix('/api/regions')->group(function () {
+    Route::get('/provinces', [RegionController::class, 'provinces'])->name('api.regions.provinces');
+    Route::get('/regencies/{provinceCode}', [RegionController::class, 'regencies'])->where('provinceCode', '[0-9]+')->name('api.regions.regencies');
+    Route::get('/districts/{regencyCode}', [RegionController::class, 'districts'])->where('regencyCode', '[0-9.]+')->name('api.regions.districts');
+    Route::get('/villages/{districtCode}', [RegionController::class, 'villages'])->where('districtCode', '[0-9.]+')->name('api.regions.villages');
+});
+
+Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->group(function () {
     // Force password change — accessible to all authenticated roles
-    Route::middleware('force.password')->group(function () {
-        Route::get('/change-password', [PasswordChangeController::class, 'show'])->name('password.change');
-        Route::post('/change-password', [PasswordChangeController::class, 'update'])->name('password.change.update');
-    });
+    Route::get('/change-password', [PasswordChangeController::class, 'show'])->name('password.change');
+    Route::post('/change-password', [PasswordChangeController::class, 'update'])->name('password.change.update');
 
     Route::middleware('role:super_admin,sensei,head_coach,assistant,medical_staff,dojo_admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -101,6 +108,11 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::post('/cms/pricelists', [LandingCmsController::class, 'storePriceList'])->name('cms.pricelists.store');
         Route::patch('/cms/pricelists/{priceList}', [LandingCmsController::class, 'updatePriceList'])->name('cms.pricelists.update');
         Route::delete('/cms/pricelists/{priceList}', [LandingCmsController::class, 'destroyPriceList'])->name('cms.pricelists.destroy');
+
+        Route::get('/cms/dojo-registrations', [LandingCmsController::class, 'dojoRegistrations'])->name('cms.dojo-registrations.index');
+        Route::post('/cms/dojo-registrations/{dojoRegistration}/approve', [LandingCmsController::class, 'approveRegistration'])->name('cms.dojo-registrations.approve');
+        Route::post('/cms/dojo-registrations/{dojoRegistration}/reject', [LandingCmsController::class, 'rejectRegistration'])->name('cms.dojo-registrations.reject');
+        Route::delete('/cms/dojo-registrations/{dojoRegistration}', [LandingCmsController::class, 'destroyRegistration'])->name('cms.dojo-registrations.destroy');
     });
 
     Route::middleware('role:super_admin')->group(function () {
@@ -114,11 +126,14 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::patch('/super-admin/dojos/{dojo}', [DojoController::class, 'update'])->name('super-admin.dojos.update');
         Route::delete('/super-admin/dojos/{dojo}', [DojoController::class, 'destroy'])->name('super-admin.dojos.destroy');
 
+
         Route::get('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'index'])->name('super-admin.system-settings.index');
         Route::patch('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'update'])->name('super-admin.system-settings.update');
     });
 
-    Route::middleware('role:dojo_admin,super_admin')->group(function () {
+    Route::middleware('role:dojo_admin,super_admin,head_coach')->group(function () {
+        Route::get('/dojo-admin/settings', [DojoAdminController::class, 'settings'])->name('dojo-admin.settings.index');
+        Route::post('/dojo-admin/settings', [DojoAdminController::class, 'updateSettings'])->name('dojo-admin.settings.update');
         Route::get('/dojo-admin/sensei', [DojoAdminController::class, 'senseiIndex'])->name('dojo-admin.sensei.index');
         Route::post('/dojo-admin/sensei', [DojoAdminController::class, 'storeSensei'])->name('dojo-admin.sensei.store');
         Route::patch('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'updateSensei'])->name('dojo-admin.sensei.update');
@@ -126,7 +141,7 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
     });
 
-    Route::middleware('role:super_admin,sensei,head_coach,assistant,murid')->group(function () {
+    Route::middleware('role:super_admin,sensei,head_coach,assistant,atlet')->group(function () {
         Route::post('/attendance/scan-dojo', [AttendanceController::class, 'scanDojo'])->name('attendance.scan-dojo');
         Route::post('/attendance/mark-status', [AttendanceController::class, 'markStatus'])->name('attendance.mark-status');
         Route::post('/attendance/post-training-feedback', [AttendanceController::class, 'submitPostTrainingFeedback'])->name('attendance.post-training-feedback');
@@ -143,7 +158,7 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::get('/sensei-pwa/notifications', [PwaController::class, 'senseiNotifications'])->name('sensei-pwa.notifications');
     });
 
-    Route::middleware('role:murid,parent')->group(function () {
+    Route::middleware('role:atlet,parent')->group(function () {
         Route::get('/pwa-home', [PwaController::class, 'home'])->name('pwa.home');
         Route::get('/schedule', [PwaController::class, 'schedule'])->name('schedule.index');
         Route::get('/billing', [PwaController::class, 'billing'])->name('billing.index');
@@ -154,11 +169,11 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::get('/settings', [PwaController::class, 'settings'])->name('profile.settings');
     });
 
-    Route::middleware('role:murid,parent')->group(function () {
+    Route::middleware('role:atlet,parent')->group(function () {
         Route::get('/scan', [PwaController::class, 'scan'])->name('scan.index');
     });
 
-    Route::middleware('role:murid,parent')->group(function () {
+    Route::middleware('role:atlet,parent')->group(function () {
         Route::post('/pwa-notifications/{notification}/read', [SenpaiNotificationController::class, 'markRead'])->name('pwa-notifications.read');
         Route::get('/pwa-notifications/feed', [SenpaiNotificationController::class, 'feed'])->name('pwa-notifications.feed');
     });

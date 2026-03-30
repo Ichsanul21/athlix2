@@ -31,9 +31,9 @@ class SuperAdminController extends Controller
                 'nullable',
                 'string',
                 'max:20',
-                Rule::when($request->input('role') === 'murid', ['regex:/^08[0-9]{8,13}$/']),
+                Rule::when($request->input('role') === 'atlet', ['regex:/^08[0-9]{8,13}$/']),
             ],
-            'role'     => 'required|in:super_admin,landing_admin,dojo_admin,sensei,head_coach,assistant,medical_staff,murid,parent',
+            'role'     => 'required|in:super_admin,landing_admin,dojo_admin,sensei,head_coach,assistant,medical_staff,atlet,parent',
             'dojo_id'  => [
                 'nullable',
                 Rule::requiredIf(in_array($request->input('role'), ['sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'], true)),
@@ -42,13 +42,13 @@ class SuperAdminController extends Controller
             'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'athlete_id'    => [
                 'nullable',
-                'required_if:role,murid',
+                'required_if:role,atlet',
                 'exists:athletes,id',
                 Rule::unique('users', 'athlete_id'),
             ],
         ]);
 
-        if (($validated['role'] ?? null) === 'murid' && !empty($validated['athlete_id'])) {
+        if (($validated['role'] ?? null) === 'atlet' && !empty($validated['athlete_id'])) {
             $athlete = Athlete::find($validated['athlete_id']);
             $validated['name'] = $athlete?->full_name ?? $validated['name'];
             $validated['dojo_id'] = $athlete?->dojo_id;
@@ -80,21 +80,21 @@ class SuperAdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone_number' => [
-                Rule::requiredIf(in_array($request->input('role'), ['murid'])),
+                Rule::requiredIf(in_array($request->input('role'), ['atlet'])),
                 'nullable',
                 'string',
                 'max:20',
-                Rule::when($request->input('role') === 'murid', ['regex:/^08[0-9]{8,13}$/']),
+                Rule::when($request->input('role') === 'atlet', ['regex:/^08[0-9]{8,13}$/']),
             ],
-            'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
+            'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,head_coach,assistant,medical_staff,atlet,parent',
             'dojo_id' => [
                 'nullable',
-                Rule::requiredIf(in_array($request->input('role'), ['sensei', 'dojo_admin'], true)),
+                Rule::requiredIf(in_array($request->input('role'), ['sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'], true)),
                 'exists:dojos,id',
             ],
             'password' => 'nullable|string|min:8',
             'profile_photo' => [
-                Rule::requiredIf(fn () => empty($user->profile_photo_path)),
+                Rule::requiredIf(empty($user->profile_photo_path)),
                 'nullable',
                 'image',
                 'mimes:jpg,jpeg,png,webp',
@@ -102,13 +102,13 @@ class SuperAdminController extends Controller
             ],
             'athlete_id' => [
                 'nullable',
-                'required_if:role,murid',
+                'required_if:role,atlet',
                 'exists:athletes,id',
                 Rule::unique('users', 'athlete_id')->ignore($user->id),
             ],
         ]);
 
-        if (($validated['role'] ?? null) === 'murid' && !empty($validated['athlete_id'])) {
+        if (($validated['role'] ?? null) === 'atlet' && !empty($validated['athlete_id'])) {
             $athlete = Athlete::find($validated['athlete_id']);
             $validated['name'] = $athlete?->full_name ?? $validated['name'];
             $validated['dojo_id'] = $athlete?->dojo_id;

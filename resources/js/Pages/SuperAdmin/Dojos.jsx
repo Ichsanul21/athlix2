@@ -3,30 +3,88 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Modal from '@/Components/Modal';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, MapPin, Building2, Globe, ChevronDown, Loader2 } from 'lucide-react';
 
-export default function Dojos({ auth, dojos = [] }) {
+const PLAN_OPTIONS = ['Basic', 'Pro', 'Advance'];
+
+// Styled select wrapper matching the project's athlix design system
+function StyledSelect({ value, onChange, options, placeholder, disabled, loading, className = '' }) {
+    return (
+        <div className={`relative ${className}`}>
+            <select
+                value={value || ''}
+                onChange={onChange}
+                disabled={disabled || loading}
+                className="flex h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-athlix-red/30 focus-visible:border-athlix-red/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-950 dark:placeholder:text-neutral-500 dark:focus-visible:ring-athlix-red/20 dark:focus-visible:border-athlix-red/40 transition-all duration-300 appearance-none cursor-pointer"
+            >
+                <option value="">{loading ? 'Memuat...' : placeholder}</option>
+                {options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </option>
+                ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+            </div>
+        </div>
+    );
+}
+
+// Badge component for displaying region info
+function RegionBadge({ icon: Icon, label, value }) {
+    if (!value) return null;
+    return (
+        <span className="inline-flex items-center gap-1.5 text-xs bg-neutral-50 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800 rounded-lg px-2.5 py-1 font-medium">
+            <Icon size={11} className="text-athlix-red/70" />
+            {label && <span className="text-neutral-400">{label}:</span>}
+            {value}
+        </span>
+    );
+}
+
+export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTimezones = {} }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
+
+    // Region cascading state
+    const [provinces, setProvinces] = useState([]);
+    const [regencies, setRegencies] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [villages, setVillages] = useState([]);
+    const [loadingProvinces, setLoadingProvinces] = useState(false);
+    const [loadingRegencies, setLoadingRegencies] = useState(false);
+    const [loadingDistricts, setLoadingDistricts] = useState(false);
+    const [loadingVillages, setLoadingVillages] = useState(false);
+
     const resettableFields = [
-        'name',
-        'timezone',
-        'is_active',
-        'saas_plan_name',
-        'billing_cycle_months',
-        'subscription_started_at',
-        'subscription_expires_at',
-        'grace_period_ends_at',
-        'is_saas_blocked',
-        'saas_block_reason',
+        'name', 'country', 'province_code', 'province_name',
+        'regency_code', 'regency_name', 'district_code', 'district_name',
+        'village_code', 'village_name', 'address_detail',
+        'timezone', 'is_active', 'saas_plan_name', 'monthly_saas_fee',
+        'billing_cycle_months', 'subscription_started_at',
+        'subscription_expires_at', 'grace_period_ends_at',
+        'is_saas_blocked', 'saas_block_reason',
     ];
+
     const defaultFormState = {
         name: '',
+        country: 'ID',
+        province_code: '',
+        province_name: '',
+        regency_code: '',
+        regency_name: '',
+        district_code: '',
+        district_name: '',
+        village_code: '',
+        village_name: '',
+        address_detail: '',
         timezone: 'Asia/Makassar',
         is_active: true,
         saas_plan_name: 'Basic',
+        monthly_saas_fee: planPricing['Basic'] || 300000,
         billing_cycle_months: 1,
         subscription_started_at: '',
         subscription_expires_at: '',
@@ -34,18 +92,138 @@ export default function Dojos({ auth, dojos = [] }) {
         is_saas_blocked: false,
         saas_block_reason: '',
     };
-    const form = useForm({
-        ...defaultFormState,
-    });
+
+    const form = useForm({ ...defaultFormState });
 
     const resetForm = () => {
         form.reset(...resettableFields);
         Object.entries(defaultFormState).forEach(([key, value]) => {
             form.setData(key, value);
         });
+        setRegencies([]);
+        setDistricts([]);
+        setVillages([]);
     };
 
     const formatDateInput = (value) => (value ? String(value).slice(0, 10) : '');
+    const formatCurrency = (num) => 'Rp ' + Number(num).toLocaleString('id-ID');
+
+    // Fetch provinces on mount
+    const fetchProvinces = useCallback(async () => {
+        if (provinces.length > 0) return;
+        setLoadingProvinces(true);
+        try {
+            const res = await fetch(route('api.regions.provinces'));
+            const data = await res.json();
+            setProvinces(data || []);
+        } catch { /* silently fail */ }
+        setLoadingProvinces(false);
+    }, [provinces.length]);
+
+    const fetchRegencies = useCallback(async (provinceCode) => {
+        if (!provinceCode) { setRegencies([]); return; }
+        setLoadingRegencies(true);
+        try {
+            const res = await fetch(route('api.regions.regencies', provinceCode));
+            const data = await res.json();
+            setRegencies(data || []);
+        } catch { setRegencies([]); }
+        setLoadingRegencies(false);
+    }, []);
+
+    const fetchDistricts = useCallback(async (regencyCode) => {
+        if (!regencyCode) { setDistricts([]); return; }
+        setLoadingDistricts(true);
+        try {
+            const res = await fetch(route('api.regions.districts', regencyCode));
+            const data = await res.json();
+            setDistricts(data || []);
+        } catch { setDistricts([]); }
+        setLoadingDistricts(false);
+    }, []);
+
+    const fetchVillages = useCallback(async (districtCode) => {
+        if (!districtCode) { setVillages([]); return; }
+        setLoadingVillages(true);
+        try {
+            const res = await fetch(route('api.regions.villages', districtCode));
+            const data = await res.json();
+            setVillages(data || []);
+        } catch { setVillages([]); }
+        setLoadingVillages(false);
+    }, []);
+
+    // When province changes → auto-set timezone, reset downstream
+    const onProvinceChange = (e) => {
+        const code = e.target.value;
+        const selected = provinces.find((p) => p.code === code);
+        const tz = provinceTimezones[code] || 'Asia/Makassar';
+        form.setData({
+            ...form.data,
+            province_code: code,
+            province_name: selected?.name || '',
+            regency_code: '',
+            regency_name: '',
+            district_code: '',
+            district_name: '',
+            village_code: '',
+            village_name: '',
+            timezone: tz,
+        });
+        setDistricts([]);
+        setVillages([]);
+        fetchRegencies(code);
+    };
+
+    const onRegencyChange = (e) => {
+        const code = e.target.value;
+        const selected = regencies.find((r) => r.code === code);
+        form.setData({
+            ...form.data,
+            regency_code: code,
+            regency_name: selected?.name || '',
+            district_code: '',
+            district_name: '',
+            village_code: '',
+            village_name: '',
+        });
+        setVillages([]);
+        fetchDistricts(code);
+    };
+
+    const onDistrictChange = (e) => {
+        const code = e.target.value;
+        const selected = districts.find((d) => d.code === code);
+        form.setData({
+            ...form.data,
+            district_code: code,
+            district_name: selected?.name || '',
+            village_code: '',
+            village_name: '',
+        });
+        fetchVillages(code);
+    };
+
+    const onVillageChange = (e) => {
+        const code = e.target.value;
+        const selected = villages.find((v) => v.code === code);
+        form.setData({
+            ...form.data,
+            village_code: code,
+            village_name: selected?.name || '',
+        });
+    };
+
+    // When SaaS plan changes → auto-set monthly fee
+    const onPlanChange = (e) => {
+        const plan = e.target.value;
+        const fee = planPricing[plan] || 0;
+        form.setData({
+            ...form.data,
+            saas_plan_name: plan,
+            monthly_saas_fee: fee,
+        });
+    };
 
     const submit = () => {
         if (editingId) {
@@ -66,14 +244,27 @@ export default function Dojos({ auth, dojos = [] }) {
         });
     };
 
-    const openModal = (dojo = null) => {
+    const openModal = async (dojo = null) => {
+        await fetchProvinces();
+
         if (dojo) {
             setEditingId(dojo.id);
             form.setData({
                 name: dojo.name || '',
+                country: dojo.country || 'ID',
+                province_code: dojo.province_code || '',
+                province_name: dojo.province_name || '',
+                regency_code: dojo.regency_code || '',
+                regency_name: dojo.regency_name || '',
+                district_code: dojo.district_code || '',
+                district_name: dojo.district_name || '',
+                village_code: dojo.village_code || '',
+                village_name: dojo.village_name || '',
+                address_detail: dojo.address_detail || '',
                 timezone: dojo.timezone || 'Asia/Makassar',
                 is_active: !!dojo.is_active,
                 saas_plan_name: dojo.saas_plan_name || 'Basic',
+                monthly_saas_fee: dojo.monthly_saas_fee ?? planPricing['Basic'] ?? 300000,
                 billing_cycle_months: dojo.billing_cycle_months || 1,
                 subscription_started_at: formatDateInput(dojo.subscription_started_at),
                 subscription_expires_at: formatDateInput(dojo.subscription_expires_at),
@@ -81,6 +272,17 @@ export default function Dojos({ auth, dojos = [] }) {
                 is_saas_blocked: !!dojo.is_saas_blocked,
                 saas_block_reason: dojo.saas_block_reason || '',
             });
+
+            // Load cascading data for existing dojo
+            if (dojo.province_code) {
+                fetchRegencies(dojo.province_code);
+            }
+            if (dojo.regency_code) {
+                fetchDistricts(dojo.regency_code);
+            }
+            if (dojo.district_code) {
+                fetchVillages(dojo.district_code);
+            }
         } else {
             setEditingId(null);
             resetForm();
@@ -94,6 +296,19 @@ export default function Dojos({ auth, dojos = [] }) {
         resetForm();
     };
 
+    // Compute the resolved timezone label
+    const resolvedTimezone = form.data.province_code
+        ? (provinceTimezones[form.data.province_code] || 'Asia/Makassar')
+        : form.data.timezone;
+
+    const timezoneLabel = resolvedTimezone === 'Asia/Jakarta'
+        ? 'WIB (UTC+7)'
+        : resolvedTimezone === 'Asia/Makassar'
+            ? 'WITA (UTC+8)'
+            : resolvedTimezone === 'Asia/Jayapura'
+                ? 'WIT (UTC+9)'
+                : resolvedTimezone;
+
     return (
         <AdminLayout
             user={auth?.user}
@@ -102,61 +317,223 @@ export default function Dojos({ auth, dojos = [] }) {
             <Head title="Master Dojo" />
             <div className="space-y-6 py-4">
 
-                <Modal show={isModalOpen} onClose={closeModal} maxWidth="2xl">
-                    <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
+                <Modal show={isModalOpen} onClose={closeModal} maxWidth="4xl">
+                    <div className="p-6 max-h-[85vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-black uppercase tracking-tight">
                                 {editingId ? 'Edit Dojo' : 'Tambah Dojo'}
                             </h3>
-                            <button onClick={closeModal} className="text-neutral-500 hover:text-neutral-700">
+                            <button onClick={closeModal} className="text-neutral-500 hover:text-neutral-700 transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            <Input className="text-sm" placeholder="Nama Dojo" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
-                            <Input className="text-sm" placeholder="Timezone (contoh Asia/Makassar)" value={form.data.timezone} onChange={(e) => form.setData('timezone', e.target.value)} />
-                            <Input className="text-sm" placeholder="Nama Paket SaaS (Basic/Pro)" value={form.data.saas_plan_name} onChange={(e) => form.setData('saas_plan_name', e.target.value)} />
-                            <label className="text-sm font-semibold space-y-1">
-                                <span className="block">Siklus Billing (bulan)</span>
-                                <Input type="number" min="1" max="24" value={form.data.billing_cycle_months} onChange={(e) => form.setData('billing_cycle_months', e.target.value)} />
-                            </label>
-                            <label className="text-sm font-semibold space-y-1">
-                                <span className="block">Mulai Langganan</span>
-                                <Input type="date" value={form.data.subscription_started_at} onChange={(e) => form.setData('subscription_started_at', e.target.value)} />
-                            </label>
-                            <label className="text-sm font-semibold space-y-1">
-                                <span className="block">Berakhir Langganan</span>
-                                <Input type="date" value={form.data.subscription_expires_at} onChange={(e) => form.setData('subscription_expires_at', e.target.value)} />
-                            </label>
-                            <label className="text-sm font-semibold space-y-1 md:col-span-2 xl:col-span-3">
-                                <span className="block">Grace Period Sampai</span>
-                                <Input type="date" value={form.data.grace_period_ends_at} onChange={(e) => form.setData('grace_period_ends_at', e.target.value)} className="xl:w-1/3" />
-                            </label>
-                            <div className="flex flex-col gap-2 justify-center md:col-span-2 xl:col-span-3">
+
+                        {/* Section: Info Dojo */}
+                        <div className="mb-6">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3 flex items-center gap-2">
+                                <Building2 size={13} /> Informasi Dojo
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Input
+                                    className="text-sm"
+                                    placeholder="Nama Dojo"
+                                    value={form.data.name}
+                                    onChange={(e) => form.setData('name', e.target.value)}
+                                />
+                                <div className="flex items-center gap-3 text-sm">
+                                    <span className="text-neutral-500 whitespace-nowrap">Timezone:</span>
+                                    <span className="font-semibold text-athlix-red">{timezoneLabel}</span>
+                                    <span className="text-[11px] text-neutral-400">({resolvedTimezone})</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section: Alamat / Region */}
+                        <div className="mb-6 p-4 rounded-2xl bg-neutral-50/80 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3 flex items-center gap-2">
+                                <MapPin size={13} /> Alamat Dojo
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Negara</span>
+                                    <StyledSelect
+                                        value={form.data.country}
+                                        onChange={(e) => form.setData('country', e.target.value)}
+                                        options={[{ value: 'ID', label: '🇮🇩 Indonesia' }]}
+                                        placeholder="Pilih Negara"
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Provinsi</span>
+                                    <StyledSelect
+                                        value={form.data.province_code}
+                                        onChange={onProvinceChange}
+                                        options={provinces.map((p) => ({ value: p.code, label: p.name }))}
+                                        placeholder="Pilih Provinsi"
+                                        loading={loadingProvinces}
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Kab/Kota</span>
+                                    <StyledSelect
+                                        value={form.data.regency_code}
+                                        onChange={onRegencyChange}
+                                        options={regencies.map((r) => ({ value: r.code, label: r.name }))}
+                                        placeholder="Pilih Kab/Kota"
+                                        disabled={!form.data.province_code}
+                                        loading={loadingRegencies}
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Kecamatan</span>
+                                    <StyledSelect
+                                        value={form.data.district_code}
+                                        onChange={onDistrictChange}
+                                        options={districts.map((d) => ({ value: d.code, label: d.name }))}
+                                        placeholder="Pilih Kecamatan"
+                                        disabled={!form.data.regency_code}
+                                        loading={loadingDistricts}
+                                    />
+                                </label>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Kelurahan/Desa</span>
+                                    <StyledSelect
+                                        value={form.data.village_code}
+                                        onChange={onVillageChange}
+                                        options={villages.map((v) => ({ value: v.code, label: v.name }))}
+                                        placeholder="Pilih Kelurahan"
+                                        disabled={!form.data.district_code}
+                                        loading={loadingVillages}
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Alamat Detail</span>
+                                    <Input
+                                        className="text-sm"
+                                        placeholder="Jl. No. RT/RW, Gedung Lt., dll."
+                                        value={form.data.address_detail}
+                                        onChange={(e) => form.setData('address_detail', e.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Section: Paket & Billing */}
+                        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-neutral-50/80 to-transparent dark:from-neutral-900/40 border border-neutral-100 dark:border-neutral-800">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3 flex items-center gap-2">
+                                <Globe size={13} /> Paket SaaS & Billing
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Paket SaaS</span>
+                                    <StyledSelect
+                                        value={form.data.saas_plan_name}
+                                        onChange={onPlanChange}
+                                        options={PLAN_OPTIONS.map((p) => ({
+                                            value: p,
+                                            label: `${p} — ${formatCurrency(planPricing[p] || 0)}/bln`,
+                                        }))}
+                                        placeholder="Pilih Paket"
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Biaya Bulanan</span>
+                                    <div className="flex h-10 w-full items-center rounded-xl border border-neutral-200 bg-neutral-100 dark:bg-neutral-900 px-3 text-sm font-bold text-athlix-red dark:border-neutral-800">
+                                        {formatCurrency(form.data.monthly_saas_fee)}
+                                    </div>
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Siklus Billing (bulan)</span>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max="24"
+                                        value={form.data.billing_cycle_months}
+                                        onChange={(e) => form.setData('billing_cycle_months', e.target.value)}
+                                    />
+                                </label>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Mulai Langganan</span>
+                                    <Input
+                                        type="date"
+                                        value={form.data.subscription_started_at}
+                                        onChange={(e) => form.setData('subscription_started_at', e.target.value)}
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Berakhir Langganan</span>
+                                    <Input
+                                        type="date"
+                                        value={form.data.subscription_expires_at}
+                                        onChange={(e) => form.setData('subscription_expires_at', e.target.value)}
+                                    />
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Grace Period Sampai</span>
+                                    <Input
+                                        type="date"
+                                        value={form.data.grace_period_ends_at}
+                                        onChange={(e) => form.setData('grace_period_ends_at', e.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Section: Access Control */}
+                        <div className="mb-4">
+                            <div className="flex flex-col gap-2 justify-center">
                                 <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-                                    <input type="checkbox" checked={!!form.data.is_active} onChange={(e) => form.setData('is_active', e.target.checked)} className="rounded text-athlix-red focus:ring-athlix-red" />
+                                    <input
+                                        type="checkbox"
+                                        checked={!!form.data.is_active}
+                                        onChange={(e) => form.setData('is_active', e.target.checked)}
+                                        className="rounded text-athlix-red focus:ring-athlix-red"
+                                    />
                                     Beri Izin Akses Aktif
                                 </label>
                                 <label className="flex items-center gap-2 text-sm font-semibold text-red-600 cursor-pointer">
-                                    <input type="checkbox" checked={!!form.data.is_saas_blocked} onChange={(e) => form.setData('is_saas_blocked', e.target.checked)} className="rounded text-red-600 focus:ring-red-600" />
+                                    <input
+                                        type="checkbox"
+                                        checked={!!form.data.is_saas_blocked}
+                                        onChange={(e) => form.setData('is_saas_blocked', e.target.checked)}
+                                        className="rounded text-red-600 focus:ring-red-600"
+                                    />
                                     Blokir Paksa Akses SaaS Server
                                 </label>
                             </div>
                             {form.data.is_saas_blocked && (
-                                <Input className="text-sm md:col-span-2 xl:col-span-3 border-red-300 focus-visible:ring-red-500" placeholder="Alasan pemblokiran (akan muncul di layar pengguna)..." value={form.data.saas_block_reason} onChange={(e) => form.setData('saas_block_reason', e.target.value)} />
+                                <Input
+                                    className="text-sm mt-3 border-red-300 focus-visible:ring-red-500"
+                                    placeholder="Alasan pemblokiran (akan muncul di layar pengguna)..."
+                                    value={form.data.saas_block_reason}
+                                    onChange={(e) => form.setData('saas_block_reason', e.target.value)}
+                                />
                             )}
                         </div>
-                        <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-neutral-100">
+
+                        <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
                             <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
-                            <Button onClick={submit}>{editingId ? 'Simpan Perubahan' : 'Simpan Dojo'}</Button>
+                            <Button onClick={submit} disabled={form.processing}>
+                                {form.processing ? (
+                                    <span className="flex items-center gap-2">
+                                        <Loader2 size={14} className="animate-spin" /> Menyimpan...
+                                    </span>
+                                ) : editingId ? 'Simpan Perubahan' : 'Simpan Dojo'}
+                            </Button>
                         </div>
                     </div>
                 </Modal>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
                         <div className="flex items-center justify-between gap-4">
-                            <CardTitle>Daftar Dojo</CardTitle>
+                            <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
+                                Daftar Dojo Aktif
+                            </CardTitle>
                             <Button
                                 onClick={() => openModal()}
                                 className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
@@ -167,10 +544,22 @@ export default function Dojos({ auth, dojos = [] }) {
                     </CardHeader>
                     <CardContent className="space-y-2">
                         {dojos.map((dojo) => (
-                            <div key={dojo.id} className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-semibold truncate">{dojo.name}</p>
-                                    <p className="text-xs text-neutral-500">{dojo.timezone} | Paket: {dojo.saas_plan_name || '-'}</p>
+                            <div key={dojo.id} className="p-4 rounded-xl border flex flex-col sm:flex-row sm:items-start justify-between gap-3 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors">
+                                <div className="min-w-0 space-y-1.5">
+                                    <p className="font-semibold truncate text-base">{dojo.name}</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {dojo.province_name && (
+                                            <RegionBadge icon={MapPin} value={[dojo.village_name, dojo.district_name, dojo.regency_name, dojo.province_name].filter(Boolean).join(', ')} />
+                                        )}
+                                        <RegionBadge icon={Globe} value={dojo.timezone} />
+                                    </div>
+                                    {dojo.address_detail && (
+                                        <p className="text-xs text-neutral-500 italic">{dojo.address_detail}</p>
+                                    )}
+                                    <p className="text-xs text-neutral-500">
+                                        Paket: <span className="font-semibold text-neutral-700 dark:text-neutral-300">{dojo.saas_plan_name || '-'}</span>
+                                        {dojo.monthly_saas_fee ? ` — ${formatCurrency(dojo.monthly_saas_fee)}/bln` : ''}
+                                    </p>
                                     <p className="text-xs text-neutral-500">Status akses: {dojo.access_status || (dojo.is_active ? 'Aktif' : 'Nonaktif')}</p>
                                     <p className="text-xs text-neutral-500">Langganan: {dojo.subscription_started_at ? formatDateInput(dojo.subscription_started_at) : '-'} s/d {dojo.subscription_expires_at ? formatDateInput(dojo.subscription_expires_at) : '-'}</p>
                                     <p className="text-xs text-neutral-500">Grace: {dojo.grace_period_ends_at ? formatDateInput(dojo.grace_period_ends_at) : '-'}</p>
@@ -181,14 +570,14 @@ export default function Dojos({ auth, dojos = [] }) {
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
                                     <button
-                                        className="text-blue-600 text-sm"
+                                        className="text-blue-600 text-sm hover:underline"
                                         onClick={() => openModal(dojo)}
                                     >Edit</button>
-                                    <button className="text-red-500 text-sm" onClick={() => router.delete(route('super-admin.dojos.destroy', dojo.id))}>Hapus</button>
+                                    <button className="text-red-500 text-sm hover:underline" onClick={() => router.delete(route('super-admin.dojos.destroy', dojo.id))}>Hapus</button>
                                 </div>
                             </div>
                         ))}
-                        {dojos.length === 0 && <div className="text-sm text-neutral-400">Belum ada data dojo.</div>}
+                        {dojos.length === 0 && <div className="text-sm text-neutral-400 py-6 text-center">Belum ada data dojo.</div>}
                     </CardContent>
                 </Card>
             </div>

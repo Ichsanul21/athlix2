@@ -13,6 +13,50 @@ use Inertia\Inertia;
 
 class DojoAdminController extends Controller
 {
+    public function settings()
+    {
+        $user = auth()->user();
+        $dojoId = $user?->dojo_id;
+        
+        if (! $dojoId) {
+            return back()->with('error', 'Akun Anda belum terhubung dengan dojo.');
+        }
+
+        return Inertia::render('DojoAdmin/Settings', [
+            'dojo' => Inertia::defer(fn () => Dojo::find($dojoId)),
+        ]);
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $user = auth()->user();
+        $dojoId = $user?->dojo_id;
+
+        if (! $dojoId) {
+            return back()->with('error', 'Akun Anda belum terhubung dengan dojo.');
+        }
+
+        $dojo = Dojo::find($dojoId);
+
+        $validated = $request->validate([
+            'accent_color' => ['nullable', 'string', 'max:50'],
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        if ($request->hasFile('logo')) {
+            if ($dojo->logo_path) {
+                Storage::disk('public')->delete($dojo->logo_path);
+            }
+            $validated['logo_path'] = $request->file('logo')->store('dojos/logos', 'public');
+        }
+
+        unset($validated['logo']);
+
+        $dojo->update($validated);
+
+        return back()->with('success', 'Pengaturan dojo berhasil disimpan.');
+    }
+
     public function senseiIndex()
     {
         $user = auth()->user();
@@ -65,10 +109,7 @@ class DojoAdminController extends Controller
     public function storeSensei(Request $request)
     {
         $user = auth()->user();
-        $dojoId = $this->resolveDojoId(
-            $user,
-            $user?->isSuperAdmin() ? ($request->dojo_id ? (int) $request->dojo_id : null) : null
-        );
+        $dojoId = $this->resolveDojoId($user, $request->dojo_id ? (int) $request->dojo_id : null);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -112,7 +153,7 @@ class DojoAdminController extends Controller
             'phone_number' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:8',
             'profile_photo' => [
-                Rule::requiredIf(fn () => empty($sensei->profile_photo_path)),
+                Rule::requiredIf(empty($sensei->profile_photo_path)),
                 'nullable',
                 'image',
                 'mimes:jpg,jpeg,png,webp',
@@ -191,6 +232,6 @@ class DojoAdminController extends Controller
 
         $sensei->senseiAthletes()->sync($syncPayload);
 
-        return back()->with('success', 'Penugasan murid berhasil diperbarui.');
+        return back()->with('success', 'Penugasan atlet berhasil diperbarui.');
     }
 }

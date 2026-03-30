@@ -54,8 +54,9 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $target = match ($user?->role) {
-            'murid' => route('pwa.home', absolute: false),
-            'athlete' => route('pwa.home', absolute: false),
+            'atlet' => route('pwa.home', absolute: false),
+            'murid' => route('pwa.home', absolute: false),   // backward compat
+            'athlete' => route('pwa.home', absolute: false), // backward compat
             'parent' => route('pwa.home', absolute: false),
             'landing_admin' => route('cms.index', absolute: false),
             'dojo_admin' => route('dojo-admin.sensei.index', absolute: false),

@@ -64,7 +64,7 @@ class NotificationDomainSeeder extends Seeder
         }
 
         $usersForDevice = User::query()
-            ->whereIn('role', ['murid', 'parent'])
+            ->whereIn('role', ['atlet', 'parent'])
             ->orderBy('id')
             ->limit(20)
             ->get();

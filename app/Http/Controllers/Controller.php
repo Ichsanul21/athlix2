@@ -10,17 +10,13 @@ abstract class Controller
 {
     protected function resolveDojoId(?User $user, ?int $requestedDojoId = null): ?int
     {
-        // Jika ada filter dojo yang di-pass secara explicit, gunakan itu
-        if ($requestedDojoId) {
-            return $requestedDojoId;
-        }
-
-        // Super Admin tanpa filter eksplisit → null = tampilkan semua dojo
+        // Super Admin boleh filter lintas dojo
         if ($user?->isSuperAdmin()) {
-            return null;
+            return $requestedDojoId ?: null; // null = semua dojo
         }
 
-        // Role lain → gunakan dojo_id mereka sendiri
+        // Semua role lain: SELALU di-lock ke dojo mereka sendiri
+        // Parameter dojo_id dari URL diabaikan demi keamanan
         return $user?->dojo_id;
     }
 

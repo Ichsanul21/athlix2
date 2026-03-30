@@ -29,12 +29,16 @@ export default function PwaLayout({ user, header, children }) {
     const { props } = usePage();
     const normalizedRole = String(user?.role || '').toLowerCase();
     const isParentRole = normalizedRole === 'parent';
-    const isAthleteRole = ['murid', 'athlete', 'parent'].includes(normalizedRole);
-    const isNotificationPollingRole = ['murid', 'athlete', 'parent'].includes(normalizedRole);
+    const isAthleteRole = ['atlet', 'murid', 'athlete', 'parent'].includes(normalizedRole);
+    const isNotificationPollingRole = ['atlet', 'murid', 'athlete', 'parent'].includes(normalizedRole);
     const isSenseiPwaRole = ['sensei', 'head_coach', 'assistant'].includes(normalizedRole);
     const pwaNotifications = props?.pwaNotifications || { items: [], unread_count: 0, latest_popup: null };
+    const dojoBranding = props?.auth?.dojo_branding || null;
     const [notificationFeed, setNotificationFeed] = useState(pwaNotifications);
     const latestKnownNotificationId = useRef(0);
+
+    const logoSrc = dojoBranding?.logo_url || '/logo.png';
+    const accentColor = dojoBranding?.accent_color || null;
 
     useEffect(() => {
         const handleInstallPrompt = (e) => {
@@ -263,6 +267,27 @@ export default function PwaLayout({ user, header, children }) {
 
     return (
         <div className="min-h-[100dvh] bg-neutral-50 text-athlix-black flex flex-col relative font-sans selection:bg-athlix-red selection:text-white pb-safe transition-colors duration-300">
+            {accentColor && (
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                    :root {
+                        --athlix-red: ${accentColor};
+                    }
+                    .text-athlix-red { color: ${accentColor} !important; }
+                    .bg-athlix-red { background-color: ${accentColor} !important; }
+                    .border-athlix-red { border-color: ${accentColor} !important; }
+                    .shadow-athlix-red\\/20 { box-shadow: 0 4px 6px -1px color-mix(in srgb, ${accentColor} 20%, transparent), 0 2px 4px -2px color-mix(in srgb, ${accentColor} 20%, transparent) !important; }
+                    .shadow-athlix-red\\/30 { box-shadow: 0 4px 6px -1px color-mix(in srgb, ${accentColor} 30%, transparent), 0 2px 4px -2px color-mix(in srgb, ${accentColor} 30%, transparent) !important; }
+                    .shadow-athlix-red\\/40 { box-shadow: 0 4px 6px -1px color-mix(in srgb, ${accentColor} 40%, transparent), 0 2px 4px -2px color-mix(in srgb, ${accentColor} 40%, transparent) !important; }
+                    .from-athlix-red { --tw-gradient-from: ${accentColor} var(--tw-gradient-from-position) !important; }
+                    .via-athlix-red { --tw-gradient-via: ${accentColor} var(--tw-gradient-via-position) !important; }
+                    .to-athlix-red { --tw-gradient-to: ${accentColor} var(--tw-gradient-to-position) !important; }
+                    .ring-athlix-red { --tw-ring-color: ${accentColor} !important; }
+                    .fill-athlix-red { fill: ${accentColor} !important; }
+                    .stroke-athlix-red { stroke: ${accentColor} !important; }
+                    `
+                }} />
+            )}
             <GlobalFlashModal />
             
             {/* Install Banner */}
@@ -358,7 +383,7 @@ export default function PwaLayout({ user, header, children }) {
             <header className="sticky top-0 z-30 glass-strong px-4 sm:px-5 h-16 flex items-center justify-between gap-3 border-gradient">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
-                        <img src="/logo.png" alt="ATHLIX Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-athlix-red/20 object-cover transition-transform duration-300 hover:scale-105" />
+                        <img src={logoSrc} alt="Dojo Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-athlix-red/20 object-cover transition-transform duration-300 hover:scale-105 bg-white" />
                         <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
                     </div>
                     <div className="min-w-0">
@@ -453,7 +478,7 @@ function triggerNativeNotification(notification, permission) {
     try {
         const nativeNotification = new Notification(notification.title || 'Notifikasi ATHLIX', {
             body: notification.message || '',
-            icon: '/logo.png',
+            icon: '/logo.png', // Or dynamic depending on scope
             tag: `athlix-notif-${notification.id}`,
         });
 

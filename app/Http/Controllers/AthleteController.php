@@ -232,7 +232,7 @@ class AthleteController extends Controller
             'email' => $this->generateUniqueUserEmail('athlete.' . Str::lower($athlete->athlete_code) . '@athlix.test'),
             'phone_number' => $athletePhoneNumber,
             'password' => Hash::make($athleteLoginPassword),
-            'role' => 'murid',
+            'role' => 'atlet',
             'dojo_id' => $athlete->dojo_id,
             'athlete_id' => $athlete->id,
             'email_verified_at' => now(),

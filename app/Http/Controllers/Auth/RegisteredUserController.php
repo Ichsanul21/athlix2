@@ -53,7 +53,7 @@ class RegisteredUserController extends Controller
             'phone_number' => $request->phone_number,
             'profile_photo_path' => 'seed/profile-placeholder.svg',
             'password' => Hash::make($request->password),
-            'role' => 'murid',
+            'role' => 'atlet',
             'email_verified_at' => now(),
         ]);
 

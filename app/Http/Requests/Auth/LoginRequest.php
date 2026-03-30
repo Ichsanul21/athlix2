@@ -154,7 +154,7 @@ class LoginRequest extends FormRequest
             ->whereRaw('LOWER(email) = ?', [Str::lower($email)])
             ->first();
 
-        if ($user && in_array($user->role, ['murid', 'athlete'], true)) {
+        if ($user && in_array($user->role, ['atlet', 'murid', 'athlete'], true)) {
             return $user;
         }
 

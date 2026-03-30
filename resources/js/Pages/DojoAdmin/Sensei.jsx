@@ -184,9 +184,9 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
 
                 {/* Sensei Table */}
                 <Card className="border-neutral-200/80">
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
                         <div className="flex items-center justify-between gap-4">
-                            <CardTitle className="text-base font-black uppercase tracking-widest">
+                            <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
                                 Daftar Pelatih {isAllDojos ? '— Semua Dojo' : `— ${dojo?.name || ''}`}
                             </CardTitle>
                             <Button
@@ -234,7 +234,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                                             </span>
                                                         )}
                                                         <p className="text-xs text-neutral-400">
-                                                            {sensei.athletes?.length || 0} murid ditugaskan
+                                                            {sensei.athletes?.length || 0} atlet ditugaskan
                                                         </p>
                                                     </div>
                                                 </div>
@@ -244,7 +244,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                                     className="text-xs font-bold text-athlix-red border border-athlix-red/30 rounded-lg px-3 py-1.5 hover:bg-athlix-red hover:text-white transition-colors"
                                                     onClick={() => openAssignModal(sensei)}
                                                 >
-                                                    Kelola Murid
+                                                    Kelola Atlet
                                                 </button>
                                                 <button
                                                     className="text-xs font-bold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-600 hover:text-white transition-colors"
@@ -339,7 +339,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
             <Modal show={assignModal.open} onClose={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })} maxWidth="lg">
                 <div className="p-6 space-y-4">
                     <div>
-                        <h3 className="text-lg font-black uppercase tracking-tight">Kelola Murid</h3>
+                        <h3 className="text-lg font-black uppercase tracking-tight">Kelola Atlet</h3>
                         <p className="text-sm text-neutral-500 mt-0.5">{assignModal.sensei?.name}</p>
                     </div>
                     <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">

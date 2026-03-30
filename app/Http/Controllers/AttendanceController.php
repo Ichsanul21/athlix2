@@ -92,7 +92,7 @@ class AttendanceController extends Controller
         ]);
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
-        if ($user?->isMurid()) {
+        if ($user?->isAtlet()) {
             if ((int) $user->athlete_id !== (int) $athlete->id) {
                 throw ValidationException::withMessages([
                     'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
@@ -102,7 +102,7 @@ class AttendanceController extends Controller
             $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
             if (! $allowed) {
                 throw ValidationException::withMessages([
-                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar murid Anda.',
+                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar atlet Anda.',
                 ]);
             }
         }
@@ -164,7 +164,7 @@ class AttendanceController extends Controller
             $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
             if (! $allowed) {
                 throw ValidationException::withMessages([
-                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar murid Anda.',
+                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar atlet Anda.',
                 ]);
             }
         }
@@ -174,7 +174,7 @@ class AttendanceController extends Controller
             ->whereDate('recorded_at', now()->toDateString())
             ->first();
 
-        if (! $attendance || ! $attendance->check_out_at) {
+        if ($attendance === null || ! $attendance->check_out_at) {
             throw ValidationException::withMessages([
                 'mood_rating' => 'Feedback hanya bisa dikirim setelah check-out berhasil.',
             ]);
@@ -245,7 +245,7 @@ class AttendanceController extends Controller
             $allowed = $user->senseiAthletes()->whereKey($athlete->id)->exists();
             if (! $allowed) {
                 throw ValidationException::withMessages([
-                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar murid Anda.',
+                    'athlete_code' => 'Atlet tidak terdaftar dalam daftar atlet Anda.',
                 ]);
             }
         }
@@ -255,7 +255,7 @@ class AttendanceController extends Controller
             ->whereDate('recorded_at', now()->toDateString())
             ->first();
 
-        if ($attendance && ($attendance->check_in_at || $attendance->check_out_at)) {
+        if ($attendance !== null && ($attendance->check_in_at || $attendance->check_out_at)) {
             throw ValidationException::withMessages([
                 'status' => 'Status izin/sakit tidak bisa diubah karena absensi check-in/check-out sudah tercatat.',
             ]);

@@ -64,6 +64,32 @@ class LandingController extends Controller
         ]);
     }
 
+    public function registerDojo(Request $request)
+    {
+        $validated = $request->validate([
+            'dojo_name' => 'required|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'province_code' => 'nullable|string|max:255',
+            'province_name' => 'nullable|string|max:255',
+            'regency_code' => 'nullable|string|max:255',
+            'regency_name' => 'nullable|string|max:255',
+            'district_code' => 'nullable|string|max:255',
+            'district_name' => 'nullable|string|max:255',
+            'village_code' => 'nullable|string|max:255',
+            'village_name' => 'nullable|string|max:255',
+            'address_detail' => 'nullable|string',
+            'timezone' => 'required|string|max:255',
+            'saas_plan_name' => 'required|string|max:255',
+            'pic_name' => 'required|string|max:255',
+            'pic_email' => 'required|email|max:255',
+            'pic_phone' => 'required|string|max:255',
+        ]);
+
+        \App\Models\DojoRegistration::create(array_merge($validated, ['status' => 'pending']));
+
+        return back()->with('success', 'Pendaftaran dojo telah diterima. Kami akan segera menghubungi Anda.');
+    }
+
     public function showArticle(Request $request, string $slug): InertiaResponse
     {
         $article = $this->resolveArticleForDisplay($slug, $request->query('preview'));

@@ -16,6 +16,7 @@ import {
     CheckCircle2,
     Clapperboard,
 } from 'lucide-react';
+import LanguageSwitch from '@/Components/LanguageSwitch';
 
 const features = [
     {
@@ -87,6 +88,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <a href="#sistem" className="transition-colors hover:text-red-500">SISTEM</a>
                             <a href="#artikel" className="transition-colors hover:text-red-500">ARTIKEL</a>
                             <a href="#galeri" className="transition-colors hover:text-red-500">GALERI</a>
+                            <LanguageSwitch compact />
                             <Link href={route('login')} className="rounded-md bg-red-600 px-6 py-2.5 text-white shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] transition-all hover:-translate-y-0.5 hover:bg-red-700">
                                 LOGIN DOJO
                             </Link>
@@ -103,6 +105,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <a href="#sistem" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>SISTEM</a>
                             <a href="#artikel" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>ARTIKEL</a>
                             <a href="#galeri" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>GALERI</a>
+                            <div className="py-2"><LanguageSwitch compact={false} /></div>
                             <Link href={route('login')} className="mt-2 rounded-md bg-red-600 px-4 py-3 text-center font-bold tracking-wider text-white">
                                 LOGIN DOJO
                             </Link>

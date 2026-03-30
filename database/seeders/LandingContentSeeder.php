@@ -243,7 +243,7 @@ class LandingContentSeeder extends Seeder
         }
 
         $priceLists = [
-            ['title' => 'Program Reguler', 'description' => 'Latihan mingguan untuk murid aktif.', 'price' => 225000, 'is_featured' => true],
+            ['title' => 'Program Reguler', 'description' => 'Latihan mingguan untuk atlet aktif.', 'price' => 225000, 'is_featured' => true],
             ['title' => 'Program Prestasi', 'description' => 'Fokus pembinaan atlet kompetisi.', 'price' => 325000, 'is_featured' => true],
             ['title' => 'Sesi Intensif', 'description' => 'Sesi privat untuk target tertentu.', 'price' => 500000, 'is_featured' => false],
         ];

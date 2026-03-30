@@ -1,6 +1,6 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Card, CardContent } from '@/Components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
@@ -159,15 +159,19 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                     {/* Desktop Table View */}
                     <Card className="hidden md:block overflow-hidden border-neutral-200/80 dark:border-neutral-800 animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
-                        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-neutral-100 dark:border-neutral-800">
-                            <h3 className="text-sm font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">Daftar Atlet</h3>
-                            <Button
-                                onClick={() => setIsCreateOpen(true)}
-                                className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
-                            >
-                                <Plus className="h-4 w-4" /> Registrasi Atlet
-                            </Button>
-                        </div>
+                        <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
+                            <div className="flex items-center justify-between gap-4">
+                                <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
+                                    Daftar Atlet Dojo
+                                </CardTitle>
+                                <Button
+                                    onClick={() => setIsCreateOpen(true)}
+                                    className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
+                                >
+                                    <Plus className="h-4 w-4" /> Registrasi Atlet
+                                </Button>
+                            </div>
+                        </CardHeader>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-neutral-500 uppercase bg-neutral-50/80 dark:bg-neutral-900/80 border-b border-neutral-200/80 dark:border-neutral-800 tracking-widest">
@@ -244,13 +248,13 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                     {/* Mobile Card View */}
                     <div className="grid grid-cols-1 gap-4 md:hidden">
-                        <div className="flex items-center justify-between gap-4 py-1">
+                        <div className="flex items-center justify-between gap-4 py-1 px-1">
                             <h3 className="text-sm font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">Daftar Atlet</h3>
                             <Button
                                 onClick={() => setIsCreateOpen(true)}
-                                className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
+                                className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200"
                             >
-                                <Plus className="h-4 w-4" /> Registrasi Atlet
+                                <Plus className="h-4 w-4" /> Tambah
                             </Button>
                         </div>
                         {filteredAthletes.map((athlete, idx) => (

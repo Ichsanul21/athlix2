@@ -78,7 +78,7 @@ class AthleteDomainSeeder extends Seeder
                 'phone_number'       => $phoneNumber,
                 'profile_photo_path' => SeedAssetsSeeder::PROFILE_PHOTO,
                 'password'           => Hash::make(DatabaseSeeder::DEMO_PASSWORD),
-                'role'               => 'murid',
+                'role'               => 'atlet',
                 'dojo_id'            => $dojo->id,
                 'athlete_id'         => $athlete->id,
                 'email_verified_at'  => now(),

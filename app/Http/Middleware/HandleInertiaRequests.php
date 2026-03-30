@@ -77,6 +77,22 @@ class HandleInertiaRequests extends Middleware
                         'email_verified_at' => $user->email_verified_at,
                     ];
                 }),
+                'dojo_branding' => Inertia::defer(function () use ($request, $resolveMediaUrl) {
+                    $user = $request->user();
+                    if (! $user || ! $user->dojo_id) {
+                        return null;
+                    }
+                    
+                    $dojo = \App\Models\Dojo::find($user->dojo_id);
+                    if (! $dojo) {
+                        return null;
+                    }
+
+                    return [
+                        'logo_url' => $dojo->logo_path ? $resolveMediaUrl($dojo->logo_path) : null,
+                        'accent_color' => $dojo->accent_color ?? '#dc2626',
+                    ];
+                }),
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),

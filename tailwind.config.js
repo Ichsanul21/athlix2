@@ -20,7 +20,7 @@ export default {
             colors: {
                 athlix: {
                     black: '#000000',
-                    red: '#E61E32',
+                    red: 'var(--athlix-red, #E61E32)',
                     white: '#FFFFFF',
                     grey: '#B3B3B3',
                 },

@@ -18,6 +18,7 @@ class Dojo extends Model
         return [
             'is_active' => 'boolean',
             'is_saas_blocked' => 'boolean',
+            'monthly_saas_fee' => 'float',
             'subscription_started_at' => 'date',
             'subscription_expires_at' => 'date',
             'grace_period_ends_at' => 'date',

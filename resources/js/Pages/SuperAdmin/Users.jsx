@@ -9,6 +9,18 @@ import { useState } from 'react';
 import Modal from '@/Components/Modal';
 import { Plus, X } from 'lucide-react';
 
+const ROLE_LABELS = {
+    super_admin: 'Super Admin',
+    landing_admin: 'Landing Admin',
+    dojo_admin: 'Admin Dojo',
+    head_coach: 'Head Coach',
+    sensei: 'Sensei',
+    assistant: 'Asisten Pelatih',
+    medical_staff: 'Staff Medis',
+    atlet: 'Atlet',
+    parent: 'Orang Tua',
+};
+
 export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUserId, setEditingUserId] = useState(null);
@@ -97,7 +109,7 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                                 placeholder="Nama"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
-                                disabled={form.data.role === 'murid'}
+                                disabled={form.data.role === 'atlet'}
                             />
                             <Input className="text-sm" placeholder="Email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
                             <Input className="text-sm" placeholder="No. WhatsApp (opsional)" value={form.data.phone_number} onChange={(e) => form.setData('phone_number', e.target.value)} />
@@ -118,8 +130,8 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                                 <option value="head_coach">Head Coach</option>
                                 <option value="sensei">Sensei</option>
                                 <option value="assistant">Asisten Pelatih</option>
-                                <option value="medical_staff">Staff Medis</option>
-                                <option value="murid">Murid (Atlet)</option>
+                                {/* medical_staff hidden sementara — role tetap ada di sistem */}
+                                <option value="atlet">Atlet</option>
                                 <option value="parent">Orang Tua</option>
                             </select>
 
@@ -132,31 +144,30 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                                 value={form.data.dojo_id}
                                 onChange={(next) => form.setData('dojo_id', next)}
                                 placeholder="Pilih Dojo"
-                                isDisabled={form.data.role === 'murid'}
+                                isDisabled={form.data.role === 'atlet' || form.data.role === 'parent'}
                             />
 
                             <DbSelect
                                 inputId="super-admin-user-athlete"
                                 options={[
-                                    { value: '', label: 'Pilih Atlet (khusus murid)' },
+                                    { value: '', label: 'Pilih Atlet (khusus atlet & orang tua)' },
                                     ...athletes.map((athlete) => ({ value: String(athlete.id), label: `${athlete.full_name} (${athlete.athlete_code})` })),
                                 ]}
                                 value={form.data.athlete_id}
                                 onChange={(athleteId) => {
                                     form.setData('athlete_id', athleteId);
-                                    if (form.data.role === 'murid') {
+                                    if (form.data.role === 'atlet' || form.data.role === 'parent') {
                                         const selectedAthlete = athletes.find((athlete) => String(athlete.id) === String(athleteId));
                                         if (selectedAthlete) {
-                                            form.setData('name', selectedAthlete.full_name);
-                                            form.setData('dojo_id', selectedAthlete.dojo_id || '');
-                                            if (selectedAthlete.phone_number) {
-                                                form.setData('phone_number', selectedAthlete.phone_number);
+                                            if (form.data.role === 'atlet') {
+                                                form.setData('name', selectedAthlete.full_name);
                                             }
+                                            form.setData('dojo_id', selectedAthlete.dojo_id || '');
                                         }
                                     }
                                 }}
                                 placeholder="Pilih Atlet"
-                                isDisabled={form.data.role !== 'murid'}
+                                isDisabled={form.data.role !== 'atlet' && form.data.role !== 'parent'}
                             />
                         </div>
                         <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-neutral-100">
@@ -167,9 +178,11 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                 </Modal>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
                         <div className="flex items-center justify-between gap-4">
-                            <CardTitle>Daftar Akun</CardTitle>
+                            <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
+                                Daftar Akun Pengguna
+                            </CardTitle>
                             <Button
                                 onClick={() => openModal()}
                                 className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
@@ -192,7 +205,7 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                                     <div className="min-w-0">
                                     <p className="font-semibold truncate">{user.name}</p>
                                     <p className="text-sm text-neutral-500 break-all">{user.email}</p>
-                                    <p className="text-xs text-neutral-500">{user.phone_number || '-'} | Role: {user.role} {user.athlete ? `| Atlet: ${user.athlete.full_name}` : ''}</p>
+                                    <p className="text-xs text-neutral-500">{user.phone_number || '-'} | Role: {ROLE_LABELS[user.role] || user.role} {user.athlete ? `| Atlet: ${user.athlete.full_name}` : ''}</p>
                                     {user.must_change_password && (
                                         <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 mt-1">
                                             Belum Ganti Password

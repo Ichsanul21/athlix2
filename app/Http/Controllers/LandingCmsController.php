@@ -6,10 +6,14 @@ use App\Models\LandingArticle;
 use App\Models\LandingContentRevision;
 use App\Models\LandingGallery;
 use App\Models\LandingPriceList;
+use App\Models\DojoRegistration;
+use App\Models\Dojo;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -23,6 +27,74 @@ class LandingCmsController extends Controller
     public function index()
     {
         return redirect()->route('cms.articles.index');
+    }
+
+    public function dojoRegistrations(): Response
+    {
+        return Inertia::render('Cms/DojoRegistrations', [
+            'registrations' => Inertia::defer(fn () => DojoRegistration::query()->latest()->get()),
+        ]);
+    }
+
+    public function approveRegistration(DojoRegistration $dojoRegistration)
+    {
+        if ($dojoRegistration->status !== 'pending') {
+            return back()->with('error', 'Pendaftaran tidak dalam status pending.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($dojoRegistration) {
+            $dojo = Dojo::create([
+                'name' => $dojoRegistration->dojo_name,
+                'country' => $dojoRegistration->country,
+                'province_code' => $dojoRegistration->province_code,
+                'province_name' => $dojoRegistration->province_name,
+                'regency_code' => $dojoRegistration->regency_code,
+                'regency_name' => $dojoRegistration->regency_name,
+                'district_code' => $dojoRegistration->district_code,
+                'district_name' => $dojoRegistration->district_name,
+                'village_code' => $dojoRegistration->village_code,
+                'village_name' => $dojoRegistration->village_name,
+                'address_detail' => $dojoRegistration->address_detail,
+                'timezone' => $dojoRegistration->timezone,
+                'is_active' => true,
+                'saas_plan_name' => $dojoRegistration->saas_plan_name,
+                'monthly_saas_fee' => $dojoRegistration->saas_plan_name === 'Advance' ? 1200000 : ($dojoRegistration->saas_plan_name === 'Pro' ? 600000 : 300000),
+                'billing_cycle_months' => 1,
+                'is_saas_blocked' => false,
+            ]);
+
+            User::create([
+                'name' => $dojoRegistration->pic_name,
+                'email' => $dojoRegistration->pic_email,
+                'phone_number' => $dojoRegistration->pic_phone,
+                'role' => 'dojo_admin',
+                'dojo_id' => $dojo->id,
+                'password' => Hash::make('password@123'),
+                'must_change_password' => true,
+                'email_verified_at' => now(),
+            ]);
+
+            $dojoRegistration->update(['status' => 'approved']);
+        });
+
+        return back()->with('success', 'Pendaftaran Dojo '. $dojoRegistration->dojo_name .' berhasil disetujui. Akun admin dibuat.');
+    }
+
+    public function rejectRegistration(DojoRegistration $dojoRegistration)
+    {
+        if ($dojoRegistration->status !== 'pending') {
+            return back()->with('error', 'Pendaftaran tidak dalam status pending.');
+        }
+
+        $dojoRegistration->update(['status' => 'rejected']);
+
+        return back()->with('success', 'Pendaftaran ditolak.');
+    }
+
+    public function destroyRegistration(DojoRegistration $dojoRegistration)
+    {
+        $dojoRegistration->delete();
+        return back()->with('success', 'Record pendaftaran dihapus permanen.');
     }
 
     public function articles(): Response

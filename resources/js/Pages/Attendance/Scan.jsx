@@ -157,8 +157,8 @@ export default function Scan({ auth, flash }) {
                 {!scanResult && !scanError && !permissionDenied && (
                     <div className="w-full max-w-sm space-y-6 animate-fade-in-up">
                         <div className="text-center space-y-1">
-                            <h2 className="text-xl font-black uppercase tracking-tighter">Scan QR Murid</h2>
-                            <p className="text-sm text-neutral-500">Arahkan kamera ke ID Card / QR Murid</p>
+                            <h2 className="text-xl font-black uppercase tracking-tighter">Scan QR Atlet</h2>
+                            <p className="text-sm text-neutral-500">Arahkan kamera ke ID Card / QR Atlet</p>
                         </div>
 
                         <div className="relative">

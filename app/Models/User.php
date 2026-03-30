@@ -116,9 +116,15 @@ class User extends Authenticatable
         return $this->role === 'medical_staff';
     }
 
+    public function isAtlet(): bool
+    {
+        return in_array($this->role, ['atlet', 'murid', 'athlete'], true);
+    }
+
+    /** @deprecated use isAtlet() */
     public function isMurid(): bool
     {
-        return in_array($this->role, ['murid', 'athlete'], true);
+        return $this->isAtlet();
     }
 
     public function isCoachGroup(): bool
