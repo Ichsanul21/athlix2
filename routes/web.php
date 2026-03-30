@@ -27,7 +27,7 @@ Route::get('/sitemap.xml', [LandingController::class, 'sitemap'])->name('seo.sit
 Route::get('/robots.txt', [LandingController::class, 'robots'])->name('seo.robots');
 Route::get('/artikel/{slug}', [LandingController::class, 'showArticle'])->name('landing.articles.show');
 Route::get('/galeri/{slug}', [LandingController::class, 'showGallery'])->name('landing.galleries.show');
-Route::post('/landing/register-dojo', [LandingController::class, 'registerDojo'])->name('landing.register_dojo');
+Route::post('/landing/register-dojo', [LandingController::class, 'registerDojo'])->name('landing.register-dojo');
 
 Route::prefix('/api/regions')->group(function () {
     Route::get('/provinces', [RegionController::class, 'provinces'])->name('api.regions.provinces');
