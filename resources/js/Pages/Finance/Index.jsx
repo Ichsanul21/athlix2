@@ -517,15 +517,17 @@ export default function Index({
                                             onChange={(next) => setOverrideForm((prev) => ({ ...prev, athlete_id: next }))}
                                         />
                                         <div className="grid grid-cols-2 gap-2">
-                                            <select
-                                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                            <DbSelect
+                                                inputId="finance-override-mode"
                                                 value={overrideForm.override_mode}
-                                                onChange={(e) => setOverrideForm((prev) => ({ ...prev, override_mode: e.target.value }))}
-                                            >
-                                                <option value="fixed">Fixed</option>
-                                                <option value="discount_amount">Diskon Nominal</option>
-                                                <option value="discount_percent">Diskon Persen</option>
-                                            </select>
+                                                options={[
+                                                    { value: 'fixed', label: 'Fixed' },
+                                                    { value: 'discount_amount', label: 'Diskon Nominal' },
+                                                    { value: 'discount_percent', label: 'Diskon Persen' }
+                                                ]}
+                                                onChange={(val) => setOverrideForm((prev) => ({ ...prev, override_mode: val }))}
+                                                placeholder="Mode Override"
+                                            />
                                             <Input
                                                 type="number"
                                                 min="0"

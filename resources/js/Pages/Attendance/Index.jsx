@@ -173,12 +173,17 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
             <Modal show={feedbackModal.show} onClose={() => setFeedbackModal({ show: false, attendance: null })}>
                 <div className="p-6 space-y-3">
                     <h3 className="text-lg font-bold">Feedback Sensei</h3>
-                    <select className="w-full rounded-md border px-3 py-2" value={senseiMood} onChange={(e) => setSenseiMood(e.target.value)}>
-                        <option value="normal">Normal</option>
-                        <option value="semangat">Semangat</option>
-                        <option value="lelah">Lelah</option>
-                        <option value="kurang-fokus">Kurang Fokus</option>
-                    </select>
+                    <DbSelect
+                        inputId="attendance-sensei-mood"
+                        value={senseiMood}
+                        onChange={(value) => setSenseiMood(value)}
+                        options={[
+                            { value: 'normal', label: 'Normal' },
+                            { value: 'semangat', label: 'Semangat' },
+                            { value: 'lelah', label: 'Lelah' },
+                            { value: 'kurang-fokus', label: 'Kurang Fokus' }
+                        ]}
+                    />
                     <textarea className="w-full rounded-md border px-3 py-2 min-h-24" value={senseiFeedback} onChange={(e) => setSenseiFeedback(e.target.value)} placeholder="Tulis evaluasi sensei..." />
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => setFeedbackModal({ show: false, attendance: null })}>Batal</Button>

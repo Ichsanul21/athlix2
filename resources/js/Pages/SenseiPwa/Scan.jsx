@@ -167,16 +167,18 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
 
                             {scanForm.action === 'checkin' ? (
                                 <>
-                                    <select
+                                    <DbSelect
+                                        inputId="scan-checkin-mood"
                                         value={scanForm.check_in_mood}
-                                        onChange={(event) => setScanForm((prev) => ({ ...prev, check_in_mood: event.target.value }))}
-                                        className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                                    >
-                                        <option value="semangat">Semangat</option>
-                                        <option value="normal">Normal</option>
-                                        <option value="lelah">Lelah</option>
-                                        <option value="kurang-fokus">Kurang Fokus</option>
-                                    </select>
+                                        options={[
+                                            { value: 'semangat', label: 'Semangat' },
+                                            { value: 'normal', label: 'Normal' },
+                                            { value: 'lelah', label: 'Lelah' },
+                                            { value: 'kurang-fokus', label: 'Kurang Fokus' }
+                                        ]}
+                                        onChange={(val) => setScanForm((prev) => ({ ...prev, check_in_mood: val }))}
+                                        placeholder="Pilih Mood"
+                                    />
                                     <textarea
                                         value={scanForm.check_in_feedback}
                                         onChange={(event) => setScanForm((prev) => ({ ...prev, check_in_feedback: event.target.value }))}
@@ -186,16 +188,18 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
                                 </>
                             ) : (
                                 <>
-                                    <select
+                                    <DbSelect
+                                        inputId="scan-checkout-mood"
                                         value={scanForm.athlete_mood}
-                                        onChange={(event) => setScanForm((prev) => ({ ...prev, athlete_mood: event.target.value }))}
-                                        className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                                    >
-                                        <option value="semangat">Semangat</option>
-                                        <option value="normal">Normal</option>
-                                        <option value="lelah">Lelah</option>
-                                        <option value="kurang-fokus">Kurang Fokus</option>
-                                    </select>
+                                        options={[
+                                            { value: 'semangat', label: 'Semangat' },
+                                            { value: 'normal', label: 'Normal' },
+                                            { value: 'lelah', label: 'Lelah' },
+                                            { value: 'kurang-fokus', label: 'Kurang Fokus' }
+                                        ]}
+                                        onChange={(val) => setScanForm((prev) => ({ ...prev, athlete_mood: val }))}
+                                        placeholder="Pilih Kondisi Akhir Latihan"
+                                    />
                                     <textarea
                                         value={scanForm.athlete_feedback}
                                         onChange={(event) => setScanForm((prev) => ({ ...prev, athlete_feedback: event.target.value }))}
@@ -229,14 +233,16 @@ export default function Scan({ auth, dojo, dojoQr, athletes = [], todayAttendanc
                                 menuPortal={false}
                             />
 
-                            <select
-                                value={statusForm.status}
-                                onChange={(event) => setStatusForm((prev) => ({ ...prev, status: event.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                            >
-                                <option value="excused">Izin</option>
-                                <option value="sick">Sakit</option>
-                            </select>
+                            <DbSelect
+                                        inputId="sensei-pwa-status"
+                                        value={statusForm.status}
+                                        options={[
+                                            { value: 'excused', label: 'Izin' },
+                                            { value: 'sick', label: 'Sakit' }
+                                        ]}
+                                        onChange={(val) => setStatusForm((prev) => ({ ...prev, status: val }))}
+                                        placeholder="Pilih Status"
+                                    />
 
                             <textarea
                                 value={statusForm.absence_reason}

@@ -360,20 +360,32 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                             <div>
                                 <InputLabel htmlFor="day" value="Hari" />
-                                <select id="day" className="mt-1 block w-full border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900  focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm" value={data.day} onChange={(e) => setData('day', e.target.value)} required>
-                                    {days.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
+                                <DbSelect 
+                                    className="mt-1"
+                                    inputId="day"
+                                    value={data.day}
+                                    options={days.map(d => ({ value: d, label: d }))}
+                                    onChange={(value) => setData('day', value)}
+                                    placeholder="Pilih Hari"
+                                />
                                 <InputError message={errors.day} className="mt-2" />
                             </div>
 
                             <div>
                                 <InputLabel htmlFor="type" value="Tipe Latihan" />
-                                <select id="type" className="mt-1 block w-full border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900  focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm" value={data.type} onChange={(e) => setData('type', e.target.value)} required>
-                                    <option value="teknik">Teknik (Kihon)</option>
-                                    <option value="kata">Kata</option>
-                                    <option value="kumite">Kumite</option>
-                                    <option value="fisik">Fisik</option>
-                                </select>
+                                <DbSelect 
+                                    className="mt-1"
+                                    inputId="type"
+                                    value={data.type}
+                                    options={[
+                                        { value: 'teknik', label: 'Teknik (Kihon)' },
+                                        { value: 'kata', label: 'Kata' },
+                                        { value: 'kumite', label: 'Kumite' },
+                                        { value: 'fisik', label: 'Fisik' },
+                                    ]}
+                                    onChange={(value) => setData('type', value)}
+                                    placeholder="Pilih Tipe Latihan"
+                                />
                                 <InputError message={errors.type} className="mt-2" />
                             </div>
 
@@ -427,15 +439,16 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                                             <TextInput type="time" value={item.start_time} onChange={(e) => updateAgendaItem(idx, 'start_time', e.target.value)} />
                                             <TextInput type="time" value={item.end_time} onChange={(e) => updateAgendaItem(idx, 'end_time', e.target.value)} />
-                                            <select
-                                                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                                            <DbSelect
+                                                inputId={`agenda-title-${idx}`}
+                                                className="w-full text-sm min-w-[150px]"
                                                 value={item.title}
-                                                onChange={(e) => updateAgendaItem(idx, 'title', e.target.value)}
-                                            >
-                                                {Array.from(new Set([...agendaTitleTemplates, item.title || ''])).filter(Boolean).map((agendaTitle) => (
-                                                    <option key={`${idx}-${agendaTitle}`} value={agendaTitle}>{agendaTitle}</option>
+                                                options={Array.from(new Set([...agendaTitleTemplates, item.title || ''])).filter(Boolean).map((agendaTitle) => (
+                                                    { value: agendaTitle, label: agendaTitle }
                                                 ))}
-                                            </select>
+                                                onChange={(val) => updateAgendaItem(idx, 'title', val)}
+                                                placeholder="Pilih Detail Sesi"
+                                            />
                                             <button type="button" onClick={() => removeAgendaItem(idx)} className="rounded-lg border border-red-200 text-red-600 text-xs font-bold">Hapus</button>
                                         </div>
                                         <textarea

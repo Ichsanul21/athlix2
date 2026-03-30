@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { useEffect } from 'react';
+import DbSelect from '@/Components/DbSelect';
 
 export default function SystemSettings({ auth, settings = {}, flash }) {
     const form = useForm({
@@ -115,10 +116,15 @@ export default function SystemSettings({ auth, settings = {}, flash }) {
 
                             <label className="space-y-1 text-sm font-semibold">
                                 <span>Provider</span>
-                                <select className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm" value={form.data.whatsapp_provider} onChange={(e) => form.setData('whatsapp_provider', e.target.value)}>
-                                    <option value="fonnte">Fonnte</option>
-                                    <option value="generic">Generic Webhook</option>
-                                </select>
+                                <DbSelect 
+                                    options={[
+                                        { value: 'fonnte', label: 'Fonnte' },
+                                        { value: 'generic', label: 'Generic Webhook' },
+                                    ]}
+                                    value={form.data.whatsapp_provider} 
+                                    onChange={(val) => form.setData('whatsapp_provider', val)} 
+                                    placeholder="Pilih Provider" 
+                                />
                                 {form.errors.whatsapp_provider && <p className="text-xs text-red-600">{form.errors.whatsapp_provider}</p>}
                             </label>
 

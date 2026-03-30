@@ -76,7 +76,7 @@ export default function DbSelect({
                 value={selectedOption}
                 onChange={(option) => {
                     if (!onChange) return;
-                    onChange(option ? getOptionValue(option) : '');
+                    onChange(option ? getOptionValue(option) : '', option);
                 }}
                 isDisabled={isDisabled}
                 isClearable={isClearable}

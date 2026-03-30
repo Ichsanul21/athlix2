@@ -7,6 +7,7 @@ import { Skeleton } from '@/Components/ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { submitWellnessPayload } from '@/lib/offlineWellnessSync';
+import DbSelect from '@/Components/DbSelect';
 
 export default function Index({ auth, athlete, attendanceLog = [], todayAttendance = null, flash }) {
     const [scanning, setScanning] = useState(false);
@@ -243,12 +244,18 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                                     className="w-full text-xs"
                                 />
                             </div>
-                            <select className="w-full rounded-lg border px-3 py-2 text-sm" value={checkInMood} onChange={(e) => setCheckInMood(e.target.value)}>
-                                <option value="semangat">Semangat</option>
-                                <option value="normal">Normal</option>
-                                <option value="lelah">Lelah</option>
-                                <option value="drop">Drop</option>
-                            </select>
+                            <DbSelect 
+                                inputId="scan-checkin-mood"
+                                value={checkInMood}
+                                options={[
+                                    { value: 'semangat', label: 'Semangat' },
+                                    { value: 'normal', label: 'Normal' },
+                                    { value: 'lelah', label: 'Lelah' },
+                                    { value: 'drop', label: 'Drop' }
+                                ]}
+                                onChange={(val) => setCheckInMood(val)}
+                                placeholder="Pilih Mood CheckIn"
+                            />
                             <textarea
                                 className="w-full rounded-lg border px-3 py-2 text-sm min-h-20"
                                 value={checkInNote}

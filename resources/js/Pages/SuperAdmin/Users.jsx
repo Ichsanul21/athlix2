@@ -123,17 +123,22 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                             )}
                             <input type="file" accept=".jpg,.jpeg,.png,.webp" className="border rounded-lg px-3 py-2 text-sm" onChange={(e) => form.setData('profile_photo', e.target.files?.[0] ?? null)} />
 
-                            <select className="border rounded-lg px-3 py-2 text-sm" value={form.data.role} onChange={(e) => form.setData('role', e.target.value)}>
-                                <option value="super_admin">Super Admin</option>
-                                <option value="landing_admin">Landing Admin</option>
-                                <option value="dojo_admin">Admin Dojo</option>
-                                <option value="head_coach">Head Coach</option>
-                                <option value="sensei">Sensei</option>
-                                <option value="assistant">Asisten Pelatih</option>
-                                {/* medical_staff hidden sementara — role tetap ada di sistem */}
-                                <option value="atlet">Atlet</option>
-                                <option value="parent">Orang Tua</option>
-                            </select>
+                            <DbSelect
+                                inputId="super-admin-user-role"
+                                options={[
+                                    { value: 'super_admin', label: 'Super Admin' },
+                                    { value: 'landing_admin', label: 'Landing Admin' },
+                                    { value: 'dojo_admin', label: 'Admin Dojo' },
+                                    { value: 'head_coach', label: 'Head Coach' },
+                                    { value: 'sensei', label: 'Sensei' },
+                                    { value: 'assistant', label: 'Asisten Pelatih' },
+                                    { value: 'atlet', label: 'Atlet' },
+                                    { value: 'parent', label: 'Orang Tua' },
+                                ]}
+                                value={form.data.role}
+                                onChange={(value) => form.setData('role', value)}
+                                placeholder="Pilih Role"
+                            />
 
                             <DbSelect
                                 inputId="super-admin-user-dojo"

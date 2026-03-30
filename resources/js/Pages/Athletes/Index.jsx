@@ -431,14 +431,15 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Gender</label>
-                                <select 
-                                    className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-athlix-red"
+                                <DbSelect 
+                                    inputId="athlete-gender"
                                     value={data.gender}
-                                    onChange={e => setData('gender', e.target.value)}
-                                >
-                                    <option value="M">Male</option>
-                                    <option value="F">Female</option>
-                                </select>
+                                    options={[
+                                        { value: 'M', label: 'Male' },
+                                        { value: 'F', label: 'Female' }
+                                    ]}
+                                    onChange={(val) => setData('gender', val)}
+                                />
                             </div>
 
                             <div className="space-y-1">
@@ -467,15 +468,16 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Specialization</label>
-                                <select 
-                                    className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-athlix-red"
+                                <DbSelect 
+                                    inputId="athlete-specialization"
                                     value={data.specialization}
-                                    onChange={e => setData('specialization', e.target.value)}
-                                >
-                                    <option value="kata">Kata</option>
-                                    <option value="kumite">Kumite</option>
-                                    <option value="both">Both</option>
-                                </select>
+                                    options={[
+                                        { value: 'kata', label: 'Kata' },
+                                        { value: 'kumite', label: 'Kumite' },
+                                        { value: 'both', label: 'Both' }
+                                    ]}
+                                    onChange={(val) => setData('specialization', val)}
+                                />
                             </div>
 
                             <div className="col-span-2 space-y-1">

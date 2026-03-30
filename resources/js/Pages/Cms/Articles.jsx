@@ -27,6 +27,7 @@ import {
     X,
 } from 'lucide-react';
 import Modal from '@/Components/Modal';
+import DbSelect from '@/Components/DbSelect';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const INITIAL_FORM = {
@@ -302,9 +303,14 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
                                 <Input placeholder="Locale" value={form.data.locale} onChange={(e) => form.setData('locale', e.target.value)} />
                                 <Input type="datetime-local" value={form.data.publish_at} onChange={(e) => form.setData('publish_at', e.target.value)} />
                                 <Input type="number" min="0" placeholder="Sort order" value={form.data.sort_order} onChange={(e) => form.setData('sort_order', e.target.value)} />
-                                <select className="h-10 rounded-xl border border-neutral-200 px-3 text-sm" value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
-                                    {statuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                                </select>
+                                <DbSelect 
+                                    className="min-w-[150px]"
+                                    inputId="article-status"
+                                    value={form.data.status} 
+                                    options={statuses}
+                                    onChange={(value) => form.setData('status', value)}
+                                    placeholder="Status"
+                                />
                                 <label className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 text-sm">
                                     <input type="checkbox" checked={form.data.is_featured} onChange={(e) => form.setData('is_featured', e.target.checked)} />
                                     Featured
@@ -356,9 +362,14 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
                                 <Input placeholder="SEO Title" value={form.data.seo_title} onChange={(e) => form.setData('seo_title', e.target.value)} />
                                 <Input placeholder="SEO Keywords" value={form.data.seo_keywords} onChange={(e) => form.setData('seo_keywords', e.target.value)} />
                                 <textarea className="min-h-20 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:col-span-2" placeholder="SEO Description" value={form.data.seo_description} onChange={(e) => form.setData('seo_description', e.target.value)} />
-                                <select className="h-10 rounded-xl border border-neutral-200 px-3 text-sm" value={form.data.meta_robots} onChange={(e) => form.setData('meta_robots', e.target.value)}>
-                                    {robots.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                                </select>
+                                <DbSelect 
+                                    className="min-w-[150px]"
+                                    inputId="article-meta-robots"
+                                    value={form.data.meta_robots} 
+                                    options={robots}
+                                    onChange={(value) => form.setData('meta_robots', value)}
+                                    placeholder="Meta Robots"
+                                />
                                 <Input placeholder="OG Title" value={form.data.og_title} onChange={(e) => form.setData('og_title', e.target.value)} />
                                 <textarea className="min-h-20 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:col-span-2" placeholder="OG Description" value={form.data.og_description} onChange={(e) => form.setData('og_description', e.target.value)} />
                                 <textarea className="min-h-20 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:col-span-2" placeholder="Approval Notes" value={form.data.approval_notes} onChange={(e) => form.setData('approval_notes', e.target.value)} />
@@ -421,10 +432,13 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
                                 <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
                                 <Input className="pl-9" placeholder="Cari artikel..." value={search} onChange={(e) => setSearch(e.target.value)} />
                             </div>
-                            <select className="h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                                <option value="all">Semua status</option>
-                                {statuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
+                            <DbSelect 
+                                inputId="article-filter-status"
+                                value={statusFilter} 
+                                options={[{ value: 'all', label: 'Semua status' }, ...statuses]}
+                                onChange={(value) => setStatusFilter(value || 'all')}
+                                placeholder="Pilih Filter Status"
+                            />
 
                             <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1">
                                 {filtered.length === 0 && <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">Belum ada artikel.</div>}

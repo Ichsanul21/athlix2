@@ -9,29 +9,7 @@ import { Plus, X, MapPin, Building2, Globe, ChevronDown, Loader2 } from 'lucide-
 
 const PLAN_OPTIONS = ['Basic', 'Pro', 'Advance'];
 
-// Styled select wrapper matching the project's athlix design system
-function StyledSelect({ value, onChange, options, placeholder, disabled, loading, className = '' }) {
-    return (
-        <div className={`relative ${className}`}>
-            <select
-                value={value || ''}
-                onChange={onChange}
-                disabled={disabled || loading}
-                className="flex h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-athlix-red/30 focus-visible:border-athlix-red/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-950 dark:placeholder:text-neutral-500 dark:focus-visible:ring-athlix-red/20 dark:focus-visible:border-athlix-red/40 transition-all duration-300 appearance-none cursor-pointer"
-            >
-                <option value="">{loading ? 'Memuat...' : placeholder}</option>
-                {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                    </option>
-                ))}
-            </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
-            </div>
-        </div>
-    );
-}
+import DbSelect from '@/Components/DbSelect';
 
 // Badge component for displaying region info
 function RegionBadge({ icon: Icon, label, value }) {
@@ -154,14 +132,12 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
     }, []);
 
     // When province changes → auto-set timezone, reset downstream
-    const onProvinceChange = (e) => {
-        const code = e.target.value;
-        const selected = provinces.find((p) => p.code === code);
+    const onProvinceChange = (code, option) => {
         const tz = provinceTimezones[code] || 'Asia/Makassar';
         form.setData({
             ...form.data,
             province_code: code,
-            province_name: selected?.name || '',
+            province_name: option?.label || '',
             regency_code: '',
             regency_name: '',
             district_code: '',
@@ -175,13 +151,11 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
         fetchRegencies(code);
     };
 
-    const onRegencyChange = (e) => {
-        const code = e.target.value;
-        const selected = regencies.find((r) => r.code === code);
+    const onRegencyChange = (code, option) => {
         form.setData({
             ...form.data,
             regency_code: code,
-            regency_name: selected?.name || '',
+            regency_name: option?.label || '',
             district_code: '',
             district_name: '',
             village_code: '',
@@ -191,32 +165,27 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
         fetchDistricts(code);
     };
 
-    const onDistrictChange = (e) => {
-        const code = e.target.value;
-        const selected = districts.find((d) => d.code === code);
+    const onDistrictChange = (code, option) => {
         form.setData({
             ...form.data,
             district_code: code,
-            district_name: selected?.name || '',
+            district_name: option?.label || '',
             village_code: '',
             village_name: '',
         });
         fetchVillages(code);
     };
 
-    const onVillageChange = (e) => {
-        const code = e.target.value;
-        const selected = villages.find((v) => v.code === code);
+    const onVillageChange = (code, option) => {
         form.setData({
             ...form.data,
             village_code: code,
-            village_name: selected?.name || '',
+            village_name: option?.label || '',
         });
     };
 
     // When SaaS plan changes → auto-set monthly fee
-    const onPlanChange = (e) => {
-        const plan = e.target.value;
+    const onPlanChange = (plan) => {
         const fee = planPricing[plan] || 0;
         form.setData({
             ...form.data,
@@ -365,47 +334,44 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Provinsi</span>
-                                    <StyledSelect
+                                    <DbSelect
                                         value={form.data.province_code}
                                         onChange={onProvinceChange}
                                         options={provinces.map((p) => ({ value: p.code, label: p.name }))}
-                                        placeholder="Pilih Provinsi"
-                                        loading={loadingProvinces}
+                                        placeholder={loadingProvinces ? 'Memuat...' : 'Pilih Provinsi'}
+                                        isDisabled={loadingProvinces}
                                     />
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Kab/Kota</span>
-                                    <StyledSelect
+                                    <DbSelect
                                         value={form.data.regency_code}
                                         onChange={onRegencyChange}
                                         options={regencies.map((r) => ({ value: r.code, label: r.name }))}
-                                        placeholder="Pilih Kab/Kota"
-                                        disabled={!form.data.province_code}
-                                        loading={loadingRegencies}
+                                        placeholder={loadingRegencies ? 'Memuat...' : 'Pilih Kab/Kota'}
+                                        isDisabled={!form.data.province_code || loadingRegencies}
                                     />
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Kecamatan</span>
-                                    <StyledSelect
+                                    <DbSelect
                                         value={form.data.district_code}
                                         onChange={onDistrictChange}
                                         options={districts.map((d) => ({ value: d.code, label: d.name }))}
-                                        placeholder="Pilih Kecamatan"
-                                        disabled={!form.data.regency_code}
-                                        loading={loadingDistricts}
+                                        placeholder={loadingDistricts ? 'Memuat...' : 'Pilih Kecamatan'}
+                                        isDisabled={!form.data.regency_code || loadingDistricts}
                                     />
                                 </label>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Kelurahan/Desa</span>
-                                    <StyledSelect
+                                    <DbSelect
                                         value={form.data.village_code}
                                         onChange={onVillageChange}
                                         options={villages.map((v) => ({ value: v.code, label: v.name }))}
-                                        placeholder="Pilih Kelurahan"
-                                        disabled={!form.data.district_code}
-                                        loading={loadingVillages}
+                                        placeholder={loadingVillages ? 'Memuat...' : 'Pilih Kelurahan'}
+                                        isDisabled={!form.data.district_code || loadingVillages}
                                     />
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
@@ -428,7 +394,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Paket SaaS</span>
-                                    <StyledSelect
+                                    <DbSelect
                                         value={form.data.saas_plan_name}
                                         onChange={onPlanChange}
                                         options={PLAN_OPTIONS.map((p) => ({

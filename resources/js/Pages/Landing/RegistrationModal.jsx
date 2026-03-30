@@ -4,30 +4,7 @@ import Modal from '@/Components/Modal';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Loader2, ChevronDown, CheckCircle } from 'lucide-react';
-
-function StyledSelect({ value, onChange, options, placeholder, disabled, loading, required }) {
-    return (
-        <div className="relative">
-            <select
-                value={value || ''}
-                onChange={onChange}
-                disabled={disabled || loading}
-                required={required}
-                className="flex h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-athlix-red/30 focus-visible:border-athlix-red/50 disabled:cursor-not-allowed disabled:opacity-50 appearance-none cursor-pointer text-neutral-900"
-            >
-                <option value="" disabled>{loading ? 'Memuat...' : placeholder}</option>
-                {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                    </option>
-                ))}
-            </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
-            </div>
-        </div>
-    );
-}
+import DbSelect from '@/Components/DbSelect';
 
 export default function RegistrationModal({ show, onClose }) {
     const [provinces, setProvinces] = useState([]);
@@ -202,10 +179,9 @@ export default function RegistrationModal({ show, onClose }) {
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Paket Pilihan *</label>
-                            <StyledSelect
-                                required
+                            <DbSelect
                                 value={data.saas_plan_name}
-                                onChange={e => setData('saas_plan_name', e.target.value)}
+                                onChange={(value) => setData('saas_plan_name', value)}
                                 options={[
                                     { value: 'Basic', label: 'Basic (Rp 300rb/bln)' },
                                     { value: 'Pro', label: 'Pro (Rp 600rb/bln)' },
@@ -223,92 +199,77 @@ export default function RegistrationModal({ show, onClose }) {
                         
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Provinsi *</label>
-                            <StyledSelect
-                                required
+                            <DbSelect
                                 value={data.province_code}
-                                loading={loadingProv}
+                                isDisabled={loadingProv}
                                 options={provinces.map(p => ({ value: p.code, label: p.name }))}
-                                onChange={(e) => {
-                                    const code = e.target.value;
-                                    const name = e.target.options[e.target.selectedIndex].text;
+                                onChange={(code, option) => {
                                     setData(data => ({
                                         ...data,
                                         province_code: code,
-                                        province_name: name,
+                                        province_name: option ? option.label : '',
                                         regency_code: '', regency_name: '',
                                         district_code: '', district_name: '',
                                         village_code: '', village_name: ''
                                     }));
                                     fetchRegencies(code);
                                 }}
-                                placeholder="Pilih Provinsi"
+                                placeholder={loadingProv ? "Memuat..." : "Pilih Provinsi"}
                             />
                             {errors.province_code && <p className="text-red-500 text-xs mt-1">{errors.province_code}</p>}
                         </div>
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Kota / Kabupaten *</label>
-                            <StyledSelect
-                                required
+                            <DbSelect
                                 value={data.regency_code}
-                                loading={loadingReg}
-                                disabled={!data.province_code}
+                                isDisabled={!data.province_code || loadingReg}
                                 options={regencies.map(r => ({ value: r.code, label: r.name }))}
-                                onChange={(e) => {
-                                    const code = e.target.value;
-                                    const name = e.target.options[e.target.selectedIndex].text;
+                                onChange={(code, option) => {
                                     setData(data => ({
                                         ...data,
                                         regency_code: code,
-                                        regency_name: name,
+                                        regency_name: option ? option.label : '',
                                         district_code: '', district_name: '',
                                         village_code: '', village_name: ''
                                     }));
                                     fetchDistricts(code);
                                 }}
-                                placeholder="Pilih Kota/Kab"
+                                placeholder={loadingReg ? "Memuat..." : "Pilih Kota/Kab"}
                             />
                             {errors.regency_code && <p className="text-red-500 text-xs mt-1">{errors.regency_code}</p>}
                         </div>
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Kecamatan *</label>
-                            <StyledSelect
-                                required
+                            <DbSelect
                                 value={data.district_code}
-                                loading={loadingDist}
-                                disabled={!data.regency_code}
+                                isDisabled={!data.regency_code || loadingDist}
                                 options={districts.map(d => ({ value: d.code, label: d.name }))}
-                                onChange={(e) => {
-                                    const code = e.target.value;
-                                    const name = e.target.options[e.target.selectedIndex].text;
+                                onChange={(code, option) => {
                                     setData(data => ({
                                         ...data,
                                         district_code: code,
-                                        district_name: name,
+                                        district_name: option ? option.label : '',
                                         village_code: '', village_name: ''
                                     }));
                                     fetchVillages(code);
                                 }}
-                                placeholder="Pilih Kecamatan"
+                                placeholder={loadingDist ? "Memuat..." : "Pilih Kecamatan"}
                             />
                         </div>
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Kelurahan / Desa *</label>
-                            <StyledSelect
-                                required
+                            <DbSelect
                                 value={data.village_code}
-                                loading={loadingVill}
-                                disabled={!data.district_code}
+                                isDisabled={!data.district_code || loadingVill}
                                 options={villages.map(v => ({ value: v.code, label: v.name }))}
-                                onChange={(e) => {
-                                    const code = e.target.value;
-                                    const name = e.target.options[e.target.selectedIndex].text;
+                                onChange={(code, option) => {
                                     setData('village_code', code);
-                                    setData('village_name', name);
+                                    setData('village_name', option ? option.label : '');
                                 }}
-                                placeholder="Pilih Kelurahan"
+                                placeholder={loadingVill ? "Memuat..." : "Pilih Kelurahan"}
                             />
                         </div>
 
