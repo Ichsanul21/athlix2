@@ -325,9 +325,10 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Negara</span>
-                                    <StyledSelect
+                                    <DbSelect
+                                        inputId="dojo-country"
                                         value={form.data.country}
-                                        onChange={(e) => form.setData('country', e.target.value)}
+                                        onChange={(val) => form.setData('country', val)}
                                         options={[{ value: 'ID', label: '🇮🇩 Indonesia' }]}
                                         placeholder="Pilih Negara"
                                     />
