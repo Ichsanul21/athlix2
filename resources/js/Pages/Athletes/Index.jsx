@@ -131,7 +131,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
-                    
+
                     {flash?.success && (
                         <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-xl dark:bg-green-900/30  animate-fade-in-up border border-green-200 dark:border-green-800">
                             {flash.success}
@@ -314,9 +314,9 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-1">
                                 <label className="text-sm font-medium">Full Name</label>
-                                <Input 
-                                    value={data.full_name} 
-                                    onChange={e => setData('full_name', e.target.value)} 
+                                <Input
+                                    value={data.full_name}
+                                    onChange={e => setData('full_name', e.target.value)}
                                     placeholder="Enter full name"
                                     required
                                 />
@@ -336,9 +336,9 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Athlete ID Code</label>
-                                <Input 
-                                    value={data.athlete_code} 
-                                    onChange={e => setData('athlete_code', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())} 
+                                <Input
+                                    value={data.athlete_code}
+                                    onChange={e => setData('athlete_code', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())}
                                     placeholder="ATH0001"
                                     disabled
                                     className="bg-neutral-100 dark:bg-neutral-800 cursor-not-allowed"
@@ -411,9 +411,9 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Tempat Lahir</label>
-                                <Input 
-                                    value={data.birth_place} 
-                                    onChange={e => setData('birth_place', e.target.value)} 
+                                <Input
+                                    value={data.birth_place}
+                                    onChange={e => setData('birth_place', e.target.value)}
                                     placeholder="Contoh: Samarinda"
                                 />
                                 {errors.birth_place && <p className="text-xs text-athlix-red">{errors.birth_place}</p>}
@@ -421,17 +421,17 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Date of Birth</label>
-                                <Input 
+                                <Input
                                     type="date"
-                                    value={data.dob} 
-                                    onChange={e => setData('dob', e.target.value)} 
+                                    value={data.dob}
+                                    onChange={e => setData('dob', e.target.value)}
                                     required
                                 />
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Gender</label>
-                                <DbSelect 
+                                <DbSelect
                                     inputId="athlete-gender"
                                     value={data.gender}
                                     options={[
@@ -444,11 +444,11 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Height (cm)</label>
-                                <Input 
+                                <Input
                                     type="number"
                                     step="0.1"
-                                    value={data.latest_height} 
-                                    onChange={e => setData('latest_height', e.target.value)} 
+                                    value={data.latest_height}
+                                    onChange={e => setData('latest_height', e.target.value)}
                                     placeholder="e.g. 170"
                                 />
                                 {errors.latest_height && <p className="text-xs text-athlix-red">{errors.latest_height}</p>}
@@ -456,11 +456,11 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Weight (kg)</label>
-                                <Input 
+                                <Input
                                     type="number"
                                     step="0.1"
-                                    value={data.latest_weight} 
-                                    onChange={e => setData('latest_weight', e.target.value)} 
+                                    value={data.latest_weight}
+                                    onChange={e => setData('latest_weight', e.target.value)}
                                     placeholder="e.g. 65.5"
                                 />
                                 {errors.latest_weight && <p className="text-xs text-athlix-red">{errors.latest_weight}</p>}
@@ -468,7 +468,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Specialization</label>
-                                <DbSelect 
+                                <DbSelect
                                     inputId="athlete-specialization"
                                     value={data.specialization}
                                     options={[
@@ -482,9 +482,9 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                             <div className="col-span-2 space-y-1">
                                 <label className="text-sm font-medium">Keterangan Kelas</label>
-                                <Input 
-                                    value={data.class_note} 
-                                    onChange={e => setData('class_note', e.target.value)} 
+                                <Input
+                                    value={data.class_note}
+                                    onChange={e => setData('class_note', e.target.value)}
                                     placeholder="Contoh: Senior -67kg"
                                 />
                                 {errors.class_note && <p className="text-xs text-athlix-red">{errors.class_note}</p>}
