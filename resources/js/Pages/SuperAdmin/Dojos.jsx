@@ -38,17 +38,21 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
     const [loadingVillages, setLoadingVillages] = useState(false);
 
     const resettableFields = [
-        'name', 'country', 'province_code', 'province_name',
+        'name', 'contact_name', 'contact_email', 'contact_phone',
+        'country', 'province_code', 'province_name',
         'regency_code', 'regency_name', 'district_code', 'district_name',
         'village_code', 'village_name', 'address_detail',
         'timezone', 'is_active', 'saas_plan_name', 'monthly_saas_fee',
         'billing_cycle_months', 'subscription_started_at',
-        'subscription_expires_at', 'grace_period_ends_at',
+        'subscription_expires_at', 'grace_period_stage1_ends_at', 'grace_period_ends_at',
         'is_saas_blocked', 'saas_block_reason',
     ];
 
     const defaultFormState = {
         name: '',
+        contact_name: '',
+        contact_email: '',
+        contact_phone: '',
         country: 'ID',
         province_code: '',
         province_name: '',
@@ -66,12 +70,41 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
         billing_cycle_months: 1,
         subscription_started_at: '',
         subscription_expires_at: '',
+        grace_period_stage1_ends_at: '',
         grace_period_ends_at: '',
         is_saas_blocked: false,
         saas_block_reason: '',
     };
 
     const form = useForm({ ...defaultFormState });
+
+    // Auto-compute subscription dates from started_at + billing_cycle_months
+    const computeSubscriptionDates = (startedAt, cycleMonths) => {
+        if (!startedAt || !cycleMonths) return {};
+        const start = new Date(startedAt);
+        const expires = new Date(start);
+        expires.setMonth(expires.getMonth() + Number(cycleMonths));
+        expires.setDate(expires.getDate() - 1);
+        const stage1 = new Date(expires);
+        stage1.setDate(stage1.getDate() + 7);
+        const stage2 = new Date(expires);
+        stage2.setDate(stage2.getDate() + 14);
+        return {
+            subscription_expires_at: expires.toISOString().slice(0, 10),
+            grace_period_stage1_ends_at: stage1.toISOString().slice(0, 10),
+            grace_period_ends_at: stage2.toISOString().slice(0, 10),
+        };
+    };
+
+    const onBillingCycleChange = (value) => {
+        const computed = computeSubscriptionDates(form.data.subscription_started_at, value);
+        form.setData({ ...form.data, billing_cycle_months: value, ...computed });
+    };
+
+    const onStartedAtChange = (value) => {
+        const computed = computeSubscriptionDates(value, form.data.billing_cycle_months);
+        form.setData({ ...form.data, subscription_started_at: value, ...computed });
+    };
 
     const resetForm = () => {
         form.reset(...resettableFields);
@@ -220,6 +253,9 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
             setEditingId(dojo.id);
             form.setData({
                 name: dojo.name || '',
+                contact_name: dojo.contact_name || '',
+                contact_email: dojo.contact_email || '',
+                contact_phone: dojo.contact_phone || '',
                 country: dojo.country || 'ID',
                 province_code: dojo.province_code || '',
                 province_name: dojo.province_name || '',
@@ -237,6 +273,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                 billing_cycle_months: dojo.billing_cycle_months || 1,
                 subscription_started_at: formatDateInput(dojo.subscription_started_at),
                 subscription_expires_at: formatDateInput(dojo.subscription_expires_at),
+                grace_period_stage1_ends_at: formatDateInput(dojo.grace_period_stage1_ends_at),
                 grace_period_ends_at: formatDateInput(dojo.grace_period_ends_at),
                 is_saas_blocked: !!dojo.is_saas_blocked,
                 saas_block_reason: dojo.saas_block_reason || '',
@@ -314,6 +351,41 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                     <span className="font-semibold text-athlix-red">{timezoneLabel}</span>
                                     <span className="text-[11px] text-neutral-400">({resolvedTimezone})</span>
                                 </div>
+                            </div>
+
+                            {/* Contact / PIC Fields */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Nama PIC/Kontak</span>
+                                    <Input
+                                        className="text-sm"
+                                        placeholder="Nama penanggung jawab"
+                                        value={form.data.contact_name}
+                                        onChange={(e) => form.setData('contact_name', e.target.value)}
+                                    />
+                                    {form.errors.contact_name && <p className="text-xs text-athlix-red">{form.errors.contact_name}</p>}
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Email PIC</span>
+                                    <Input
+                                        type="email"
+                                        className="text-sm"
+                                        placeholder="pic@email.com"
+                                        value={form.data.contact_email}
+                                        onChange={(e) => form.setData('contact_email', e.target.value)}
+                                    />
+                                    {form.errors.contact_email && <p className="text-xs text-athlix-red">{form.errors.contact_email}</p>}
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">No HP PIC</span>
+                                    <Input
+                                        className="text-sm"
+                                        placeholder="08xxxxxxxxxx"
+                                        value={form.data.contact_phone}
+                                        onChange={(e) => form.setData('contact_phone', e.target.value)}
+                                    />
+                                    {form.errors.contact_phone && <p className="text-xs text-athlix-red">{form.errors.contact_phone}</p>}
+                                </label>
                             </div>
                         </div>
 
@@ -418,17 +490,28 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                         min="1"
                                         max="24"
                                         value={form.data.billing_cycle_months}
-                                        onChange={(e) => form.setData('billing_cycle_months', e.target.value)}
+                                        onChange={(e) => onBillingCycleChange(e.target.value)}
                                     />
                                 </label>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+
+                            {/* Total billing callout */}
+                            {form.data.billing_cycle_months > 1 && (
+                                <div className="mt-3 rounded-xl bg-athlix-red/5 border border-athlix-red/20 px-4 py-2.5 text-sm">
+                                    <span className="text-neutral-600">Total tagihan untuk </span>
+                                    <strong className="text-athlix-red">{form.data.billing_cycle_months} bulan</strong>
+                                    <span className="text-neutral-600"> = </span>
+                                    <strong className="text-athlix-red text-base">{formatCurrency(Number(form.data.monthly_saas_fee) * Number(form.data.billing_cycle_months))}</strong>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Mulai Langganan</span>
                                     <Input
                                         type="date"
                                         value={form.data.subscription_started_at}
-                                        onChange={(e) => form.setData('subscription_started_at', e.target.value)}
+                                        onChange={(e) => onStartedAtChange(e.target.value)}
                                     />
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
@@ -437,15 +520,29 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                         type="date"
                                         value={form.data.subscription_expires_at}
                                         onChange={(e) => form.setData('subscription_expires_at', e.target.value)}
+                                        className="bg-neutral-50 dark:bg-neutral-900"
                                     />
+                                    <p className="text-[10px] text-neutral-400">Auto dari mulai + siklus</p>
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
-                                    <span className="block text-neutral-500">Grace Period Sampai</span>
+                                    <span className="block text-neutral-500">Grace Tahap 1 (Peringatan)</span>
+                                    <Input
+                                        type="date"
+                                        value={form.data.grace_period_stage1_ends_at}
+                                        onChange={(e) => form.setData('grace_period_stage1_ends_at', e.target.value)}
+                                        className="bg-neutral-50 dark:bg-neutral-900"
+                                    />
+                                    <p className="text-[10px] text-neutral-400">Auto: berakhir + 7 hari</p>
+                                </label>
+                                <label className="text-sm font-semibold space-y-1.5">
+                                    <span className="block text-neutral-500">Grace Tahap 2 (Terbatas)</span>
                                     <Input
                                         type="date"
                                         value={form.data.grace_period_ends_at}
                                         onChange={(e) => form.setData('grace_period_ends_at', e.target.value)}
+                                        className="bg-neutral-50 dark:bg-neutral-900"
                                     />
+                                    <p className="text-[10px] text-neutral-400">Auto: berakhir + 14 hari</p>
                                 </label>
                             </div>
                         </div>
@@ -527,9 +624,19 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                         Paket: <span className="font-semibold text-neutral-700 dark:text-neutral-300">{dojo.saas_plan_name || '-'}</span>
                                         {dojo.monthly_saas_fee ? ` — ${formatCurrency(dojo.monthly_saas_fee)}/bln` : ''}
                                     </p>
+                                    {(dojo.contact_name || dojo.contact_email || dojo.contact_phone) && (
+                                        <p className="text-xs text-neutral-500">
+                                            PIC: <span className="font-semibold text-neutral-700 dark:text-neutral-300">{dojo.contact_name || '-'}</span>
+                                            {dojo.contact_phone ? ` · ${dojo.contact_phone}` : ''}
+                                            {dojo.contact_email ? ` · ${dojo.contact_email}` : ''}
+                                        </p>
+                                    )}
                                     <p className="text-xs text-neutral-500">Status akses: {dojo.access_status || (dojo.is_active ? 'Aktif' : 'Nonaktif')}</p>
                                     <p className="text-xs text-neutral-500">Langganan: {dojo.subscription_started_at ? formatDateInput(dojo.subscription_started_at) : '-'} s/d {dojo.subscription_expires_at ? formatDateInput(dojo.subscription_expires_at) : '-'}</p>
-                                    <p className="text-xs text-neutral-500">Grace: {dojo.grace_period_ends_at ? formatDateInput(dojo.grace_period_ends_at) : '-'}</p>
+                                    <p className="text-xs text-neutral-500">
+                                        Grace Tahap 1: {dojo.grace_period_stage1_ends_at ? formatDateInput(dojo.grace_period_stage1_ends_at) : '-'}
+                                        {' | '}Grace Tahap 2: {dojo.grace_period_ends_at ? formatDateInput(dojo.grace_period_ends_at) : '-'}
+                                    </p>
                                     <p className="text-xs text-neutral-500">Akun user: {dojo.users_count ?? 0} | Atlet: {dojo.athletes_count ?? 0}</p>
                                     {dojo.is_saas_blocked && dojo.saas_block_reason && (
                                         <p className="text-xs text-red-600">Alasan blokir: {dojo.saas_block_reason}</p>

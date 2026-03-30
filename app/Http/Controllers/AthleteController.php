@@ -308,10 +308,12 @@ class AthleteController extends Controller
             'dojo',
             'achievements',
             'attendances',
+            'guardians' => fn ($q) => $q->withPivot(['relation_type', 'is_primary', 'emergency_contact']),
             'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
             'reports' => fn ($query) => $query->latest('recorded_at')->latest('id'),
             'latestReport',
         ]);
+        $athlete->primary_guardian = $athlete->guardians->firstWhere('pivot.is_primary', true);
         $athlete->age = \Carbon\Carbon::parse($athlete->dob)->age;
         $latestMetric = $athlete->physicalMetrics->first();
         if (!$athlete->latest_height && $latestMetric?->height) {
@@ -401,6 +403,7 @@ class AthleteController extends Controller
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
             'reportHistory' => Inertia::defer(fn () => $reportHistory),
+            'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
             'latestReport' => Inertia::defer(fn () => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,
@@ -485,6 +488,131 @@ class AthleteController extends Controller
         $achievement->delete();
 
         return back()->with('success', 'Data prestasi berhasil dihapus.');
+    }
+
+    public function update(Request $request, Athlete $athlete)
+    {
+        $user = auth()->user();
+        $this->ensureAthleteAccessible($athlete, $user);
+
+        $validated = $request->validate([
+            'full_name'              => 'required|string|max:255',
+            'current_belt_id'        => 'required|exists:belts,id',
+            'dob'                    => 'required|date',
+            'birth_place'            => 'nullable|string|max:255',
+            'phone_number'           => 'required|string|max:20',
+            'gender'                 => 'required|in:M,F',
+            'specialization'         => 'required|in:kata,kumite,both',
+            'latest_height'          => 'nullable|numeric|min:50|max:260',
+            'latest_weight'          => 'nullable|numeric',
+            'class_note'             => 'nullable|string|max:255',
+            'photo'                  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'doc_kk'                 => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'doc_akte'               => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'doc_ktp'                => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'parent_name'            => 'nullable|string|max:255',
+            'parent_phone_number'    => 'nullable|string|max:20',
+            'parent_email'           => 'nullable|email|max:255',
+            'parent_relation_type'   => 'nullable|string|max:50',
+        ]);
+
+        $athletePhone = $this->normalizePhoneNumber((string) ($validated['phone_number'] ?? ''));
+
+        if (! $this->isValidIndonesianPhone($athletePhone)) {
+            throw ValidationException::withMessages(['phone_number' => 'No HP atlet harus diawali 08 dan hanya berisi angka.']);
+        }
+
+        // Ensure phone is not taken by another athlete
+        if (Athlete::where('phone_number', $athletePhone)->where('id', '!=', $athlete->id)->exists()) {
+            throw ValidationException::withMessages(['phone_number' => 'No HP atlet sudah digunakan atlet lain.']);
+        }
+
+        $validated['phone_number'] = $athletePhone;
+        $validated['class_note'] = $validated['class_note'] ?: 'Umum';
+
+        // Handle file uploads
+        if ($request->hasFile('photo')) {
+            if ($athlete->photo_path) Storage::disk('public')->delete($athlete->photo_path);
+            $validated['photo_path'] = $request->file('photo')->store('athletes/photos', 'public');
+        }
+        if ($request->hasFile('doc_kk')) {
+            if ($athlete->doc_kk_path) Storage::disk('public')->delete($athlete->doc_kk_path);
+            $validated['doc_kk_path'] = $request->file('doc_kk')->store('athletes/documents', 'public');
+        }
+        if ($request->hasFile('doc_akte')) {
+            if ($athlete->doc_akte_path) Storage::disk('public')->delete($athlete->doc_akte_path);
+            $validated['doc_akte_path'] = $request->file('doc_akte')->store('athletes/documents', 'public');
+        }
+        if ($request->hasFile('doc_ktp')) {
+            if ($athlete->doc_ktp_path) Storage::disk('public')->delete($athlete->doc_ktp_path);
+            $validated['doc_ktp_path'] = $request->file('doc_ktp')->store('athletes/documents', 'public');
+        }
+
+        // Update parent/guardian if provided
+        $parentName = trim((string) ($validated['parent_name'] ?? ''));
+        $parentRelationType = trim((string) ($validated['parent_relation_type'] ?? '')) ?: 'parent';
+        $parentEmail = isset($validated['parent_email']) && trim((string) $validated['parent_email']) !== ''
+            ? Str::lower(trim((string) $validated['parent_email']))
+            : null;
+
+        unset(
+            $validated['photo'],
+            $validated['doc_kk'],
+            $validated['doc_akte'],
+            $validated['doc_ktp'],
+            $validated['parent_name'],
+            $validated['parent_phone_number'],
+            $validated['parent_email'],
+            $validated['parent_relation_type']
+        );
+
+        $athlete->update($validated);
+
+        // Sync user account phone + name
+        $athleteUser = User::where('athlete_id', $athlete->id)->first();
+        if ($athleteUser) {
+            $athleteUser->update([
+                'name'         => $athlete->full_name,
+                'phone_number' => $athletePhone,
+            ]);
+        }
+
+        // Update guardian if parentName was provided
+        if ($parentName) {
+            $rawParentPhone = $this->normalizePhoneNumber((string) ($request->input('parent_phone_number', '') ?? ''));
+            $primaryGuardian = $athlete->guardians()->wherePivot('is_primary', true)->first();
+
+            if ($primaryGuardian) {
+                $primaryGuardian->update([
+                    'name' => $parentName ?: $primaryGuardian->name,
+                ]);
+                AthleteGuardian::where('athlete_id', $athlete->id)
+                    ->where('guardian_user_id', $primaryGuardian->id)
+                    ->update(['relation_type' => $parentRelationType]);
+            }
+        }
+
+        return back()->with('success', 'Data atlet berhasil diperbarui.');
+    }
+
+    public function destroy(Athlete $athlete)
+    {
+        $user = auth()->user();
+        $this->ensureAthleteAccessible($athlete, $user);
+
+        // Delete stored files
+        foreach (['photo_path', 'doc_kk_path', 'doc_akte_path', 'doc_ktp_path'] as $field) {
+            if ($athlete->$field) {
+                Storage::disk('public')->delete($athlete->$field);
+            }
+        }
+
+        // Delete associated athlete user account
+        User::where('athlete_id', $athlete->id)->delete();
+
+        $athlete->delete();
+
+        return redirect()->route('athletes.index')->with('success', 'Data atlet berhasil dihapus.');
     }
 
     private function generateAthleteCode(): string

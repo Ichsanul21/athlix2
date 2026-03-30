@@ -39,6 +39,11 @@ class DojoAdminController extends Controller
         $dojo = Dojo::find($dojoId);
 
         $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'address_detail' => ['nullable', 'string'],
+            'contact_name' => ['nullable', 'string', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:255'],
+            'contact_phone' => ['nullable', 'string', 'max:50'],
             'accent_color' => ['nullable', 'string', 'max:50'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);

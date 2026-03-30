@@ -53,6 +53,8 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::get('/athletes', [AthleteController::class, 'index'])->name('athletes.index');
         Route::post('/athletes', [AthleteController::class, 'store'])->name('athletes.store');
         Route::get('/athletes/{athlete}', [AthleteController::class, 'show'])->name('athletes.show');
+        Route::post('/athletes/{athlete}', [AthleteController::class, 'update'])->name('athletes.update');
+        Route::delete('/athletes/{athlete}', [AthleteController::class, 'destroy'])->name('athletes.destroy');
         Route::post('/athletes/{athlete}/achievements', [AthleteController::class, 'storeAchievement'])->name('athletes.achievements.store');
         Route::delete('/athletes/{athlete}/achievements/{achievement}', [AthleteController::class, 'destroyAchievement'])->name('athletes.achievements.destroy');
         Route::post('/athletes/{athlete}/reports', [AthleteController::class, 'storeReport'])->name('athletes.reports.store');

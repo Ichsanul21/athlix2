@@ -88,6 +88,9 @@ class DojoController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'contact_name' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:30',
             'country' => 'required|string|max:3',
             'province_code' => 'nullable|string|max:10',
             'province_name' => 'nullable|string|max:100',
@@ -105,6 +108,7 @@ class DojoController extends Controller
             'billing_cycle_months' => 'required|integer|min:1|max:24',
             'subscription_started_at' => 'nullable|date',
             'subscription_expires_at' => 'nullable|date|after_or_equal:subscription_started_at',
+            'grace_period_stage1_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
             'grace_period_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
             'is_saas_blocked' => 'required|boolean',
             'saas_block_reason' => 'nullable|string|max:255',
@@ -113,6 +117,24 @@ class DojoController extends Controller
         // Auto-resolve timezone from province code if available
         if (! empty($validated['province_code'])) {
             $validated['timezone'] = self::PROVINCE_TIMEZONES[$validated['province_code']] ?? $validated['timezone'];
+        }
+
+        // Auto-compute subscription dates if started_at is set
+        if (! empty($validated['subscription_started_at'])) {
+            $computed = \App\Models\Dojo::computeSubscriptionDates(
+                $validated['subscription_started_at'],
+                (int) $validated['billing_cycle_months']
+            );
+            // Only auto-fill if not overridden manually
+            if (empty($validated['subscription_expires_at'])) {
+                $validated['subscription_expires_at'] = $computed['subscription_expires_at'];
+            }
+            if (empty($validated['grace_period_stage1_ends_at'])) {
+                $validated['grace_period_stage1_ends_at'] = $computed['grace_period_stage1_ends_at'];
+            }
+            if (empty($validated['grace_period_ends_at'])) {
+                $validated['grace_period_ends_at'] = $computed['grace_period_ends_at'];
+            }
         }
 
         if (! $validated['is_saas_blocked']) {
@@ -131,6 +153,9 @@ class DojoController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'contact_name' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:30',
             'country' => 'required|string|max:3',
             'province_code' => 'nullable|string|max:10',
             'province_name' => 'nullable|string|max:100',
@@ -148,6 +173,7 @@ class DojoController extends Controller
             'billing_cycle_months' => 'required|integer|min:1|max:24',
             'subscription_started_at' => 'nullable|date',
             'subscription_expires_at' => 'nullable|date|after_or_equal:subscription_started_at',
+            'grace_period_stage1_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
             'grace_period_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
             'is_saas_blocked' => 'required|boolean',
             'saas_block_reason' => 'nullable|string|max:255',
@@ -156,6 +182,23 @@ class DojoController extends Controller
         // Auto-resolve timezone from province code if available
         if (! empty($validated['province_code'])) {
             $validated['timezone'] = self::PROVINCE_TIMEZONES[$validated['province_code']] ?? $validated['timezone'];
+        }
+
+        // Auto-compute subscription dates if started_at is set and expires is not manually set
+        if (! empty($validated['subscription_started_at'])) {
+            $computed = \App\Models\Dojo::computeSubscriptionDates(
+                $validated['subscription_started_at'],
+                (int) $validated['billing_cycle_months']
+            );
+            if (empty($validated['subscription_expires_at'])) {
+                $validated['subscription_expires_at'] = $computed['subscription_expires_at'];
+            }
+            if (empty($validated['grace_period_stage1_ends_at'])) {
+                $validated['grace_period_stage1_ends_at'] = $computed['grace_period_stage1_ends_at'];
+            }
+            if (empty($validated['grace_period_ends_at'])) {
+                $validated['grace_period_ends_at'] = $computed['grace_period_ends_at'];
+            }
         }
 
         if (! $validated['is_saas_blocked']) {

@@ -6,6 +6,15 @@ import { Input } from '@/Components/ui/input';
 import { Loader2, ChevronDown, CheckCircle } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 
+const PLAN_PRICING = {
+    Basic:   300000,
+    Pro:     600000,
+    Advance: 1200000,
+};
+
+const formatCurrency = (amount) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+
 export default function RegistrationModal({ show, onClose }) {
     const [provinces, setProvinces] = useState([]);
     const [regencies, setRegencies] = useState([]);
@@ -191,6 +200,25 @@ export default function RegistrationModal({ show, onClose }) {
                             />
                             {errors.saas_plan_name && <p className="text-red-500 text-xs mt-1">{errors.saas_plan_name}</p>}
                         </div>
+
+                        {/* Total Billing Summary */}
+                        {data.saas_plan_name && (
+                            <div className="rounded-xl bg-slate-100 border border-slate-200 p-4 space-y-1.5 text-sm">
+                                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Ringkasan Biaya</p>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-600">Biaya bulanan</span>
+                                    <span className="font-semibold text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-green-600 font-semibold">Free Trial (14 hari)</span>
+                                    <span className="font-bold text-green-600">GRATIS</span>
+                                </div>
+                                <div className="border-t border-slate-200 pt-1.5 flex justify-between">
+                                    <span className="text-slate-500 text-xs">Tagihan setelah trial berakhir</span>
+                                    <span className="font-black text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}<span className="text-xs font-normal">/bln</span></span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Regional Selectors */}

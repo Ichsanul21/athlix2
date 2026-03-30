@@ -43,24 +43,34 @@ class LandingCmsController extends Controller
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($dojoRegistration) {
+            $today = now()->toDateString();
+            $subscriptionDates = \App\Models\Dojo::computeSubscriptionDates($today, 1);
+
             $dojo = Dojo::create([
-                'name' => $dojoRegistration->dojo_name,
-                'country' => $dojoRegistration->country,
-                'province_code' => $dojoRegistration->province_code,
-                'province_name' => $dojoRegistration->province_name,
-                'regency_code' => $dojoRegistration->regency_code,
-                'regency_name' => $dojoRegistration->regency_name,
-                'district_code' => $dojoRegistration->district_code,
-                'district_name' => $dojoRegistration->district_name,
-                'village_code' => $dojoRegistration->village_code,
-                'village_name' => $dojoRegistration->village_name,
-                'address_detail' => $dojoRegistration->address_detail,
-                'timezone' => $dojoRegistration->timezone,
-                'is_active' => true,
-                'saas_plan_name' => $dojoRegistration->saas_plan_name,
-                'monthly_saas_fee' => $dojoRegistration->saas_plan_name === 'Advance' ? 1200000 : ($dojoRegistration->saas_plan_name === 'Pro' ? 600000 : 300000),
-                'billing_cycle_months' => 1,
-                'is_saas_blocked' => false,
+                'name'                       => $dojoRegistration->dojo_name,
+                'contact_name'               => $dojoRegistration->pic_name,
+                'contact_email'              => $dojoRegistration->pic_email,
+                'contact_phone'              => $dojoRegistration->pic_phone,
+                'country'                    => $dojoRegistration->country,
+                'province_code'              => $dojoRegistration->province_code,
+                'province_name'              => $dojoRegistration->province_name,
+                'regency_code'               => $dojoRegistration->regency_code,
+                'regency_name'               => $dojoRegistration->regency_name,
+                'district_code'              => $dojoRegistration->district_code,
+                'district_name'              => $dojoRegistration->district_name,
+                'village_code'               => $dojoRegistration->village_code,
+                'village_name'               => $dojoRegistration->village_name,
+                'address_detail'             => $dojoRegistration->address_detail,
+                'timezone'                   => $dojoRegistration->timezone,
+                'is_active'                  => true,
+                'saas_plan_name'             => $dojoRegistration->saas_plan_name,
+                'monthly_saas_fee'           => $dojoRegistration->saas_plan_name === 'Advance' ? 1200000 : ($dojoRegistration->saas_plan_name === 'Pro' ? 600000 : 300000),
+                'billing_cycle_months'       => 1,
+                'subscription_started_at'    => $today,
+                'subscription_expires_at'    => $subscriptionDates['subscription_expires_at'],
+                'grace_period_stage1_ends_at' => $subscriptionDates['grace_period_stage1_ends_at'],
+                'grace_period_ends_at'       => $subscriptionDates['grace_period_ends_at'],
+                'is_saas_blocked'            => false,
             ]);
 
             User::create([

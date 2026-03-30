@@ -13,6 +13,11 @@ export default function Settings({ auth, dojo }) {
     );
 
     const form = useForm({
+        name: dojo?.name || '',
+        address_detail: dojo?.address_detail || '',
+        contact_name: dojo?.contact_name || '',
+        contact_email: dojo?.contact_email || '',
+        contact_phone: dojo?.contact_phone || '',
         accent_color: dojo?.accent_color || '#dc2626',
         logo: null,
     });
@@ -52,6 +57,70 @@ export default function Settings({ auth, dojo }) {
                 </Card>
 
                 <form onSubmit={submit} className="container max-w-2xl px-0">
+                    {/* Basic Info Card */}
+                    <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm mb-6">
+                        <CardHeader>
+                            <CardTitle>Informasi & Kontak Dojo</CardTitle>
+                            <CardDescription>Data dasar dan narahubung untuk dojo Anda.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <label className="text-sm font-bold text-neutral-700">Nama Dojo</label>
+                                <Input 
+                                    className="mt-1"
+                                    value={form.data.name} 
+                                    onChange={(e) => form.setData('name', e.target.value)}
+                                    placeholder="Nama Dojo"
+                                    required
+                                />
+                                {form.errors.name && <p className="text-red-500 text-xs mt-1">{form.errors.name}</p>}
+                            </div>
+                            <div>
+                                <label className="text-sm font-bold text-neutral-700">Alamat Detail Dojo</label>
+                                <Input 
+                                    className="mt-1"
+                                    value={form.data.address_detail} 
+                                    onChange={(e) => form.setData('address_detail', e.target.value)}
+                                    placeholder="Jl. Raya No. 1..."
+                                />
+                                {form.errors.address_detail && <p className="text-red-500 text-xs mt-1">{form.errors.address_detail}</p>}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="text-sm font-bold text-neutral-700">Nama PIC</label>
+                                    <Input 
+                                        className="mt-1"
+                                        value={form.data.contact_name} 
+                                        onChange={(e) => form.setData('contact_name', e.target.value)}
+                                        placeholder="Nama Penanggung Jawab"
+                                    />
+                                    {form.errors.contact_name && <p className="text-red-500 text-xs mt-1">{form.errors.contact_name}</p>}
+                                </div>
+                                <div>
+                                    <label className="text-sm font-bold text-neutral-700">Email PIC</label>
+                                    <Input 
+                                        type="email"
+                                        className="mt-1"
+                                        value={form.data.contact_email} 
+                                        onChange={(e) => form.setData('contact_email', e.target.value)}
+                                        placeholder="email@example.com"
+                                    />
+                                    {form.errors.contact_email && <p className="text-red-500 text-xs mt-1">{form.errors.contact_email}</p>}
+                                </div>
+                                <div>
+                                    <label className="text-sm font-bold text-neutral-700">No. HP PIC</label>
+                                    <Input 
+                                        className="mt-1"
+                                        value={form.data.contact_phone} 
+                                        onChange={(e) => form.setData('contact_phone', e.target.value)}
+                                        placeholder="08xxxxxxxxxx"
+                                    />
+                                    {form.errors.contact_phone && <p className="text-red-500 text-xs mt-1">{form.errors.contact_phone}</p>}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm">
                         <CardHeader>
                             <CardTitle>Branding & Tema</CardTitle>

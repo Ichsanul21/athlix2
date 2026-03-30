@@ -21,6 +21,7 @@ class Dojo extends Model
             'monthly_saas_fee' => 'float',
             'subscription_started_at' => 'date',
             'subscription_expires_at' => 'date',
+            'grace_period_stage1_ends_at' => 'date',
             'grace_period_ends_at' => 'date',
             'blocked_at' => 'datetime',
             'last_notice_h7_sent_at' => 'date',
@@ -81,9 +82,12 @@ class Dojo extends Model
             return true;
         }
 
-        return $this->grace_period_ends_at
-            ? $now->toDateString() <= $this->grace_period_ends_at->toDateString()
-            : false;
+        // Still active during grace period (either stage)
+        if ($this->grace_period_ends_at && $now->toDateString() <= $this->grace_period_ends_at->toDateString()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function canAccessSaas(?Carbon $now = null): bool
@@ -93,6 +97,11 @@ class Dojo extends Model
             && $this->hasActiveSubscription($now);
     }
 
+    /**
+     * Grace period is split into 2 stages:
+     *   Stage 1 (Peringatan)  – subscription_expires_at < today <= grace_period_stage1_ends_at (week 1)
+     *   Stage 2 (Terbatas)   – grace_period_stage1_ends_at < today <= grace_period_ends_at (week 2)
+     */
     public function accessStatusLabel(?Carbon $now = null): string
     {
         $now = $now ?? now();
@@ -106,13 +115,37 @@ class Dojo extends Model
         }
 
         if ($this->subscription_expires_at && $now->toDateString() > $this->subscription_expires_at->toDateString()) {
+            // Stage 1 grace: warning only, full access
+            if ($this->grace_period_stage1_ends_at && $now->toDateString() <= $this->grace_period_stage1_ends_at->toDateString()) {
+                return 'Grace Tahap 1 (Peringatan)';
+            }
+
+            // Stage 2 grace: restricted access
             if ($this->grace_period_ends_at && $now->toDateString() <= $this->grace_period_ends_at->toDateString()) {
-                return 'Masa Grace';
+                return 'Grace Tahap 2 (Terbatas)';
             }
 
             return 'Expired';
         }
 
         return 'Aktif';
+    }
+
+    /**
+     * Compute subscription_expires_at from started_at + billing_cycle_months.
+     * Also auto-set grace period stage 1 (+ 7 days) and stage 2 (+ 14 days).
+     */
+    public static function computeSubscriptionDates(string $startedAt, int $cycleMonths): array
+    {
+        $start = Carbon::parse($startedAt);
+        $expiresAt = $start->copy()->addMonths($cycleMonths)->subDay();
+        $stage1 = $expiresAt->copy()->addDays(7);
+        $stage2 = $expiresAt->copy()->addDays(14);
+
+        return [
+            'subscription_expires_at' => $expiresAt->toDateString(),
+            'grace_period_stage1_ends_at' => $stage1->toDateString(),
+            'grace_period_ends_at' => $stage2->toDateString(),
+        ];
     }
 }

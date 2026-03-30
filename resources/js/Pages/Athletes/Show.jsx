@@ -2,10 +2,11 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
-import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy } from 'lucide-react';
+import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -26,10 +27,12 @@ const resolveAbilityStatus = (scores) => {
     return average > 0 ? 'Perlu Pembinaan' : 'Belum Dinilai';
 };
 
-export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [] }) {
+export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [] }) {
     const isLoading = !athlete || !performance;
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState(reportHistory?.[0]?.id ?? latestReport?.id ?? '');
 
     const sortedReports = useMemo(
@@ -62,6 +65,69 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             setSelectedReportId(sortedReports[0].id);
         }
     }, [sortedReports]);
+
+    // Edit form — pre-populated from athlete + primary_guardian
+    const primaryGuardian = athlete?.primary_guardian;
+    const editForm = useForm({
+        full_name: athlete?.full_name || '',
+        current_belt_id: athlete?.current_belt_id || athlete?.belt?.id || '',
+        dob: athlete?.dob || '',
+        birth_place: athlete?.birth_place || '',
+        phone_number: athlete?.phone_number || '',
+        gender: athlete?.gender || 'M',
+        specialization: athlete?.specialization || 'both',
+        latest_height: athlete?.latest_height || '',
+        latest_weight: athlete?.latest_weight || '',
+        class_note: athlete?.class_note || '',
+        photo: null,
+        doc_kk: null,
+        doc_akte: null,
+        doc_ktp: null,
+        parent_name: primaryGuardian?.name || '',
+        parent_phone_number: primaryGuardian?.phone_number || '',
+        parent_email: primaryGuardian?.email || '',
+        parent_relation_type: primaryGuardian?.pivot?.relation_type || 'parent',
+    });
+
+    useEffect(() => {
+        if (athlete && editModalOpen) {
+            editForm.setData({
+                full_name: athlete.full_name || '',
+                current_belt_id: athlete.current_belt_id || athlete.belt?.id || '',
+                dob: athlete.dob || '',
+                birth_place: athlete.birth_place || '',
+                phone_number: athlete.phone_number || '',
+                gender: athlete.gender || 'M',
+                specialization: athlete.specialization || 'both',
+                latest_height: athlete.latest_height || '',
+                latest_weight: athlete.latest_weight || '',
+                class_note: athlete.class_note || '',
+                photo: null,
+                doc_kk: null,
+                doc_akte: null,
+                doc_ktp: null,
+                parent_name: primaryGuardian?.name || '',
+                parent_phone_number: primaryGuardian?.phone_number || '',
+                parent_email: primaryGuardian?.email || '',
+                parent_relation_type: primaryGuardian?.pivot?.relation_type || 'parent',
+            });
+        }
+    }, [editModalOpen, athlete]);
+
+    const submitEdit = (e) => {
+        e.preventDefault();
+        editForm.post(route('athletes.update', athlete.id), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => setEditModalOpen(false),
+        });
+    };
+
+    const handleDelete = () => {
+        router.delete(route('athletes.destroy', athlete.id), {
+            onSuccess: () => setDeleteConfirmOpen(false),
+        });
+    };
 
     const achievementForm = useForm({
         competition_name: '',
@@ -138,6 +204,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         );
     }
 
+    const documents = athlete.documents || {};
+
     return (
         <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Monitoring Athlet - {athlete.dojo?.name || 'Dojo'}</h2>}>
             <Head title={`Rapor - ${athlete.full_name}`} />
@@ -147,11 +215,73 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <ArrowLeft size={16} className="mr-1" /> KEMBALI KE DATABASE
                     </Link>
 
+                    {/* Biodata Card with Edit/Delete actions */}
                     <Card className="border-neutral-200/80 dark:border-neutral-800">
-                        <CardContent className="p-4 text-sm">
-                            <p className="font-black uppercase tracking-widest text-neutral-500 text-xs">Biodata Athlet</p>
-                            <p className="mt-2 font-bold">{athlete.full_name} ({athlete.athlete_code})</p>
-                            <p className="text-neutral-500">Dojo: {athlete.dojo?.name || '-'} | Kelas: {athlete.class_note || 'UMUM'}</p>
+                        <CardContent className="p-4 sm:p-6">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                    {athlete.photo_url ? (
+                                        <img src={athlete.photo_url} alt={athlete.full_name} className="w-16 h-16 rounded-2xl object-cover border border-athlix-red/20 flex-shrink-0" />
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 border border-athlix-red/10 flex items-center justify-center text-2xl font-black text-athlix-red flex-shrink-0">
+                                            {athlete.full_name?.charAt(0)}
+                                        </div>
+                                    )}
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Biodata Athlet</p>
+                                        <p className="font-black text-lg">{athlete.full_name} <span className="text-sm font-mono text-neutral-500">({athlete.athlete_code})</span></p>
+                                        <p className="text-sm text-neutral-500">Dojo: <span className="font-semibold text-neutral-700 dark:text-neutral-300">{athlete.dojo?.name || '-'}</span> | Kelas: <span className="font-semibold">{athlete.class_note || 'UMUM'}</span></p>
+                                        <p className="text-sm text-neutral-500">Belt: <span className="font-semibold text-athlix-red">{athlete.belt?.name || '-'}</span> | Gender: {athlete.gender === 'M' ? 'Laki-laki' : 'Perempuan'}</p>
+                                        {athlete.phone_number && (
+                                            <p className="text-xs text-neutral-400 flex items-center gap-1"><Phone size={11} /> {athlete.phone_number}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5 font-bold"
+                                        onClick={() => setEditModalOpen(true)}
+                                    >
+                                        <Pencil size={13} /> Edit Atlet
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5 font-bold text-red-600 border-red-200 hover:bg-red-50"
+                                        onClick={() => setDeleteConfirmOpen(true)}
+                                    >
+                                        <Trash2 size={13} /> Hapus
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Documents section */}
+                            {(documents.kk || documents.akte || documents.ktp) && (
+                                <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2 flex items-center gap-1.5"><FileCheck size={12} /> Dokumen Registrasi</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {documents.kk && <a href={documents.kk} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-athlix-red/10 text-neutral-600 dark:text-neutral-300 hover:text-athlix-red font-semibold transition-colors"><FileText size={11} /> KK</a>}
+                                        {documents.akte && <a href={documents.akte} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-athlix-red/10 text-neutral-600 dark:text-neutral-300 hover:text-athlix-red font-semibold transition-colors"><FileText size={11} /> Akte</a>}
+                                        {documents.ktp && <a href={documents.ktp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-athlix-red/10 text-neutral-600 dark:text-neutral-300 hover:text-athlix-red font-semibold transition-colors"><FileText size={11} /> KTP</a>}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Primary guardian */}
+                            {athlete.primary_guardian && (
+                                <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2 flex items-center gap-1.5"><User size={12} /> Orang Tua / Wali</p>
+                                    <div className="text-sm space-y-0.5">
+                                        <p className="font-semibold">{athlete.primary_guardian.name} <span className="text-xs font-normal text-neutral-500">({athlete.primary_guardian.pivot?.relation_type || 'parent'})</span></p>
+                                        {athlete.primary_guardian.phone_number && <p className="text-neutral-500 text-xs flex items-center gap-1"><Phone size={10} /> {athlete.primary_guardian.phone_number}</p>}
+                                        {athlete.primary_guardian.email && <p className="text-neutral-500 text-xs flex items-center gap-1"><Mail size={10} /> {athlete.primary_guardian.email}</p>}
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -275,6 +405,139 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 </div>
             </div>
 
+            {/* ── Edit Athlete Modal ── */}
+            <Modal show={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="2xl">
+                <div className="flex items-center justify-between p-4 border-b border-neutral-100">
+                    <h3 className="text-lg font-black uppercase tracking-tight">Edit Data Atlet</h3>
+                    <button type="button" onClick={() => setEditModalOpen(false)} className="text-neutral-500 hover:text-neutral-700"><X size={20} /></button>
+                </div>
+                <div className="p-6 max-h-[80vh] overflow-y-auto">
+                    <form onSubmit={submitEdit} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="col-span-2 space-y-1">
+                                <label className="text-sm font-medium">Nama Lengkap *</label>
+                                <Input value={editForm.data.full_name} onChange={e => editForm.setData('full_name', e.target.value)} placeholder="Nama lengkap" required />
+                                {editForm.errors.full_name && <p className="text-xs text-athlix-red">{editForm.errors.full_name}</p>}
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">No HP Atlet *</label>
+                                <Input value={editForm.data.phone_number} onChange={e => editForm.setData('phone_number', e.target.value)} placeholder="08xxxxxxxxxx" required />
+                                {editForm.errors.phone_number && <p className="text-xs text-athlix-red">{editForm.errors.phone_number}</p>}
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Belt *</label>
+                                <DbSelect
+                                    inputId="edit-belt"
+                                    options={(belts || []).map(b => ({ value: String(b.id), label: b.name }))}
+                                    value={editForm.data.current_belt_id ? String(editForm.data.current_belt_id) : ''}
+                                    onChange={v => editForm.setData('current_belt_id', v)}
+                                    placeholder="Pilih Belt"
+                                />
+                                {editForm.errors.current_belt_id && <p className="text-xs text-athlix-red">{editForm.errors.current_belt_id}</p>}
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Tanggal Lahir *</label>
+                                <Input type="date" value={editForm.data.dob} onChange={e => editForm.setData('dob', e.target.value)} required />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Tempat Lahir</label>
+                                <Input value={editForm.data.birth_place} onChange={e => editForm.setData('birth_place', e.target.value)} placeholder="Samarinda" />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Gender *</label>
+                                <DbSelect inputId="edit-gender" value={editForm.data.gender} options={[{ value: 'M', label: 'Laki-laki' }, { value: 'F', label: 'Perempuan' }]} onChange={v => editForm.setData('gender', v)} />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Spesialisasi *</label>
+                                <DbSelect inputId="edit-spec" value={editForm.data.specialization} options={[{ value: 'kata', label: 'Kata' }, { value: 'kumite', label: 'Kumite' }, { value: 'both', label: 'Kata & Kumite' }]} onChange={v => editForm.setData('specialization', v)} />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Tinggi (cm)</label>
+                                <Input type="number" step="0.1" value={editForm.data.latest_height} onChange={e => editForm.setData('latest_height', e.target.value)} placeholder="170" />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Berat (kg)</label>
+                                <Input type="number" step="0.1" value={editForm.data.latest_weight} onChange={e => editForm.setData('latest_weight', e.target.value)} placeholder="65" />
+                            </div>
+
+                            <div className="col-span-2 space-y-1">
+                                <label className="text-sm font-medium">Keterangan Kelas</label>
+                                <Input value={editForm.data.class_note} onChange={e => editForm.setData('class_note', e.target.value)} placeholder="Umum / Senior -67kg" />
+                            </div>
+
+                            <div className="col-span-2 space-y-1">
+                                <label className="text-sm font-medium">Ganti Foto (Opsional)</label>
+                                <Input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={e => editForm.setData('photo', e.target.files?.[0] || null)} />
+                                {editForm.errors.photo && <p className="text-xs text-athlix-red">{editForm.errors.photo}</p>}
+                            </div>
+                        </div>
+
+                        {/* Document replacements */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 p-4 space-y-3">
+                            <p className="text-sm font-semibold">Perbarui Dokumen (opsional)</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[{ key: 'doc_kk', label: 'KK' }, { key: 'doc_akte', label: 'Akte' }, { key: 'doc_ktp', label: 'KTP' }].map(doc => (
+                                    <div key={doc.key} className="space-y-1">
+                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">{doc.label}</label>
+                                        <Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => editForm.setData(doc.key, e.target.files?.[0] || null)} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Guardian update */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 p-4 space-y-3">
+                            <p className="text-sm font-semibold">Data Orang Tua / Wali Utama</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Nama Orang Tua</label>
+                                    <Input value={editForm.data.parent_name} onChange={e => editForm.setData('parent_name', e.target.value)} placeholder="Nama orang tua" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">No HP Orang Tua</label>
+                                    <Input value={editForm.data.parent_phone_number} onChange={e => editForm.setData('parent_phone_number', e.target.value)} placeholder="08xxxxxxxxxx" />
+                                </div>
+                                <div className="space-y-1 sm:col-span-2">
+                                    <label className="text-sm font-medium">Email Orang Tua</label>
+                                    <Input type="email" value={editForm.data.parent_email} onChange={e => editForm.setData('parent_email', e.target.value)} placeholder="email@example.com" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>Batal</Button>
+                            <Button type="submit" disabled={editForm.processing}>
+                                {editForm.processing && <Loader2 size={14} className="animate-spin mr-2" />}
+                                Simpan Perubahan
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+            </Modal>
+
+            {/* ── Delete Confirm Modal ── */}
+            <Modal show={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="sm">
+                <div className="p-6 space-y-4">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-red-600">Hapus Data Atlet</h3>
+                    <p className="text-sm text-neutral-600">Yakin ingin menghapus data <strong>{athlete.full_name}</strong>? Semua data terkait (absensi, rapor, prestasi, akun user) juga akan ikut terhapus.</p>
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Batal</Button>
+                        <Button type="button" className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete}>
+                            <Trash2 size={14} className="mr-1.5" /> Hapus Permanen
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* ── Report Modal ── */}
             <Modal show={reportModalOpen} onClose={() => setReportModalOpen(false)} maxWidth="4xl">
                 <form onSubmit={submitReport} className="p-6 space-y-4">
                     <h3 className="text-lg font-black uppercase tracking-tight">Input Rapor Kemampuan Atlet</h3>
@@ -302,6 +565,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 </form>
             </Modal>
 
+            {/* ── Achievement Modal ── */}
             <Modal show={achievementModalOpen} onClose={() => setAchievementModalOpen(false)} maxWidth="4xl">
                 <form onSubmit={submitAchievement} className="p-6 space-y-3">
                     <h3 className="text-lg font-black uppercase tracking-tight">Tambah Prestasi Atlet</h3>
@@ -330,4 +594,3 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         </AdminLayout>
     );
 }
-
