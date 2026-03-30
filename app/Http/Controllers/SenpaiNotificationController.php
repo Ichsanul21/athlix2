@@ -16,9 +16,7 @@ class SenpaiNotificationController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user);
         if ($selectedDojoId) {
@@ -39,9 +37,8 @@ class SenpaiNotificationController extends Controller
                         $broadcastQuery->where(function ($dojoQuery) use ($selectedDojoId) {
                             $dojoQuery->whereNull('dojo_id')->orWhere('dojo_id', $selectedDojoId);
                         });
-                    } else {
-                        $broadcastQuery->whereNull('dojo_id');
                     }
+                    // isAllDojos: tampilkan semua broadcast tanpa filter dojo
                 });
             })
             ->latest('published_at')
@@ -49,16 +46,16 @@ class SenpaiNotificationController extends Controller
             ->get()
             ->map(function (AthleteNotification $notification) {
                 return [
-                    'id' => $notification->id,
-                    'title' => $notification->title,
-                    'message' => $notification->message,
-                    'athlete_id' => $notification->athlete_id,
+                    'id'           => $notification->id,
+                    'title'        => $notification->title,
+                    'message'      => $notification->message,
+                    'athlete_id'   => $notification->athlete_id,
                     'athlete_name' => $notification->athlete?->full_name,
-                    'is_popup' => (bool) $notification->is_popup,
-                    'is_active' => (bool) $notification->is_active,
+                    'is_popup'     => (bool) $notification->is_popup,
+                    'is_active'    => (bool) $notification->is_active,
                     'published_at' => optional($notification->published_at)->translatedFormat('d M Y H:i') ?? '-',
-                    'expires_at' => optional($notification->expires_at)->translatedFormat('d M Y H:i'),
-                    'sender_name' => $notification->sender?->name ?? 'System',
+                    'expires_at'   => optional($notification->expires_at)->translatedFormat('d M Y H:i'),
+                    'sender_name'  => $notification->sender?->name ?? 'System',
                 ];
             });
 
@@ -67,10 +64,11 @@ class SenpaiNotificationController extends Controller
             ->get(['id', 'full_name', 'athlete_code']);
 
         return Inertia::render('Notifications/Index', [
-            'notifications' => Inertia::defer(fn () => $notifications),
-            'athletes' => Inertia::defer(fn () => $athletes),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
+            'notifications'  => Inertia::defer(fn () => $notifications),
+            'athletes'       => Inertia::defer(fn () => $athletes),
+            'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'isAllDojos'     => Inertia::defer(fn () => $isAllDojos),
         ]);
     }
 
@@ -176,13 +174,9 @@ class SenpaiNotificationController extends Controller
     public function markRead(Request $request, AthleteNotification $notification)
     {
         $user = auth()->user();
-        if (! $user?->isMurid() || ! $user->athlete_id) {
-            abort(403);
-        }
-
-        $athlete = Athlete::find($user->athlete_id);
+        $athlete = $this->resolvePwaAthleteForUser($request, $user);
         if (! $athlete) {
-            abort(404);
+            abort(403);
         }
 
         $isTargeted = (int) $notification->athlete_id === (int) $athlete->id
@@ -215,17 +209,9 @@ class SenpaiNotificationController extends Controller
     public function feed(Request $request)
     {
         $user = auth()->user();
-        if (! $user?->isMurid() || ! $user->athlete_id) {
-            abort(403);
-        }
-
-        $athlete = Athlete::find($user->athlete_id);
+        $athlete = $this->resolvePwaAthleteForUser($request, $user);
         if (! $athlete) {
-            return response()->json([
-                'items' => [],
-                'latest_popup' => null,
-                'unread_count' => 0,
-            ]);
+            abort(403);
         }
 
         $validated = $request->validate([
@@ -303,6 +289,39 @@ class SenpaiNotificationController extends Controller
             'latest_popup' => $items->first(fn ($item) => $item['is_popup']),
             'unread_count' => $unreadCount,
         ]);
+    }
+
+    private function resolvePwaAthleteForUser(Request $request, $user): ?Athlete
+    {
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->isMurid() && $user->athlete_id) {
+            return Athlete::find($user->athlete_id);
+        }
+
+        if (! $user->isParent()) {
+            return null;
+        }
+
+        $linkedAthleteIds = $user->guardianAthletes()
+            ->select('athletes.id')
+            ->orderByDesc('athlete_guardians.is_primary')
+            ->orderBy('athletes.full_name')
+            ->pluck('athletes.id')
+            ->values();
+
+        if ($linkedAthleteIds->isEmpty()) {
+            return null;
+        }
+
+        $requestedAthleteId = (int) $request->input('athlete_id', 0);
+        if ($requestedAthleteId > 0 && $linkedAthleteIds->contains($requestedAthleteId)) {
+            return Athlete::find($requestedAthleteId);
+        }
+
+        return Athlete::find((int) $linkedAthleteIds->first());
     }
 
     private function authorizeNotification(AthleteNotification $notification, $user): void

@@ -18,14 +18,12 @@ class AttendanceController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $dojoQr = $this->buildDojoQrPayload($selectedDojoId);
 
         $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user);
-        if ($user?->isSuperAdmin() && $selectedDojoId) {
+        if ($selectedDojoId) {
             $athleteQuery->where('dojo_id', $selectedDojoId);
         }
 
@@ -37,10 +35,11 @@ class AttendanceController extends Controller
             ->get();
 
         return Inertia::render('Attendance/Index', [
-            'attendances' => Inertia::defer(fn () => $attendances),
-            'dojoQr' => Inertia::defer(fn () => $dojoQr),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
+            'attendances'    => Inertia::defer(fn () => $attendances),
+            'dojoQr'         => Inertia::defer(fn () => $dojoQr),
+            'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'isAllDojos'     => Inertia::defer(fn () => $isAllDojos),
         ]);
     }
 
@@ -87,6 +86,7 @@ class AttendanceController extends Controller
             'action' => 'nullable|in:checkin,checkout',
             'check_in_feedback' => 'nullable|string|max:1000',
             'check_in_mood' => 'nullable|string|max:30',
+            'check_in_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'athlete_feedback' => 'nullable|string|max:1000',
             'athlete_mood' => 'nullable|string|max:30',
         ]);
@@ -128,7 +128,14 @@ class AttendanceController extends Controller
         }
 
         $action = $validated['action'] ?? 'checkin';
-        $this->recordAttendance($athlete, $action, $validated);
+        $payload = $validated;
+        
+        if ($request->hasFile('check_in_document')) {
+            $payload['check_in_document_path'] = $request->file('check_in_document')->store('attendance-documents', 'public');
+            $payload['check_in_document_mime'] = $request->file('check_in_document')->getClientMimeType();
+        }
+
+        $this->recordAttendance($athlete, $action, $payload);
 
         $message = $action === 'checkout'
             ? 'Check-out berhasil. Silakan isi feedback latihan.'
@@ -311,6 +318,8 @@ class AttendanceController extends Controller
                     'check_in_at' => now(),
                     'check_in_feedback' => $payload['check_in_feedback'] ?? null,
                     'check_in_mood' => $payload['check_in_mood'] ?? null,
+                    'check_in_document_path' => $payload['check_in_document_path'] ?? null,
+                    'check_in_document_mime' => $payload['check_in_document_mime'] ?? null,
                 ]);
             } else {
                 $attendance->update([
@@ -318,6 +327,8 @@ class AttendanceController extends Controller
                     'check_in_at' => now(),
                     'check_in_feedback' => $payload['check_in_feedback'] ?? null,
                     'check_in_mood' => $payload['check_in_mood'] ?? null,
+                    'check_in_document_path' => $payload['check_in_document_path'] ?? $attendance->check_in_document_path,
+                    'check_in_document_mime' => $payload['check_in_document_mime'] ?? $attendance->check_in_document_mime,
                 ]);
             }
 

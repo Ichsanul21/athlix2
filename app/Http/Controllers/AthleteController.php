@@ -4,11 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Athlete;
 use App\Models\AthleteAchievement;
+use App\Models\AthleteGuardian;
 use App\Models\AthleteReport;
 use App\Models\Belt;
 use App\Models\Dojo;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -88,14 +92,6 @@ class AthleteController extends Controller
         return Inertia::render('Athletes/Index', [
             'athletes' => Inertia::defer(fn () => $athletes),
             'filters' => Inertia::defer(fn () => ['search' => $search]),
-        ]);
-    }
-
-    public function create()
-    {
-        $user = auth()->user();
-
-        return Inertia::render('Athletes/Create', [
             'belts' => Inertia::defer(fn () => Belt::all()),
             'suggestedAthleteCode' => $this->generateAthleteCode(),
             'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
@@ -112,6 +108,7 @@ class AthleteController extends Controller
             'current_belt_id' => 'required|exists:belts,id',
             'dob' => 'required|date',
             'birth_place' => 'nullable|string|max:255',
+            'phone_number' => 'required|string|max:20',
             'gender' => 'required|in:M,F',
             'specialization' => 'required|in:kata,kumite,both',
             'latest_height' => 'nullable|numeric|min:50|max:260',
@@ -121,6 +118,10 @@ class AthleteController extends Controller
             'doc_kk' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'doc_akte' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'doc_ktp' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'parent_name' => 'required|string|max:255',
+            'parent_phone_number' => 'required|string|max:20',
+            'parent_email' => 'nullable|email|max:255',
+            'parent_relation_type' => 'nullable|string|max:50',
             'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
         ]);
 
@@ -130,7 +131,65 @@ class AthleteController extends Controller
             ]);
         }
 
+        $athletePhoneNumber = $this->normalizePhoneNumber((string) ($validated['phone_number'] ?? ''));
+        $parentPhoneNumber = $this->normalizePhoneNumber((string) ($validated['parent_phone_number'] ?? ''));
+        $parentEmail = isset($validated['parent_email']) && trim((string) $validated['parent_email']) !== ''
+            ? Str::lower(trim((string) $validated['parent_email']))
+            : null;
+
+        if (! $this->isValidIndonesianPhone($athletePhoneNumber)) {
+            throw ValidationException::withMessages([
+                'phone_number' => 'No HP atlet harus diawali 08 dan hanya berisi angka.',
+            ]);
+        }
+
+        if (! $this->isValidIndonesianPhone($parentPhoneNumber)) {
+            throw ValidationException::withMessages([
+                'parent_phone_number' => 'No HP orang tua harus diawali 08 dan hanya berisi angka.',
+            ]);
+        }
+
+        if (Athlete::query()->where('phone_number', $athletePhoneNumber)->exists()) {
+            throw ValidationException::withMessages([
+                'phone_number' => 'No HP atlet sudah digunakan di database atlet.',
+            ]);
+        }
+
+        if (User::query()->where('phone_number', $athletePhoneNumber)->exists()) {
+            throw ValidationException::withMessages([
+                'phone_number' => 'No HP atlet sudah terdaftar sebagai akun user.',
+            ]);
+        }
+
+        $existingParent = User::query()
+            ->where('phone_number', $parentPhoneNumber)
+            ->when(
+                $parentEmail,
+                fn ($query) => $query->orWhereRaw('LOWER(email) = ?', [$parentEmail])
+            )
+            ->first();
+
+        if ($existingParent && ! $existingParent->isParent()) {
+            throw ValidationException::withMessages([
+                'parent_phone_number' => 'No HP orang tua sudah digunakan oleh role akun lain.',
+            ]);
+        }
+
+        if ($parentEmail) {
+            $emailTakenByOtherRole = User::query()
+                ->whereRaw('LOWER(email) = ?', [$parentEmail])
+                ->when($existingParent, fn ($query) => $query->where('id', '!=', $existingParent->id))
+                ->exists();
+
+            if ($emailTakenByOtherRole) {
+                throw ValidationException::withMessages([
+                    'parent_email' => 'Email orang tua sudah digunakan akun lain.',
+                ]);
+            }
+        }
+
         $validated['athlete_code'] = strtoupper($validated['athlete_code'] ?? $this->generateAthleteCode());
+        $validated['phone_number'] = $athletePhoneNumber;
         if (! $user?->isSuperAdmin()) {
             if (! $user?->dojo_id) {
                 return back()->with('error', 'Dojo belum terhubung ke akun ini.');
@@ -152,9 +211,69 @@ class AthleteController extends Controller
             $validated['doc_ktp_path'] = $request->file('doc_ktp')->store('athletes/documents', 'public');
         }
 
-        unset($validated['photo'], $validated['doc_kk'], $validated['doc_akte'], $validated['doc_ktp']);
+        $parentName = trim((string) $validated['parent_name']);
+        $parentRelationType = trim((string) ($validated['parent_relation_type'] ?? '')) ?: 'parent';
+        unset(
+            $validated['photo'],
+            $validated['doc_kk'],
+            $validated['doc_akte'],
+            $validated['doc_ktp'],
+            $validated['parent_name'],
+            $validated['parent_phone_number'],
+            $validated['parent_email'],
+            $validated['parent_relation_type']
+        );
 
         $athlete = Athlete::create($validated);
+
+        $athleteLoginPassword = $athlete->athlete_code;
+        User::query()->create([
+            'name' => $athlete->full_name,
+            'email' => $this->generateUniqueUserEmail('athlete.' . Str::lower($athlete->athlete_code) . '@athlix.test'),
+            'phone_number' => $athletePhoneNumber,
+            'password' => Hash::make($athleteLoginPassword),
+            'role' => 'murid',
+            'dojo_id' => $athlete->dojo_id,
+            'athlete_id' => $athlete->id,
+            'email_verified_at' => now(),
+        ]);
+
+        $parentWasCreated = false;
+        if (! $existingParent) {
+            $existingParent = User::query()->create([
+                'name' => $parentName,
+                'email' => $parentEmail ?: $this->generateUniqueUserEmail('parent.' . $parentPhoneNumber . '@athlix.test'),
+                'phone_number' => $parentPhoneNumber,
+                'password' => Hash::make($parentPhoneNumber),
+                'role' => 'parent',
+                'dojo_id' => $athlete->dojo_id,
+                'email_verified_at' => now(),
+            ]);
+            $parentWasCreated = true;
+        } else {
+            $existingParent->update([
+                'name' => $existingParent->name ?: $parentName,
+                'dojo_id' => $existingParent->dojo_id ?: $athlete->dojo_id,
+            ]);
+        }
+
+        AthleteGuardian::query()
+            ->where('tenant_id', $athlete->dojo_id)
+            ->where('athlete_id', $athlete->id)
+            ->update(['is_primary' => false]);
+
+        AthleteGuardian::query()->updateOrCreate(
+            [
+                'tenant_id' => $athlete->dojo_id,
+                'athlete_id' => $athlete->id,
+                'guardian_user_id' => $existingParent->id,
+            ],
+            [
+                'relation_type' => $parentRelationType,
+                'is_primary' => true,
+                'emergency_contact' => true,
+            ]
+        );
 
         if ($user?->isSensei()) {
             $user->senseiAthletes()->syncWithoutDetaching([
@@ -165,7 +284,18 @@ class AthleteController extends Controller
             ]);
         }
 
-        return redirect()->route('athletes.index')->with('success', 'Athlete created successfully.');
+        $successNotes = [
+            'Athlete berhasil dibuat.',
+            'Akun atlet otomatis dibuat (login no HP atlet, password: kode atlet).',
+        ];
+
+        if ($parentWasCreated) {
+            $successNotes[] = 'Akun orang tua baru otomatis dibuat (login no HP orang tua, password: no HP orang tua).';
+        } else {
+            $successNotes[] = 'Akun orang tua yang sudah ada otomatis ditautkan ke atlet ini.';
+        }
+
+        return redirect()->route('athletes.index')->with('success', implode(' ', $successNotes));
     }
 
     public function show(Athlete $athlete)
@@ -263,6 +393,7 @@ class AthleteController extends Controller
             ],
             'categories' => $categories,
             'ability_status' => $this->resolveAbilityStatus(collect($categories)->pluck('score')->all()),
+            'bmi' => $bmi ? round($bmi, 1) : null,
         ];
 
         return Inertia::render('Athletes/Show', [
@@ -367,6 +498,45 @@ class AthleteController extends Controller
         }
 
         return $code;
+    }
+
+    private function normalizePhoneNumber(string $phone): string
+    {
+        $digitsOnly = preg_replace('/[^0-9]/', '', $phone) ?? '';
+
+        if (str_starts_with($digitsOnly, '62')) {
+            return '0' . substr($digitsOnly, 2);
+        }
+
+        return $digitsOnly;
+    }
+
+    private function isValidIndonesianPhone(string $phone): bool
+    {
+        return (bool) preg_match('/^08[0-9]{8,13}$/', $phone);
+    }
+
+    private function generateUniqueUserEmail(string $seedEmail): string
+    {
+        $seedEmail = Str::lower(trim($seedEmail));
+        $local = Str::before($seedEmail, '@');
+        $domain = Str::after($seedEmail, '@');
+
+        if ($local === '') {
+            $local = 'user';
+        }
+        if ($domain === '' || ! str_contains($domain, '.')) {
+            $domain = 'athlix.test';
+        }
+
+        $candidate = "{$local}@{$domain}";
+        $suffix = 2;
+        while (User::query()->whereRaw('LOWER(email) = ?', [Str::lower($candidate)])->exists()) {
+            $candidate = "{$local}.{$suffix}@{$domain}";
+            $suffix++;
+        }
+
+        return $candidate;
     }
 
     private function resolveHealthStatus(?float $bmi): string

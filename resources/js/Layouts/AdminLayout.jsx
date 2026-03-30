@@ -21,6 +21,7 @@ import {
     ShieldCheck,
     Smartphone
 } from 'lucide-react';
+import GlobalFlashModal from '@/Components/GlobalFlashModal';
 
 export default function AdminLayout({ user, header, children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,6 +68,7 @@ export default function AdminLayout({ user, header, children }) {
 
     return (
         <div className="min-h-screen bg-neutral-50 text-athlix-black transition-colors duration-300">
+            <GlobalFlashModal />
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
                 <div 

@@ -19,8 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
 
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureRole::class,
-            'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
+            'role'           => \App\Http\Middleware\EnsureRole::class,
+            'tenant.access'  => \App\Http\Middleware\EnsureTenantAccess::class,
+            'force.password' => \App\Http\Middleware\ForcePasswordChange::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -14,12 +14,10 @@ class PhysicalConditionController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user);
-        if ($user?->isSuperAdmin() && $selectedDojoId) {
+        if ($selectedDojoId) {
             $athleteQuery->where('dojo_id', $selectedDojoId);
         }
 
@@ -36,8 +34,9 @@ class PhysicalConditionController extends Controller
                     $athlete->bmi_detail = $this->resolveBmiDetail($athlete->latest_metrics?->bmi);
                     return $athlete;
                 })),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
+            'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'isAllDojos'     => Inertia::defer(fn () => $isAllDojos),
         ]);
     }
 

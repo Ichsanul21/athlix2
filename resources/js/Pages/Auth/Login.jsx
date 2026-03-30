@@ -39,9 +39,9 @@ export default function Login({ status, canResetPassword }) {
 
                 <form onSubmit={submit} className="space-y-5">
                     <div className="space-y-1.5">
-                        <InputLabel htmlFor="identifier" value="Email / No HP Atlet" className="text-xs font-bold uppercase tracking-widest text-neutral-500" />
+                        <InputLabel htmlFor="identifier" value="Email atau No. WhatsApp" className="text-xs font-bold uppercase tracking-widest text-neutral-500" />
                         <div className="relative">
-                            <Smartphone size={16} className="absolute left-3 top-3 text-neutral-400" />
+                            <LogIn size={16} className="absolute left-3 top-3 text-neutral-400" />
                             <TextInput
                                 id="identifier"
                                 type="text"
@@ -51,7 +51,7 @@ export default function Login({ status, canResetPassword }) {
                                 autoComplete="username"
                                 isFocused={true}
                                 onChange={(e) => setData('identifier', e.target.value)}
-                                placeholder="contoh: user@email.com / 08xxxxxxxxxx"
+                                placeholder="Contoh: user@email.com / 081234..."
                             />
                         </div>
                         <InputError message={errors.identifier} className="mt-1" />

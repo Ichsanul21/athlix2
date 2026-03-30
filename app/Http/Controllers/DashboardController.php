@@ -19,9 +19,8 @@ class DashboardController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        // Super admin dengan no filter = tampilkan semua dojo (aggregate)
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $dojo = $selectedDojoId ? Dojo::find($selectedDojoId) : null;
 
@@ -57,51 +56,35 @@ class DashboardController extends Controller
             ['title' => 'Tunggakan SPP', 'value' => (string) $unpaidCount, 'icon' => 'credit-card'],
         ];
 
-        $now = Carbon::now();
-        $scheduledPrograms = $programQuery->orderBy('day')
-            ->orderBy('start_time')
-            ->get()
-            ->map(function ($program) use ($now) {
-                ['start' => $nextStart, 'end' => $nextEnd] = $this->resolveNextProgramWindow(
-                    $program->day,
-                    $program->start_time,
-                    $program->end_time,
-                    $now
-                );
+        $todayIndo = $dayMap[now()->englishDayOfWeek] ?? 'Senin';
+        $tomorrowIndo = $dayMap[now()->addDay()->englishDayOfWeek] ?? 'Selasa';
 
-                return [
-                    'id' => $program->id,
-                    'title' => $program->title,
-                    'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
-                    'desc' => trim(($program->coach_name ?? '-') . ' | ' . ucfirst($program->type), ' |'),
-                    'status' => $nextStart->isToday() ? 'Latihan hari ini' : 'Latihan berikutnya',
-                    'day' => $program->day,
-                    'coach' => $program->coach_name,
-                    'type' => $program->type,
-                    'detail' => $program->description ?: 'Belum ada deskripsi program.',
-                    'next_date' => $nextStart->translatedFormat('l, d M Y'),
-                    'starts_at' => $nextStart->toIso8601String(),
-                    'ends_at' => $nextEnd->toIso8601String(),
-                ];
-            })
-            ->sortBy('starts_at')
-            ->values();
+        $allPrograms = $programQuery->orderBy('start_time')->get();
 
-        $todayPrograms = $scheduledPrograms
-            ->filter(fn ($program) => Carbon::parse($program['starts_at'])->isToday())
-            ->values();
+        $formatProgram = function ($program, $isToday) {
+            return [
+                'id' => $program->id,
+                'title' => $program->title,
+                'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
+                'desc' => trim(($program->coach_name ?? '-') . ' | ' . ucfirst($program->type), ' |'),
+                'status' => $isToday ? 'Hari Ini' : 'Besok',
+                'day' => $program->day,
+                'coach' => $program->coach_name,
+                'type' => $program->type,
+                'detail' => $program->description ?: 'Belum ada deskripsi program.',
+                'next_date' => $isToday ? now()->translatedFormat('l, d M Y') : now()->addDay()->translatedFormat('l, d M Y'),
+            ];
+        };
 
-        $nextProgram = $scheduledPrograms->first(function ($program) use ($now) {
-            return Carbon::parse($program['starts_at'])->gt($now);
-        }) ?? $scheduledPrograms->first();
+        $todayProgramsList = $allPrograms->filter(fn ($p) => $p->day === $todayIndo)->map(fn ($p) => $formatProgram($p, true))->values();
+        $tomorrowProgramsList = $allPrograms->filter(fn ($p) => $p->day === $tomorrowIndo)->map(fn ($p) => $formatProgram($p, false))->values();
 
-        $trainingPrograms = $todayPrograms->isNotEmpty()
-            ? $todayPrograms
-            : ($nextProgram ? $scheduledPrograms->filter(fn ($program) => $program['next_date'] === $nextProgram['next_date'])->values() : collect());
+        // Gabung jika ingin, atau tampilkan langsung
+        $trainingPrograms = $todayProgramsList->concat($tomorrowProgramsList);
 
-        $nextTrainingReminder = $nextProgram
-            ? 'Reminder latihan terdekat: ' . $nextProgram['next_date']
-            : 'Belum ada program latihan terjadwal.';
+        $nextTrainingReminder = $tomorrowProgramsList->isNotEmpty()
+            ? 'Reminder latihan besok (' . now()->addDay()->translatedFormat('d M') . '): ' . $tomorrowProgramsList->count() . ' sesi'
+            : ($todayProgramsList->isNotEmpty() ? 'Hari ini ada ' . $todayProgramsList->count() . ' sesi latihan.' : 'Belum ada jadwal latihan terdekat.');
 
         $todayAttendances = Attendance::query()
             ->with('athlete')
@@ -237,17 +220,17 @@ class DashboardController extends Controller
             ->values();
 
         return Inertia::render('Dashboard', [
-            'stats' => Inertia::defer(fn () => $stats),
-            'trainingPrograms' => Inertia::defer(fn () => $trainingPrograms),
-            'nextTrainingReminder' => Inertia::defer(fn () => $nextTrainingReminder),
-            'attendanceSummary' => Inertia::defer(fn () => $attendanceSummary),
-            'recentAttendances' => Inertia::defer(fn () => $recentAttendances),
-            'wellnessSummary' => Inertia::defer(fn () => $wellnessSummary),
-            'wellnessAlerts' => Inertia::defer(fn () => $wellnessAlerts),
-            'wellnessTrend' => Inertia::defer(fn () => $wellnessTrend),
-            'dojoName' => Inertia::defer(fn () => $dojo->name ?? 'Dojo Utama'),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
+            'stats'               => Inertia::defer(fn () => $stats),
+            'trainingPrograms'    => Inertia::defer(fn () => $trainingPrograms),
+            'nextTrainingReminder'=> Inertia::defer(fn () => $nextTrainingReminder),
+            'attendanceSummary'   => Inertia::defer(fn () => $attendanceSummary),
+            'recentAttendances'   => Inertia::defer(fn () => $recentAttendances),
+            'wellnessSummary'     => Inertia::defer(fn () => $wellnessSummary),
+            'wellnessAlerts'      => Inertia::defer(fn () => $wellnessAlerts),
+            'wellnessTrend'       => Inertia::defer(fn () => $wellnessTrend),
+            'dojoName'            => Inertia::defer(fn () => $isAllDojos ? 'Semua Dojo' : ($dojo?->name ?? 'Dojo Utama')),
+            'dojos'               => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId'      => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
         ]);
     }
 

@@ -33,11 +33,9 @@ export default function Index({
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const [dynamicDefaults, setDynamicDefaults] = useState(billingDefaults || []);
     const [dynamicOverrides, setDynamicOverrides] = useState(billingOverrides || []);
-    const [dynamicOverrideRequests, setDynamicOverrideRequests] = useState(overrideRequests || []);
     const [dynamicLoading, setDynamicLoading] = useState(false);
     const [dynamicError, setDynamicError] = useState('');
     const [dynamicSuccess, setDynamicSuccess] = useState('');
-    const [reviewLoadingId, setReviewLoadingId] = useState(null);
     const [defaultForm, setDefaultForm] = useState({
         monthly_fee: '',
         class_note: '',
@@ -74,10 +72,6 @@ export default function Index({
         setDynamicDefaults(billingDefaults || []);
         setDynamicOverrides(billingOverrides || []);
     }, [billingDefaults, billingOverrides]);
-
-    useEffect(() => {
-        setDynamicOverrideRequests(overrideRequests || []);
-    }, [overrideRequests]);
 
     const filteredRecords = useMemo(() => {
         const normalized = search.trim().toLowerCase();
@@ -167,38 +161,10 @@ export default function Index({
         }
     };
 
-    const fetchOverrideRequests = async () => {
-        if (!canManageDynamicBilling && !canRequestDynamicBilling) return;
-
-        const tenantId = resolveTenantId();
-        if (tenantId <= 0) return;
-
-        try {
-            const response = await fetch(`${DYNAMIC_BILLING_BASE}/override-requests?tenant_id=${tenantId}&limit=40`, {
-                headers: jsonHeaders(),
-                credentials: 'same-origin',
-            });
-
-            if (!response.ok) {
-                return;
-            }
-
-            const payload = await response.json().catch(() => ({}));
-            setDynamicOverrideRequests(payload?.items || []);
-        } catch (error) {
-            // Intentionally noop, page still renders server-provided fallback data.
-        }
-    };
-
     useEffect(() => {
         if (!canManageDynamicBilling) return;
         fetchDynamicBillingData();
     }, [dojoId, selectedDojoId, canManageDynamicBilling]);
-
-    useEffect(() => {
-        if (!canManageDynamicBilling && !canRequestDynamicBilling) return;
-        fetchOverrideRequests();
-    }, [dojoId, selectedDojoId, canManageDynamicBilling, canRequestDynamicBilling]);
 
     const submitDefaultRule = async (event) => {
         event.preventDefault();
@@ -303,41 +269,6 @@ export default function Index({
         }
     };
 
-
-    const reviewOverrideRequest = async (requestId, decision) => {
-        setReviewLoadingId(requestId);
-        setDynamicError('');
-        setDynamicSuccess('');
-
-        try {
-            const response = await fetch(`${DYNAMIC_BILLING_BASE}/override-requests/${requestId}/review`, {
-                method: 'PATCH',
-                headers: jsonHeaders(true),
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    decision,
-                }),
-            });
-
-            if (!response.ok) {
-                const message = await parseApiError(response, 'Gagal memproses pengajuan override.');
-                setDynamicError(message);
-                return;
-            }
-
-            setDynamicSuccess(decision === 'approved'
-                ? 'Pengajuan override disetujui dan langsung diterapkan.'
-                : 'Pengajuan override ditolak.');
-
-            await fetchDynamicBillingData();
-            await fetchOverrideRequests();
-        } catch (error) {
-            setDynamicError('Terjadi gangguan saat memproses pengajuan override.');
-        } finally {
-            setReviewLoadingId(null);
-        }
-    };
-
     if (isLoading) {
         return (
             <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Keuangan</h2>}>
@@ -359,6 +290,24 @@ export default function Index({
     const unpaidAthleteCount = new Set(
         filteredRecords
             .filter((r) => r.status !== 'paid')
+            .map((r) => r.athlete?.id)
+            .filter(Boolean)
+    ).size;
+    const paidAthletes = new Set(
+        filteredRecords
+            .filter((r) => r.status === 'paid')
+            .map((r) => r.athlete?.id)
+            .filter(Boolean)
+    ).size;
+    const primaAthletes = new Set(
+        filteredRecords
+            .filter((r) => r.athlete_condition?.toLowerCase() === 'prima')
+            .map((r) => r.athlete?.id)
+            .filter(Boolean)
+    ).size;
+    const nonPrimaAthletes = new Set(
+        filteredRecords
+            .filter((r) => r.athlete_condition && r.athlete_condition?.toLowerCase() !== 'prima')
             .map((r) => r.athlete?.id)
             .filter(Boolean)
     ).size;
@@ -431,14 +380,39 @@ export default function Index({
         <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Keuangan</h2>}>
             <Head title="Finance" />
 
-            <div className="py-6">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
+            {/* Global Toast Peringatan */}
+            {(flash?.success || flash?.error || dynamicError || dynamicSuccess) && (
+                <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full animate-fade-in-up">
                     {flash?.success && (
-                        <div className="p-3 text-sm rounded-xl border border-green-200 bg-green-50 text-green-700 dark:bg-green-900/20 dark:border-green-900/30 ">
-                            {flash.success}
+                        <div className="flex items-center gap-3 p-4 rounded-xl border border-green-200 bg-green-50 text-green-700 shadow-xl shadow-green-500/10 dark:bg-green-900/80 dark:border-green-800 dark:text-green-50">
+                            <Check size={20} className="shrink-0" />
+                            <p className="text-sm font-bold">{flash.success}</p>
+                            <button type="button" onClick={() => (flash.success = null)} className="ml-auto p-1 opacity-70 hover:opacity-100 text-green-700"><Check size={14}/></button>
                         </div>
                     )}
+                    {flash?.error && (
+                        <div className="flex items-center gap-3 p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 shadow-xl shadow-red-500/10 dark:bg-red-900/80 dark:border-red-800 dark:text-red-50">
+                            <Check size={20} className="shrink-0" />
+                            <p className="text-sm font-bold">{flash.error}</p>
+                            <button type="button" onClick={() => (flash.error = null)} className="ml-auto p-1 opacity-70 hover:opacity-100 text-red-700"><Check size={14}/></button>
+                        </div>
+                    )}
+                    {(dynamicSuccess || dynamicError) && (
+                        <div className={`flex items-center gap-3 p-4 rounded-xl border shadow-xl ${
+                            dynamicError
+                                ? 'border-red-200 bg-red-50 text-red-700 shadow-red-500/10 dark:bg-red-900/80 dark:border-red-800 dark:text-red-50'
+                                : 'border-green-200 bg-green-50 text-green-700 shadow-green-500/10 dark:bg-green-900/80 dark:border-green-800 dark:text-green-50'
+                        }`}>
+                            <Check size={20} className="shrink-0" />
+                            <p className="text-sm font-bold">{dynamicError || dynamicSuccess}</p>
+                            <button type="button" onClick={() => { setDynamicError(''); setDynamicSuccess(''); }} className="ml-auto p-1 text-inherit opacity-70 hover:opacity-100"><Check size={14}/></button>
+                        </div>
+                    )}
+                </div>
+            )}
 
+            <div className="py-6">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                         <Card className="bg-green-50/80 dark:bg-green-900/10 border-green-200/50 dark:border-green-900/20">
                             <CardContent className="p-6">
@@ -467,14 +441,21 @@ export default function Index({
                             </CardContent>
                         </Card>
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardContent className="p-6">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Tagihan Belum Bayar</p>
-                                        <h3 className="text-xl sm:text-2xl font-black mt-1">{unpaidAthleteCount} Atlet</h3>
+                            <CardContent className="p-5">
+                                <div className="flex justify-between items-start w-full">
+                                    <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Statistik Atlet</p>
+                                    <div className="p-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                                        <CreditCard size={18} />
                                     </div>
-                                    <div className="p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
-                                        <CreditCard size={20} />
+                                </div>
+                                <div className="mt-2 grid grid-cols-2 gap-2 text-sm pt-1">
+                                    <div className="bg-neutral-50 dark:bg-neutral-900/50 p-2 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                                        <p className="text-[10px] text-neutral-500 uppercase font-bold text-center">SPP (Lunas/Blm)</p>
+                                        <p className="font-black text-center mt-1 text-base">{paidAthletes} <span className="text-neutral-300 mx-1">/</span> <span className="text-athlix-red">{unpaidAthleteCount}</span></p>
+                                    </div>
+                                    <div className="bg-neutral-50 dark:bg-neutral-900/50 p-2 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                                        <p className="text-[10px] text-neutral-500 uppercase font-bold text-center">Fisik (Prima/Tdk)</p>
+                                        <p className="font-black text-center mt-1 text-base">{primaAthletes} <span className="text-neutral-300 mx-1">/</span> <span className="text-amber-500">{nonPrimaAthletes}</span></p>
                                     </div>
                                 </div>
                             </CardContent>
@@ -490,16 +471,6 @@ export default function Index({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 sm:p-6 space-y-5">
-                                {(dynamicError || dynamicSuccess) && (
-                                    <div className={`rounded-xl border px-3 py-2 text-sm ${
-                                        dynamicError
-                                            ? 'border-red-200 bg-red-50 text-red-700'
-                                            : 'border-green-200 bg-green-50 text-green-700'
-                                    }`}>
-                                        {dynamicError || dynamicSuccess}
-                                    </div>
-                                )}
-
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     <form onSubmit={submitDefaultRule} className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
                                         <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Default Bulanan</p>
@@ -614,99 +585,6 @@ export default function Index({
                                             <p className="text-sm text-neutral-400">Belum ada override billing.</p>
                                         )}
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {canDirectSenseiNominal && (
-                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Penyesuaian Nominal SPP (Sensei)</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 sm:p-6">
-                                <p className="text-sm text-neutral-600">
-                                    Fitur ini menggantikan pengajuan nominal di Database Atlet. Perubahan nominal dilakukan langsung di menu Pembayaran tanpa approval.
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {(canRequestDynamicBilling || canManageDynamicBilling) && (
-                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">
-                                    {canManageDynamicBilling ? 'Approval Pengajuan Override' : 'Queue Pengajuan Override'}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 sm:p-6 space-y-4">
-                                {!canManageDynamicBilling && (
-                                    <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
-                                        Queue ini dipakai untuk pengajuan override dari role yang masih melalui proses approval.
-                                    </div>
-                                )}
-
-                                {!canManageDynamicBilling && (dynamicError || dynamicSuccess) && (
-                                    <div className={`rounded-xl border px-3 py-2 text-sm ${
-                                        dynamicError
-                                            ? 'border-red-200 bg-red-50 text-red-700'
-                                            : 'border-green-200 bg-green-50 text-green-700'
-                                    }`}>
-                                        {dynamicError || dynamicSuccess}
-                                    </div>
-                                )}
-
-                                <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3">
-                                    <p className="text-xs font-black uppercase tracking-widest text-neutral-500">
-                                        {canManageDynamicBilling ? 'Queue Pending' : 'Riwayat Pengajuan'}
-                                    </p>
-                                    {dynamicOverrideRequests.length > 0 ? dynamicOverrideRequests.map((item) => (
-                                        <div key={item.id} className="rounded-xl border border-neutral-100 dark:border-neutral-800 px-3 py-3 text-xs space-y-1">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <p className="font-bold">{item.athlete?.full_name || '-'}</p>
-                                                <span className={`inline-flex items-center rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(item.status)}`}>
-                                                    {item.status}
-                                                </span>
-                                            </div>
-                                            <p className="text-neutral-500">Mode: {item.override_mode} | Nilai: {Number(item.override_value || 0).toLocaleString('id-ID')}</p>
-                                            <p className="text-neutral-500">Periode: {item.valid_from || '-'} s/d {item.valid_to || '-'}</p>
-                                            <p className="text-neutral-500">Pengaju: {item.requester?.name || '-'}</p>
-                                            {item.reviewer?.name && (
-                                                <p className="text-neutral-500">Reviewer: {item.reviewer?.name}</p>
-                                            )}
-                                            {item.review_note && (
-                                                <p className="text-neutral-500">Catatan: {item.review_note}</p>
-                                            )}
-
-                                            {canManageDynamicBilling && item.status === 'pending' && (
-                                                <div className="flex items-center gap-2 pt-1">
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        onClick={() => reviewOverrideRequest(item.id, 'approved')}
-                                                        disabled={reviewLoadingId === item.id}
-                                                    >
-                                                        {reviewLoadingId === item.id ? 'Memproses...' : 'Approve'}
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => reviewOverrideRequest(item.id, 'rejected')}
-                                                        disabled={reviewLoadingId === item.id}
-                                                    >
-                                                        Reject
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )) : (
-                                        <p className="text-sm text-neutral-400">
-                                            {canManageDynamicBilling
-                                                ? 'Belum ada pengajuan override yang menunggu approval.'
-                                                : 'Belum ada pengajuan override.'}
-                                        </p>
-                                    )}
                                 </div>
                             </CardContent>
                         </Card>

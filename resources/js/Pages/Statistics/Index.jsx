@@ -85,27 +85,35 @@ export default function Index({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Card className="border-neutral-200/80">
                             <CardContent className="p-4">
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Threshold Target</p>
-                                <p className="text-2xl font-black text-athlix-red mt-1">{conditionThreshold.target_threshold}%</p>
-                                <p className="text-xs text-neutral-500 mt-1">Atlet di bawah nilai ini masuk monitoring.</p>
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Monitoring Kondisi</p>
+                                <div className="mt-2 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-2xl font-black text-athlix-red leading-none">{conditionThreshold.target_threshold}%</p>
+                                        <p className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Target Threshold</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xl font-black">{conditionThreshold.prima_count} <span className="text-neutral-300 mx-1">/</span> <span className="text-amber-500">{conditionThreshold.non_prima_count}</span></p>
+                                        <p className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Prima / Tdk Prima</p>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                         <Card className="border-neutral-200/80">
                             <CardContent className="p-4">
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Rata-rata Kondisi</p>
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Rata-rata Fisik</p>
                                 <p className="text-2xl font-black mt-1">{conditionThreshold.avg_condition}%</p>
                                 <p className="text-xs text-neutral-500 mt-1">Berbasis rapor kondisi terbaru per atlet.</p>
                             </CardContent>
                         </Card>
-                        <Card className="border-neutral-200/80">
+                        <Card className="border-neutral-200/80 bg-red-50/50 dark:bg-athlix-red/5">
                             <CardContent className="p-4">
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
-                                    <ShieldAlert size={12} className="text-red-500" />
+                                <p className="text-xs font-bold uppercase tracking-widest text-athlix-red flex items-center gap-1.5">
+                                    <ShieldAlert size={14} className="text-red-500" />
                                     Atlet Perlu Atensi
                                 </p>
-                                <p className="text-2xl font-black mt-1">{conditionThreshold.below_target_count}</p>
-                                <p className="text-xs text-neutral-500 mt-1">
-                                    {conditionThreshold.critical_count} atlet berada di bawah batas kritis {conditionThreshold.critical_threshold}%.
+                                <p className="text-2xl text-athlix-red font-black mt-1">{conditionThreshold.below_target_count}</p>
+                                <p className="text-xs text-red-600/80 dark:text-red-400 mt-1">
+                                    {conditionThreshold.critical_count} atlet ada di zona kritis (&lt;{conditionThreshold.critical_threshold}%).
                                 </p>
                             </CardContent>
                         </Card>

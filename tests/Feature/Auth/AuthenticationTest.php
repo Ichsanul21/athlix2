@@ -49,6 +49,22 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('pwa.home', absolute: false));
     }
 
+    public function test_parents_can_authenticate_using_phone_number(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'parent',
+            'phone_number' => '081299887766',
+        ]);
+
+        $response = $this->post('/login', [
+            'identifier' => $user->phone_number,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('pwa.home', absolute: false));
+    }
+
     public function test_athletes_cannot_authenticate_using_email(): void
     {
         $user = User::factory()->create([

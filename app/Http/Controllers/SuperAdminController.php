@@ -25,23 +25,22 @@ class SuperAdminController extends Controller
     public function storeUser(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email',
             'phone_number' => [
-                'required',
+                'nullable',
                 'string',
                 'max:20',
                 Rule::when($request->input('role') === 'murid', ['regex:/^08[0-9]{8,13}$/']),
             ],
-            'password' => 'required|string|min:8',
-            'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
-            'dojo_id' => [
+            'role'     => 'required|in:super_admin,landing_admin,dojo_admin,sensei,head_coach,assistant,medical_staff,murid,parent',
+            'dojo_id'  => [
                 'nullable',
-                Rule::requiredIf(fn () => in_array($request->input('role'), ['sensei', 'dojo_admin'], true)),
+                Rule::requiredIf(in_array($request->input('role'), ['sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'], true)),
                 'exists:dojos,id',
             ],
-            'profile_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'athlete_id' => [
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'athlete_id'    => [
                 'nullable',
                 'required_if:role,murid',
                 'exists:athletes,id',
@@ -64,11 +63,15 @@ class SuperAdminController extends Controller
             $validated['profile_photo_path'] = $request->file('profile_photo')->store('profiles', 'public');
         }
         unset($validated['profile_photo']);
-        $validated['password'] = Hash::make($validated['password']);
+
+        // Default password saat akun dibuat — wajib ganti saat login pertama
+        $validated['password']             = Hash::make('password@123');
+        $validated['must_change_password'] = true;
+        $validated['email_verified_at']    = now();
 
         User::create($validated);
 
-        return back()->with('success', 'Akun baru berhasil dibuat.');
+        return back()->with('success', 'Akun baru berhasil dibuat. Password default: password@123');
     }
 
     public function updateUser(Request $request, User $user)
@@ -77,7 +80,8 @@ class SuperAdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone_number' => [
-                'required',
+                Rule::requiredIf(in_array($request->input('role'), ['murid'])),
+                'nullable',
                 'string',
                 'max:20',
                 Rule::when($request->input('role') === 'murid', ['regex:/^08[0-9]{8,13}$/']),
@@ -85,7 +89,7 @@ class SuperAdminController extends Controller
             'role' => 'required|in:super_admin,landing_admin,dojo_admin,sensei,murid',
             'dojo_id' => [
                 'nullable',
-                Rule::requiredIf(fn () => in_array($request->input('role'), ['sensei', 'dojo_admin'], true)),
+                Rule::requiredIf(in_array($request->input('role'), ['sensei', 'dojo_admin'], true)),
                 'exists:dojos,id',
             ],
             'password' => 'nullable|string|min:8',

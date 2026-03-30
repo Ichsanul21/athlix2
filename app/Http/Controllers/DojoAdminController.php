@@ -18,47 +18,47 @@ class DojoAdminController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $dojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $dojoId) {
-            $dojoId = Dojo::query()->value('id');
-        }
+        // Super admin: jika tidak ada filter dojo, tampilkan semua (null = semua dojo)
+        $isAllDojos = $user?->isSuperAdmin() && !$dojoId;
 
         $senseis = User::query()
-            ->where('role', 'sensei')
-            ->where('dojo_id', $dojoId)
-            ->with(['senseiAthletes:id,full_name,athlete_code'])
+            ->whereIn('role', ['sensei', 'head_coach', 'assistant'])
+            ->when(!$isAllDojos && $dojoId, fn ($q) => $q->where('dojo_id', $dojoId))
+            ->with(['senseiAthletes:id,full_name,athlete_code', 'dojo:id,name'])
             ->orderBy('name')
             ->get()
             ->map(function (User $sensei) {
                 return [
-                    'id' => $sensei->id,
-                    'name' => $sensei->name,
-                    'email' => $sensei->email,
-                    'phone_number' => $sensei->phone_number,
-                    'profile_photo_path' => $sensei->profile_photo_path,
-                    'athlete_ids' => $sensei->senseiAthletes->pluck('id')->values(),
-                    'athletes' => $sensei->senseiAthletes->map(function ($athlete) {
-                        return [
-                            'id' => $athlete->id,
-                            'full_name' => $athlete->full_name,
-                            'athlete_code' => $athlete->athlete_code,
-                        ];
-                    })->values(),
+                    'id'                  => $sensei->id,
+                    'name'                => $sensei->name,
+                    'email'               => $sensei->email,
+                    'role'                => $sensei->role,
+                    'phone_number'        => $sensei->phone_number,
+                    'profile_photo_path'  => $sensei->profile_photo_path,
+                    'dojo_name'           => $sensei->dojo?->name,
+                    'athlete_ids'         => $sensei->senseiAthletes->pluck('id')->values(),
+                    'athletes'            => $sensei->senseiAthletes->map(fn ($a) => [
+                        'id'           => $a->id,
+                        'full_name'    => $a->full_name,
+                        'athlete_code' => $a->athlete_code,
+                    ])->values(),
                 ];
             });
 
         $athletes = Athlete::query()
-            ->where('dojo_id', $dojoId)
+            ->when(!$isAllDojos && $dojoId, fn ($q) => $q->where('dojo_id', $dojoId))
             ->orderBy('full_name')
-            ->get(['id', 'full_name', 'athlete_code']);
+            ->get(['id', 'full_name', 'athlete_code', 'dojo_id']);
 
-        $dojo = $dojoId ? Dojo::find($dojoId) : null;
+        $dojo = (!$isAllDojos && $dojoId) ? Dojo::find($dojoId) : null;
 
         return Inertia::render('DojoAdmin/Sensei', [
-            'senseis' => Inertia::defer(fn () => $senseis),
-            'athletes' => Inertia::defer(fn () => $athletes),
-            'dojo' => Inertia::defer(fn () => $dojo),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $dojoId),
+            'senseis'       => Inertia::defer(fn () => $senseis),
+            'athletes'      => Inertia::defer(fn () => $athletes),
+            'dojo'          => Inertia::defer(fn () => $dojo),
+            'dojos'         => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId'=> Inertia::defer(fn () => $isAllDojos ? null : $dojoId),
+            'isAllDojos'    => Inertia::defer(fn () => $isAllDojos),
         ]);
     }
 
@@ -73,7 +73,7 @@ class DojoAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'phone_number' => 'required|string|max:20',
+            'phone_number' => 'nullable|string|max:20',
             'password' => 'required|string|min:8',
             'profile_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
@@ -109,7 +109,7 @@ class DojoAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $sensei->id,
-            'phone_number' => 'required|string|max:20',
+            'phone_number' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:8',
             'profile_photo' => [
                 Rule::requiredIf(fn () => empty($sensei->profile_photo_path)),

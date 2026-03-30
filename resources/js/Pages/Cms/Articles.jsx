@@ -23,7 +23,10 @@ import {
     Trash2,
     Underline,
     Undo2,
+    Plus,
+    X,
 } from 'lucide-react';
+import Modal from '@/Components/Modal';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const INITIAL_FORM = {
@@ -103,6 +106,7 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [previewInfo, setPreviewInfo] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const form = useForm({ ...INITIAL_FORM });
     const editorRef = useRef(null);
     const editorUploadInputRef = useRef(null);
@@ -144,6 +148,7 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
         form.setData({ ...INITIAL_FORM });
         form.clearErrors();
         if (editorRef.current) editorRef.current.innerHTML = '';
+        setIsModalOpen(false);
     };
 
     const submit = () => {
@@ -192,6 +197,7 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
             approval_notes: item.approval_notes || '',
             revision_summary: '',
         });
+        setIsModalOpen(true);
     };
 
     const remove = (id) => {
@@ -257,19 +263,25 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
     };
 
     return (
-        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">CMS Artikel</h2>}>
+        <AdminLayout
+            user={auth?.user}
+            header={<h2 className="text-xl font-bold tracking-tight uppercase">CMS Artikel</h2>}
+        >
             <Head title="CMS Artikel" />
             <div className="space-y-6 py-4">
-                {flash?.success && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{flash.success}</div>}
-                {flash?.error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{flash.error}</div>}
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                    <Card className="xl:col-span-7">
-                        <CardHeader>
-                            <CardTitle>{editingId ? 'Edit Artikel' : 'Artikel Baru'}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid gap-3 sm:grid-cols-2">
+                <Modal show={isModalOpen} onClose={reset} maxWidth="4xl">
+                    <div className="bg-white">
+                        <div className="flex items-center justify-between p-4 mb-2 border-b border-neutral-100">
+                            <h3 className="text-lg font-black uppercase tracking-tight">
+                                {editingId ? 'Edit Artikel' : 'Tulis Artikel Baru'}
+                            </h3>
+                            <button onClick={reset} className="text-neutral-500 hover:text-neutral-700">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+                            <div className="grid gap-4 sm:grid-cols-2">
                                 <Input
                                     placeholder="Judul"
                                     value={form.data.title}
@@ -382,17 +394,27 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
                                     )}
                                 </div>
                             )}
+                        </div>
 
-                            <div className="flex gap-2">
-                                <Button onClick={submit} disabled={form.processing}>{editingId ? 'Update Artikel' : 'Simpan Artikel'}</Button>
-                                <Button variant="outline" onClick={reset}>Reset</Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                        <div className="flex justify-end gap-2 p-6 pt-4 border-t border-neutral-100">
+                            <Button type="button" variant="outline" onClick={reset}>Batal</Button>
+                            <Button onClick={submit} disabled={form.processing}>{editingId ? 'Simpan Perubahan' : 'Buat Artikel'}</Button>
+                        </div>
+                    </div>
+                </Modal>
 
-                    <Card className="xl:col-span-5">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <Card className="xl:col-span-2">
                         <CardHeader>
-                            <CardTitle>Library Artikel</CardTitle>
+                            <div className="flex items-center justify-between gap-4">
+                                <CardTitle>Library Artikel</CardTitle>
+                                <Button
+                                    onClick={() => { reset(); setIsModalOpen(true); }}
+                                    className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
+                                >
+                                    <Plus size={14} /> Tulis Artikel
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <div className="relative">

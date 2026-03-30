@@ -190,16 +190,26 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         <Tooltip />
                                     </PieChart>
                                 </ResponsiveContainer>
-                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                                     <div className="text-4xl font-black text-athlix-red">{conditionScore}%</div>
+                                </div>
+                                <div className="pointer-events-none absolute bottom-5 left-0 w-full flex justify-center">
+                                    <div className="rounded-full bg-neutral-100 px-3 py-1 shadow-sm border border-neutral-200">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                                            IMT (BMI): <span className="text-athlix-red">{performance?.bmi || '-'}</span>
+                                        </p>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
                             <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Skor Kemampuan Atlet (Diagram Jaring)</CardTitle></CardHeader>
-                            <CardContent className="h-72">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <CardContent className="h-72 relative flex flex-col items-center justify-center">
+                                <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
+                                    <span className="text-7xl font-black text-athlix-red">{averageScore}</span>
+                                </div>
+                                <ResponsiveContainer width="100%" height="85%" className="relative z-10">
                                     <RadarChart data={categorySeries}>
                                         <PolarGrid stroke="#88888833" />
                                         <PolarAngleAxis dataKey="label" tick={{ fontSize: 10 }} />
@@ -208,7 +218,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         <Radar dataKey="score" stroke="#DC2626" fill="#DC2626" fillOpacity={0.3} />
                                     </RadarChart>
                                 </ResponsiveContainer>
-                                <p className="text-xs text-center font-bold uppercase tracking-widest text-neutral-500 mt-1">
+                                <p className="text-xs text-center font-bold uppercase tracking-widest text-neutral-500 mt-2">
                                     Rata-rata skor: {averageScore} | Status: {abilityStatus}
                                 </p>
                             </CardContent>

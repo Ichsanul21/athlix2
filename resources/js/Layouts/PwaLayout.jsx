@@ -7,12 +7,14 @@ import {
     Users,
     User,
     Download,
-    Bell
+    Bell,
+    CreditCard
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/Components/LanguageProvider';
 import LanguageSwitch from '@/Components/LanguageSwitch';
 import { registerWebNotificationDevice } from '@/lib/notificationDevice';
+import GlobalFlashModal from '@/Components/GlobalFlashModal';
 
 export default function PwaLayout({ user, header, children }) {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -26,8 +28,9 @@ export default function PwaLayout({ user, header, children }) {
     const { t } = useLanguage();
     const { props } = usePage();
     const normalizedRole = String(user?.role || '').toLowerCase();
+    const isParentRole = normalizedRole === 'parent';
     const isAthleteRole = ['murid', 'athlete', 'parent'].includes(normalizedRole);
-    const isNotificationPollingRole = ['murid', 'athlete'].includes(normalizedRole);
+    const isNotificationPollingRole = ['murid', 'athlete', 'parent'].includes(normalizedRole);
     const isSenseiPwaRole = ['sensei', 'head_coach', 'assistant'].includes(normalizedRole);
     const pwaNotifications = props?.pwaNotifications || { items: [], unread_count: 0, latest_popup: null };
     const [notificationFeed, setNotificationFeed] = useState(pwaNotifications);
@@ -242,6 +245,14 @@ export default function PwaLayout({ user, header, children }) {
             { name: t('common.condition', 'Kondisi'), route: 'sensei-pwa.condition', icon: Activity },
             { name: t('common.training_program', 'Program'), route: 'sensei-pwa.training-program', icon: Calendar },
         ]
+        : isParentRole
+            ? [
+                { name: t('common.home', 'Home'), route: 'pwa.home', icon: Home },
+                { name: t('common.schedule', 'Jadwal'), route: 'schedule.index', icon: Calendar },
+                { name: t('common.payment', 'Billing'), route: 'billing.index', icon: CreditCard },
+                { name: t('common.condition', 'Kondisi'), route: 'condition.index', icon: Activity },
+                { name: t('common.profile', 'Profile'), route: 'profile.pwa', icon: User, subRoutes: 'profile.*' },
+            ]
         : [
             { name: t('common.home', 'Home'), route: 'pwa.home', icon: Home },
             { name: t('common.schedule', 'Jadwal'), route: 'schedule.index', icon: Calendar },
@@ -252,6 +263,7 @@ export default function PwaLayout({ user, header, children }) {
 
     return (
         <div className="min-h-[100dvh] bg-neutral-50 text-athlix-black flex flex-col relative font-sans selection:bg-athlix-red selection:text-white pb-safe transition-colors duration-300">
+            <GlobalFlashModal />
             
             {/* Install Banner */}
             {showInstallBanner && (

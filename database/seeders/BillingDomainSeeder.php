@@ -7,7 +7,6 @@ use App\Models\AthleteBillingOverride;
 use App\Models\BillingDefault;
 use App\Models\BillingInvoice;
 use App\Models\BillingInvoiceItem;
-use App\Models\BillingOverrideRequest;
 use App\Models\BillingPayment;
 use App\Models\Dojo;
 use App\Models\FinanceAdjustment;
@@ -54,7 +53,7 @@ class BillingDomainSeeder extends Seeder
                 $baseFee = $this->resolveBaseFee($athlete);
                 $this->seedFinanceRecords($athlete, $index, $baseFee, $initiatorId);
                 $overrideId = $this->seedOverrides($dojo->id, $athlete, $index, $initiatorId);
-                $this->seedOverrideRequests($dojo->id, $athlete, $index, $overrideId);
+                // Tidak ada lagi override request / approval queue — sensei & superadmin langsung buat override
                 $this->seedInvoiceAndPayments($dojo->id, $run->id, $athlete, $index, $baseFee, $periodStart, $periodEnd, $initiatorId);
             }
         }
@@ -144,40 +143,6 @@ class BillingDomainSeeder extends Seeder
         ]);
 
         return $override->id;
-    }
-
-    private function seedOverrideRequests(int $tenantId, Athlete $athlete, int $index, ?int $appliedOverrideId): void
-    {
-        $requesterId = User::query()
-            ->where('dojo_id', $tenantId)
-            ->whereIn('role', ['sensei', 'head_coach', 'assistant'])
-            ->orderByRaw("CASE WHEN role = 'sensei' THEN 0 WHEN role = 'head_coach' THEN 1 WHEN role = 'assistant' THEN 2 ELSE 3 END")
-            ->value('id');
-
-        $reviewerId = User::query()
-            ->where('dojo_id', $tenantId)
-            ->where('role', 'dojo_admin')
-            ->value('id');
-
-        if (! $requesterId) {
-            return;
-        }
-
-        BillingOverrideRequest::query()->create([
-            'tenant_id' => $tenantId,
-            'athlete_id' => $athlete->id,
-            'override_mode' => 'discount_amount',
-            'override_value' => 20000 + (($index % 3) * 10000),
-            'reason' => 'Pengajuan seed: subsidi untuk atlet aktif.',
-            'valid_from' => now()->startOfMonth()->toDateString(),
-            'valid_to' => now()->endOfMonth()->toDateString(),
-            'status' => $index % 6 === 0 ? 'pending' : 'approved',
-            'requested_by' => $requesterId,
-            'reviewed_by' => $index % 6 === 0 ? null : $reviewerId,
-            'reviewed_at' => $index % 6 === 0 ? null : now()->subDays(2),
-            'review_note' => $index % 6 === 0 ? null : 'Disetujui untuk periode bulan berjalan.',
-            'applied_override_id' => $index % 6 === 0 ? null : $appliedOverrideId,
-        ]);
     }
 
     private function seedInvoiceAndPayments(

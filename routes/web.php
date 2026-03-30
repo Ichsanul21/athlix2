@@ -17,6 +17,7 @@ use App\Http\Controllers\SenpaiNotificationController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperAdminSystemSettingController;
+use App\Http\Controllers\PasswordChangeController;
 use App\Http\Controllers\TrainingProgramController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,12 @@ Route::get('/artikel/{slug}', [LandingController::class, 'showArticle'])->name('
 Route::get('/galeri/{slug}', [LandingController::class, 'showGallery'])->name('landing.galleries.show');
 
 Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
+    // Force password change — accessible to all authenticated roles
+    Route::middleware('force.password')->group(function () {
+        Route::get('/change-password', [PasswordChangeController::class, 'show'])->name('password.change');
+        Route::post('/change-password', [PasswordChangeController::class, 'update'])->name('password.change.update');
+    });
+
     Route::middleware('role:super_admin,sensei,head_coach,assistant,medical_staff,dojo_admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -37,7 +44,6 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::patch('/attendance/{attendance}/sensei-feedback', [AttendanceController::class, 'senseiFeedback'])->name('attendance.sensei-feedback');
 
         Route::get('/athletes', [AthleteController::class, 'index'])->name('athletes.index');
-        Route::get('/athletes/create', [AthleteController::class, 'create'])->name('athletes.create');
         Route::post('/athletes', [AthleteController::class, 'store'])->name('athletes.store');
         Route::get('/athletes/{athlete}', [AthleteController::class, 'show'])->name('athletes.show');
         Route::post('/athletes/{athlete}/achievements', [AthleteController::class, 'storeAchievement'])->name('athletes.achievements.store');
@@ -137,9 +143,8 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::get('/sensei-pwa/notifications', [PwaController::class, 'senseiNotifications'])->name('sensei-pwa.notifications');
     });
 
-    Route::middleware('role:murid')->group(function () {
+    Route::middleware('role:murid,parent')->group(function () {
         Route::get('/pwa-home', [PwaController::class, 'home'])->name('pwa.home');
-        Route::get('/scan', [PwaController::class, 'scan'])->name('scan.index');
         Route::get('/schedule', [PwaController::class, 'schedule'])->name('schedule.index');
         Route::get('/billing', [PwaController::class, 'billing'])->name('billing.index');
         Route::get('/kondisi-fisik', [PwaController::class, 'condition'])->name('condition.index');
@@ -149,7 +154,11 @@ Route::middleware(['auth', 'verified', 'tenant.access'])->group(function () {
         Route::get('/settings', [PwaController::class, 'settings'])->name('profile.settings');
     });
 
-    Route::middleware('role:murid')->group(function () {
+    Route::middleware('role:murid,parent')->group(function () {
+        Route::get('/scan', [PwaController::class, 'scan'])->name('scan.index');
+    });
+
+    Route::middleware('role:murid,parent')->group(function () {
         Route::post('/pwa-notifications/{notification}/read', [SenpaiNotificationController::class, 'markRead'])->name('pwa-notifications.read');
         Route::get('/pwa-notifications/feed', [SenpaiNotificationController::class, 'feed'])->name('pwa-notifications.feed');
     });

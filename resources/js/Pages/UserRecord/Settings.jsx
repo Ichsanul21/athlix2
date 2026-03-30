@@ -37,11 +37,7 @@ export default function Settings({ auth }) {
                 </div>
 
                 <div className="space-y-4">
-                    {flash.success && (
-                        <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">
-                            {flash.success}
-                        </div>
-                    )}
+
 
                     <Card className="border-none bg-white shadow-sm overflow-hidden animate-fade-in-up fill-both" style={{ animationDelay: '40ms' }}>
                         <CardContent className="p-4 space-y-3">

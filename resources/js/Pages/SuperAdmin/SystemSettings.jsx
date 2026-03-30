@@ -54,8 +54,6 @@ export default function SystemSettings({ auth, settings = {}, flash }) {
             <Head title="System Settings" />
 
             <div className="space-y-6 py-4">
-                {flash?.success && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{flash.success}</div>}
-                {flash?.error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{flash.error}</div>}
 
                 <form onSubmit={submit} className="space-y-6">
                     <Card>

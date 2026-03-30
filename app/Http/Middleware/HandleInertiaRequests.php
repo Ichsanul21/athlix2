@@ -89,7 +89,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'pwaNotifications' => Inertia::defer(function () use ($request) {
                 $user = $request->user();
-                if (! $user || ! $user->isMurid() || ! $user->athlete_id) {
+                if (! $user) {
                     return [
                         'items' => [],
                         'latest_popup' => null,
@@ -97,7 +97,26 @@ class HandleInertiaRequests extends Middleware
                     ];
                 }
 
-                $athlete = Athlete::find($user->athlete_id);
+                $athlete = null;
+                if ($user->isMurid() && $user->athlete_id) {
+                    $athlete = Athlete::find($user->athlete_id);
+                } elseif ($user->isParent()) {
+                    $linkedAthleteIds = $user->guardianAthletes()
+                        ->select('athletes.id')
+                        ->orderByDesc('athlete_guardians.is_primary')
+                        ->orderBy('athletes.full_name')
+                        ->pluck('athletes.id')
+                        ->values();
+
+                    if ($linkedAthleteIds->isNotEmpty()) {
+                        $requestedAthleteId = (int) $request->input('athlete_id', 0);
+                        $resolvedAthleteId = ($requestedAthleteId > 0 && $linkedAthleteIds->contains($requestedAthleteId))
+                            ? $requestedAthleteId
+                            : (int) $linkedAthleteIds->first();
+                        $athlete = Athlete::find($resolvedAthleteId);
+                    }
+                }
+
                 if (! $athlete) {
                     return [
                         'items' => [],

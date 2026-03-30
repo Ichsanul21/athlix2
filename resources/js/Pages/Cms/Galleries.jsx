@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
-import { Eye, Images, Pencil, Search, Trash2 } from 'lucide-react';
+import { Eye, Images, Pencil, Search, Trash2, Plus, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import Modal from '@/Components/Modal';
 
 const INITIAL_FORM = {
     title: '',
@@ -85,6 +86,7 @@ export default function Galleries({ auth, galleries = [], revisions = [], status
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [previewInfo, setPreviewInfo] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const form = useForm({ ...INITIAL_FORM });
 
     const statuses = statusOptions.length ? statusOptions : FALLBACK_STATUS;
@@ -116,6 +118,7 @@ export default function Galleries({ auth, galleries = [], revisions = [], status
         setPreviewInfo(null);
         form.setData({ ...INITIAL_FORM });
         form.clearErrors();
+        setIsModalOpen(false);
     };
 
     const submit = () => {
@@ -161,6 +164,7 @@ export default function Galleries({ auth, galleries = [], revisions = [], status
             approval_notes: item.approval_notes || '',
             revision_summary: '',
         });
+        setIsModalOpen(true);
     };
 
     const remove = (id) => {
@@ -189,18 +193,24 @@ export default function Galleries({ auth, galleries = [], revisions = [], status
     };
 
     return (
-        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">CMS Galeri</h2>}>
+        <AdminLayout
+            user={auth?.user}
+            header={<h2 className="text-xl font-bold tracking-tight uppercase">CMS Galeri</h2>}
+        >
             <Head title="CMS Galeri" />
             <div className="space-y-6 py-4">
-                {flash?.success && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{flash.success}</div>}
-                {flash?.error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{flash.error}</div>}
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                    <Card className="xl:col-span-7">
-                        <CardHeader>
-                            <CardTitle>{editingId ? 'Edit Galeri' : 'Galeri Baru'}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
+                <Modal show={isModalOpen} onClose={reset} maxWidth="4xl">
+                    <div className="bg-white">
+                        <div className="flex items-center justify-between p-4 mb-2 border-b border-neutral-100">
+                            <h3 className="text-lg font-black uppercase tracking-tight">
+                                {editingId ? 'Edit Galeri' : 'Tambah Galeri Baru'}
+                            </h3>
+                            <button onClick={reset} className="text-neutral-500 hover:text-neutral-700">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <Input
                                     placeholder="Judul"
@@ -288,17 +298,27 @@ export default function Galleries({ auth, galleries = [], revisions = [], status
                                     )}
                                 </div>
                             )}
+                        </div>
 
-                            <div className="flex gap-2">
-                                <Button onClick={submit} disabled={form.processing}>{editingId ? 'Update Galeri' : 'Simpan Galeri'}</Button>
-                                <Button variant="outline" onClick={reset}>Reset</Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                        <div className="flex justify-end gap-2 p-6 pt-4 border-t border-neutral-100">
+                            <Button type="button" variant="outline" onClick={reset}>Batal</Button>
+                            <Button onClick={submit} disabled={form.processing}>{editingId ? 'Simpan Perubahan' : 'Buat Galeri'}</Button>
+                        </div>
+                    </div>
+                </Modal>
 
-                    <Card className="xl:col-span-5">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <Card className="xl:col-span-2">
                         <CardHeader>
-                            <CardTitle>Library Galeri</CardTitle>
+                            <div className="flex items-center justify-between gap-4">
+                                <CardTitle>Library Galeri</CardTitle>
+                                <Button
+                                    onClick={() => { reset(); setIsModalOpen(true); }}
+                                    className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
+                                >
+                                    <Plus size={14} /> Tambah Galeri
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <div className="relative">

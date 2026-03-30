@@ -26,7 +26,12 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
-            'phone_number' => ['required', 'string', 'max:20'],
+            'phone_number' => [
+                Rule::requiredIf(in_array($this->user()?->role, ['murid'])),
+                'nullable',
+                'string',
+                'max:20'
+            ],
             'profile_photo' => [
                 Rule::requiredIf(fn () => empty($this->user()?->profile_photo_path)),
                 'nullable',

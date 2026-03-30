@@ -22,12 +22,10 @@ class StatisticsController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $athleteScope = $this->scopeAthletesForUser(Athlete::query(), $user);
-        if ($user?->isSuperAdmin() && $selectedDojoId) {
+        if ($selectedDojoId) {
             $athleteScope->where('dojo_id', $selectedDojoId);
         }
         $athleteIdSubquery = (clone $athleteScope)->select('id');
@@ -117,6 +115,8 @@ class StatisticsController extends Controller
             'avg_condition' => $latestConditions->isNotEmpty() ? (int) round($latestConditions->avg()) : 0,
             'below_target_count' => (int) $latestConditions->filter(fn ($value) => (int) $value < 70)->count(),
             'critical_count' => (int) $latestConditions->filter(fn ($value) => (int) $value < 55)->count(),
+            'prima_count' => (int) $latestConditions->filter(fn ($value) => (int) $value >= 80)->count(),
+            'non_prima_count' => (int) $latestConditions->filter(fn ($value) => (int) $value < 80)->count(),
         ];
 
         $trainingProgramAnalytics = [

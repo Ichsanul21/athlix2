@@ -23,16 +23,14 @@ class FinanceController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $athleteScope = $this->scopeAthletesForUser(Athlete::query(), $user);
-        if ($user?->isSuperAdmin() && $selectedDojoId) {
+        if ($selectedDojoId) {
             $athleteScope->where('dojo_id', $selectedDojoId);
         }
         $athleteIdSubquery = (clone $athleteScope)->select('id');
-        $athleteListQuery = (clone $athleteScope)->select('id', 'full_name')->orderBy('full_name');
+        $athleteListQuery  = (clone $athleteScope)->select('id', 'full_name')->orderBy('full_name');
 
         $records = FinanceRecord::query()
             ->with([
@@ -84,13 +82,14 @@ class FinanceController extends Controller
                 ];
             });
 
-        $tenantId = (int) ($selectedDojoId ?? $user?->dojo_id);
+        $tenantId = $isAllDojos ? null : (int) ($selectedDojoId ?? $user?->dojo_id);
         $billingDefaults = collect();
         $billingOverrides = collect();
         $overrideRequests = collect();
-        $canManageDynamicBilling = (bool) ($user?->isSuperAdmin() || $user?->isDojoAdmin());
-        $canRequestDynamicBilling = (bool) ($user?->isHeadCoach() || $user?->isAssistant());
-        $canDirectSenseiNominal = (bool) ($user?->isSensei() && ! $user?->isSuperAdmin());
+        // Sensei dan SuperAdmin bisa override langsung tanpa approval
+        $canManageDynamicBilling = (bool) ($user?->isSuperAdmin() || $user?->isDojoAdmin() || $user?->isSensei());
+        $canRequestDynamicBilling = false; // Tidak ada lagi alur pengajuan/approval
+        $canDirectSenseiNominal   = false; // Dihapus — sensei sudah masuk canManage
 
         if ($tenantId > 0) {
             $billingDefaults = BillingDefault::query()
@@ -109,42 +108,40 @@ class FinanceController extends Controller
                 ->latest('id')
                 ->limit(40)
                 ->get();
+            // Tidak ada lagi override requests / approval queue
+        } elseif ($isAllDojos) {
+            // Mode semua dojo: tampilkan billing defaults & overrides dari semua dojo
+            $billingDefaults = BillingDefault::query()
+                ->with(['belt:id,name', 'tenant:id,name'])
+                ->latest('effective_from')
+                ->latest('id')
+                ->get();
 
-            $overrideRequestsQuery = BillingOverrideRequest::query()
-                ->where('tenant_id', $tenantId)
+            $billingOverrides = AthleteBillingOverride::query()
                 ->with([
                     'athlete:id,full_name,athlete_code',
-                    'requester:id,name',
-                    'reviewer:id,name',
+                    'creator:id,name',
+                    'tenant:id,name',
                 ])
-                ->latest('id');
-
-            if ($canManageDynamicBilling) {
-                $overrideRequests = (clone $overrideRequestsQuery)
-                    ->where('status', 'pending')
-                    ->limit(40)
-                    ->get();
-            } elseif ($canRequestDynamicBilling && $user) {
-                $overrideRequests = (clone $overrideRequestsQuery)
-                    ->where('requested_by', $user->id)
-                    ->limit(40)
-                    ->get();
-            }
+                ->latest('id')
+                ->limit(100)
+                ->get();
         }
 
         return Inertia::render('Finance/Index', [
-            'records' => Inertia::defer(fn () => $records),
-            'filters' => Inertia::defer(fn () => ['search' => $search]),
-            'adminFee' => Inertia::defer(fn () => self::ADMIN_FEE),
-            'athletes' => Inertia::defer(fn () => $athleteListQuery->get()),
-            'billingDefaults' => Inertia::defer(fn () => $billingDefaults),
-            'billingOverrides' => Inertia::defer(fn () => $billingOverrides),
-            'overrideRequests' => Inertia::defer(fn () => $overrideRequests),
-            'canManageDynamicBilling' => Inertia::defer(fn () => $canManageDynamicBilling),
+            'records'               => Inertia::defer(fn () => $records),
+            'filters'               => Inertia::defer(fn () => ['search' => $search]),
+            'adminFee'              => Inertia::defer(fn () => self::ADMIN_FEE),
+            'athletes'              => Inertia::defer(fn () => $athleteListQuery->get()),
+            'billingDefaults'       => Inertia::defer(fn () => $billingDefaults),
+            'billingOverrides'      => Inertia::defer(fn () => $billingOverrides),
+            'overrideRequests'      => Inertia::defer(fn () => $overrideRequests),
+            'canManageDynamicBilling'  => Inertia::defer(fn () => $canManageDynamicBilling),
             'canRequestDynamicBilling' => Inertia::defer(fn () => $canRequestDynamicBilling),
-            'canDirectSenseiNominal' => Inertia::defer(fn () => $canDirectSenseiNominal),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
+            'canDirectSenseiNominal'   => Inertia::defer(fn () => $canDirectSenseiNominal),
+            'dojos'         => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId'=> Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'isAllDojos'    => Inertia::defer(fn () => $isAllDojos),
         ]);
     }
 

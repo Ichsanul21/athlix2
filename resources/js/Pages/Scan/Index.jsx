@@ -6,6 +6,7 @@ import { ScanLine, Camera, Loader2, AlertTriangle, Upload } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { submitWellnessPayload } from '@/lib/offlineWellnessSync';
 
 export default function Index({ auth, athlete, attendanceLog = [], todayAttendance = null, flash }) {
     const [scanning, setScanning] = useState(false);
@@ -15,6 +16,7 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
     const [action, setAction] = useState('checkin');
     const [checkInMood, setCheckInMood] = useState('semangat');
     const [checkInNote, setCheckInNote] = useState('');
+    const [checkInDocument, setCheckInDocument] = useState(null);
     const [absenceReason, setAbsenceReason] = useState('');
     const [absenceDocument, setAbsenceDocument] = useState(null);
     const [statusResult, setStatusResult] = useState(null);
@@ -22,6 +24,8 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
     const [showPostTrainingForm, setShowPostTrainingForm] = useState(false);
     const [postTrainingMoodRating, setPostTrainingMoodRating] = useState(7);
     const [postTrainingLoadRating, setPostTrainingLoadRating] = useState(7);
+    const [rpeDuration, setRpeDuration] = useState('90');
+    const [rpeNote, setRpeNote] = useState('');
     const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
     const scannerRef = useRef(null);
@@ -60,6 +64,7 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                             action,
                             check_in_feedback: action === 'checkin' ? checkInNote : '',
                             check_in_mood: action === 'checkin' ? checkInMood : '',
+                            check_in_document: action === 'checkin' ? checkInDocument : null,
                             athlete_feedback: '',
                             athlete_mood: '',
                         }, {
@@ -142,9 +147,26 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
         });
     };
 
-    const submitPostTrainingFeedback = (event) => {
+    const submitPostTrainingFeedback = async (event) => {
         event.preventDefault();
         setFeedbackSubmitting(true);
+
+        const parsedDuration = Number(rpeDuration);
+        if (parsedDuration > 0) {
+            const payload = {
+                session_date: new Date().toISOString().slice(0, 10),
+                duration_minutes: parsedDuration,
+                rpe_score: Number(postTrainingLoadRating),
+                notes: rpeNote || null,
+                sync_status: navigator.onLine ? 'synced' : 'pending',
+            };
+            try {
+                await submitWellnessPayload('rpe', payload);
+            } catch (e) {
+                console.error('Failed to sync ACWR RPE data', e);
+            }
+        }
+
         router.post(route('attendance.post-training-feedback'), {
             athlete_code: athlete?.athlete_code,
             mood_rating: Number(postTrainingMoodRating),
@@ -200,14 +222,27 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                         <p className="text-sm text-neutral-500">{athlete.full_name} ({athlete.athlete_code})</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button variant={action === 'checkin' ? 'default' : 'outline'} onClick={() => setAction('checkin')}>Check-in</Button>
-                        <Button variant={action === 'checkout' ? 'default' : 'outline'} onClick={() => setAction('checkout')}>Check-out</Button>
-                    </div>
+                    {auth?.user?.role !== 'parent' && (
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button variant={action === 'checkin' ? 'default' : 'outline'} onClick={() => setAction('checkin')}>Check-in</Button>
+                            <Button variant={action === 'checkout' ? 'default' : 'outline'} onClick={() => setAction('checkout')}>Check-out</Button>
+                        </div>
+                    )}
 
-                    {action === 'checkin' && (
+                    {auth?.user?.role !== 'parent' && action === 'checkin' && (
                         <Card className="p-4 space-y-3">
                             <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Form Check-in</p>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                                    <Upload size={12} /> Foto/Dokumen Bukti Kedatangan (Opsional)
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    onChange={(event) => setCheckInDocument(event.target.files?.[0] || null)}
+                                    className="w-full text-xs"
+                                />
+                            </div>
                             <select className="w-full rounded-lg border px-3 py-2 text-sm" value={checkInMood} onChange={(e) => setCheckInMood(e.target.value)}>
                                 <option value="semangat">Semangat</option>
                                 <option value="normal">Normal</option>
@@ -223,51 +258,67 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                         </Card>
                     )}
 
-                    <Card className="p-4 space-y-3">
-                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Tidak Hadir (Izin / Sakit)</p>
-                        <textarea
-                            className="w-full rounded-lg border px-3 py-2 text-sm min-h-16"
-                            placeholder="Alasan izin/sakit"
-                            value={absenceReason}
-                            onChange={(e) => setAbsenceReason(e.target.value)}
-                        />
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
-                                <Upload size={12} /> Dokumen Pendukung (wajib untuk izin/sakit)
-                            </label>
-                            <input
-                                type="file"
-                                accept=".jpg,.jpeg,.png,.pdf"
-                                onChange={(event) => setAbsenceDocument(event.target.files?.[0] || null)}
-                                className="w-full text-xs"
+                    {auth?.user?.role !== 'parent' && (
+                        <Card className="p-4 space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Tidak Hadir (Izin / Sakit)</p>
+                            <textarea
+                                className="w-full rounded-lg border px-3 py-2 text-sm min-h-16"
+                                placeholder="Alasan izin/sakit"
+                                value={absenceReason}
+                                onChange={(e) => setAbsenceReason(e.target.value)}
                             />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <Button type="button" variant="outline" disabled={statusSubmitting} onClick={() => submitAbsence('excused')}>Izin</Button>
-                            <Button type="button" variant="outline" disabled={statusSubmitting} onClick={() => submitAbsence('sick')}>Sakit</Button>
-                        </div>
-                    </Card>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                                    <Upload size={12} /> Dokumen Pendukung (wajib untuk izin/sakit)
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    onChange={(event) => setAbsenceDocument(event.target.files?.[0] || null)}
+                                    className="w-full text-xs"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button type="button" variant="outline" disabled={statusSubmitting} onClick={() => submitAbsence('excused')}>Izin</Button>
+                                <Button type="button" variant="outline" disabled={statusSubmitting} onClick={() => submitAbsence('sick')}>Sakit</Button>
+                            </div>
+                        </Card>
+                    )}
 
                     {showPostTrainingForm && (
                         <Card className="p-4 space-y-3 border-athlix-red/30 bg-athlix-red/5">
-                            <p className="text-xs font-black uppercase tracking-widest text-athlix-red">Feedback Pasca Latihan (Wajib)</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-athlix-red">RPE Log & Feedback Pasca Latihan</p>
                             <form onSubmit={submitPostTrainingFeedback} className="space-y-3">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <label className="block text-xs font-bold uppercase tracking-widest text-neutral-600 space-y-1">
+                                        Durasi (menit)
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="600"
+                                            value={rpeDuration}
+                                            onChange={(e) => setRpeDuration(e.target.value)}
+                                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                                            required
+                                        />
+                                    </label>
+                                    <label className="block text-xs font-bold uppercase tracking-widest text-neutral-600 space-y-1">
+                                        Kondisi Mood (1-10)
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="10"
+                                            value={postTrainingMoodRating}
+                                            onChange={(event) => setPostTrainingMoodRating(event.target.value)}
+                                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                                            required
+                                        />
+                                    </label>
+                                </div>
                                 <label className="block text-xs font-bold uppercase tracking-widest text-neutral-600 space-y-1">
-                                    Kondisi Mood (1-10)
+                                    RPE Beban Latihan ({postTrainingLoadRating}/10)
                                     <input
-                                        type="number"
-                                        min="1"
-                                        max="10"
-                                        value={postTrainingMoodRating}
-                                        onChange={(event) => setPostTrainingMoodRating(event.target.value)}
-                                        className="w-full rounded-lg border px-3 py-2 text-sm"
-                                        required
-                                    />
-                                </label>
-                                <label className="block text-xs font-bold uppercase tracking-widest text-neutral-600 space-y-1">
-                                    Latihan Terasa Berat/Tidak (1-10)
-                                    <input
-                                        type="number"
+                                        type="range"
                                         min="1"
                                         max="10"
                                         value={postTrainingLoadRating}
@@ -276,24 +327,32 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                                         required
                                     />
                                 </label>
+                                <textarea
+                                    className="w-full border rounded-lg px-3 py-2 min-h-16 text-sm"
+                                    placeholder="Catatan kelelahan / sesi (opsional)"
+                                    value={rpeNote}
+                                    onChange={(e) => setRpeNote(e.target.value)}
+                                />
                                 <Button type="submit" disabled={feedbackSubmitting} className="w-full">
-                                    {feedbackSubmitting ? 'Mengirim...' : 'Kirim Feedback'}
+                                    {feedbackSubmitting ? 'Mengirim...' : 'Kirim Feedback & RPE Log'}
                                 </Button>
                             </form>
                         </Card>
                     )}
 
-                    <Card className="overflow-hidden border-neutral-200/80 aspect-square relative shadow-lg">
-                        <div id="qr-reader-dojo" className="w-full h-full bg-neutral-900"></div>
-                        {!scanning && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-100 space-y-4">
-                                <div className="w-20 h-20 rounded-2xl bg-neutral-200 flex items-center justify-center"><Camera size={32} className="text-neutral-400" /></div>
-                                <p className="text-sm text-neutral-400 font-medium">Arahkan ke QR yang ditampilkan oleh Sensei</p>
-                            </div>
-                        )}
-                    </Card>
+                    {auth?.user?.role !== 'parent' && (
+                        <Card className="overflow-hidden border-neutral-200/80 aspect-square relative shadow-lg">
+                            <div id="qr-reader-dojo" className="w-full h-full bg-neutral-900"></div>
+                            {!scanning && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-100 space-y-4">
+                                    <div className="w-20 h-20 rounded-2xl bg-neutral-200 flex items-center justify-center"><Camera size={32} className="text-neutral-400" /></div>
+                                    <p className="text-sm text-neutral-400 font-medium">Arahkan ke QR yang ditampilkan oleh Sensei</p>
+                                </div>
+                            )}
+                        </Card>
+                    )}
 
-                    {!scanning ? (
+                    {auth?.user?.role !== 'parent' && (!scanning ? (
                         <Button onClick={startScanner} className="w-full h-14 text-sm font-black uppercase tracking-widest gap-3 rounded-2xl">
                             <ScanLine size={20} />Buka Kamera
                         </Button>
@@ -302,7 +361,7 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                             <div className="flex items-center justify-center gap-2 text-sm text-neutral-500"><Loader2 size={16} className="animate-spin text-athlix-red" /><span className="text-sm font-bold uppercase tracking-widest">Memindai QR Dojo...</span></div>
                             <Button onClick={stopScanner} variant="outline" className="w-full h-12 rounded-2xl">Batal</Button>
                         </div>
-                    )}
+                    ))}
 
                     {permissionDenied && (
                         <div className="text-center space-y-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4">

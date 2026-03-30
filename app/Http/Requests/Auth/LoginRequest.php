@@ -47,25 +47,19 @@ class LoginRequest extends FormRequest
         $password = $this->string('password')->toString();
         $remember = $this->boolean('remember');
         $identifier = $this->resolveInputIdentifier();
-
-        if ($this->looksLikeAthletePhone($identifier)) {
-            $athleteUser = $this->resolveAthleteUserByPhone($identifier);
-            $attempted = $athleteUser
-                ? Auth::attempt(['id' => $athleteUser->id, 'password' => $password], $remember)
-                : false;
-        } else {
-            $credentials = $this->resolveEmailCredentials($identifier);
-            $athleteUserByEmail = $this->resolveAthleteUserByEmail($credentials['email']);
-            if ($athleteUserByEmail) {
-                throw ValidationException::withMessages([
-                    'identifier' => 'Akun atlet wajib login menggunakan no HP dengan format 08...',
-                ]);
-            }
-
+        // Since UI restricts to numbers mostly, but allow fallback for email for legacy admins
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
             $attempted = Auth::attempt([
-                'email' => $credentials['email'],
+                'email' => Str::lower($identifier),
                 'password' => $password,
             ], $remember);
+        } else {
+            $normalizedPhone = $this->normalizePhone($identifier);
+            $userByPhone = $this->resolveUserByPhone($normalizedPhone);
+            
+            $attempted = $userByPhone
+                ? Auth::attempt(['id' => $userByPhone->id, 'password' => $password], $remember)
+                : false;
         }
 
         if (! $attempted) {
@@ -131,20 +125,11 @@ class LoginRequest extends FormRequest
         ];
     }
 
-    private function looksLikeAthletePhone(string $identifier): bool
+    private function resolveUserByPhone(string $normalizedPhone): ?User
     {
-        $normalized = $this->normalizePhone($identifier);
-
-        return str_starts_with($normalized, '08');
-    }
-
-    private function resolveAthleteUserByPhone(string $identifier): ?User
-    {
-        $normalizedPhone = $this->normalizePhone($identifier);
-
         if (! preg_match('/^08[0-9]{8,13}$/', $normalizedPhone)) {
             throw ValidationException::withMessages([
-                'identifier' => 'Format no HP atlet harus diawali 08 dan hanya berisi angka.',
+                'identifier' => 'Format no HP harus diawali 08 dan hanya berisi angka.',
             ]);
         }
 
@@ -159,12 +144,6 @@ class LoginRequest extends FormRequest
             ->whereIn('phone_number', $variants)
             ->orderByDesc('id')
             ->first();
-
-        if ($user && ! in_array($user->role, ['murid', 'athlete'], true)) {
-            throw ValidationException::withMessages([
-                'identifier' => 'Login no HP hanya berlaku untuk akun atlet.',
-            ]);
-        }
 
         return $user;
     }

@@ -1,7 +1,7 @@
 import PwaLayout from '@/Layouts/PwaLayout';
 import { Head, Link } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
-import { CalendarDays, Clock, Zap, TrendingUp, CreditCard, AlertCircle, Flame, Award, Activity, MessageSquare } from 'lucide-react';
+import { CalendarDays, Clock, Zap, TrendingUp, CreditCard, AlertCircle, Flame, Award, Activity, MessageSquare, ScanLine } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -56,7 +56,8 @@ export default function Index({
         const hour = new Date().getHours();
         const isMorning = hour >= 5 && hour <= 10;
 
-        if (athlete && isMorning && !localStorage.getItem(readinessDoneKey)) {
+        const isParent = auth?.user?.role === 'parent';
+        if (athlete && isMorning && !isParent && !localStorage.getItem(readinessDoneKey)) {
             setShowMorningReview(true);
         }
     }, [athlete?.id, readinessDoneKey]);
@@ -170,6 +171,7 @@ export default function Index({
     }
 
     const displayName = athlete?.full_name || 'Atlet';
+    const isParent = auth?.user?.role === 'parent';
 
     return (
         <PwaLayout user={auth?.user} header="ATHLIX">
@@ -246,9 +248,22 @@ export default function Index({
 
             <div className="space-y-6 pb-24">
                 <div>
-                    <p className="text-sm text-neutral-500 ">Selamat Berlatih,</p>
+                    <p className="text-sm text-neutral-500 ">{isParent ? 'Memantau Latihan,' : 'Selamat Berlatih,'}</p>
                     <h2 className="text-2xl font-black uppercase tracking-tighter">{displayName}</h2>
                 </div>
+
+                {!isParent && (
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                        <Link href={route('scan.index')} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-neutral-50 transition-colors">
+                            <ScanLine size={24} className="text-athlix-red" />
+                            <span className="text-xs font-black uppercase tracking-widest text-neutral-700 text-center">Scan & Absensi</span>
+                        </Link>
+                        <Link href={route('scan.index')} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-neutral-50 transition-colors">
+                            <AlertCircle size={24} className="text-orange-500" />
+                            <span className="text-xs font-black uppercase tracking-widest text-neutral-700 text-center">Izin / Sakit</span>
+                        </Link>
+                    </div>
+                )}
 
                 {(wellnessMessage || queuePending > 0) && (
                     <Card className="border-athlix-red/20 bg-athlix-red/5">
@@ -273,52 +288,7 @@ export default function Index({
                     </CardContent>
                 </Card>
 
-                <Card className="border-neutral-200/80 dark:border-neutral-800">
-                    <CardContent className="p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <p className="text-xs font-black uppercase tracking-widest text-neutral-500">RPE Log (Post Training)</p>
-                            <span className="text-xs font-semibold text-athlix-red">ACWR Source</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <p className="text-xs font-bold uppercase text-neutral-500">Durasi (menit)</p>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="600"
-                                    value={rpeDuration}
-                                    onChange={(e) => setRpeDuration(e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 text-sm"
-                                />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold uppercase text-neutral-500">RPE ({rpeScore}/10)</p>
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="10"
-                                    value={rpeScore}
-                                    onChange={(e) => setRpeScore(Number(e.target.value))}
-                                    className="w-full mt-2"
-                                />
-                            </div>
-                        </div>
-                        <textarea
-                            className="w-full border rounded-lg px-3 py-2 min-h-16 text-sm"
-                            placeholder="Catatan sesi latihan (opsional)"
-                            value={rpeNote}
-                            onChange={(e) => setRpeNote(e.target.value)}
-                        />
-                        <button
-                            type="button"
-                            onClick={submitRpeLog}
-                            disabled={submittingRpe}
-                            className="w-full rounded-xl bg-athlix-red text-white py-2.5 font-bold disabled:opacity-70"
-                        >
-                            {submittingRpe ? 'Menyimpan...' : 'Simpan RPE Log'}
-                        </button>
-                    </CardContent>
-                </Card>
+
 
                 {agendaThreeDays.length > 0 && (
                     <Card className="border-neutral-200/80 dark:border-neutral-800">

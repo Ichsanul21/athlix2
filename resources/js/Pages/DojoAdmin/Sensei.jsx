@@ -7,8 +7,16 @@ import Modal from '@/Components/Modal';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import DbSelect from '@/Components/DbSelect';
 import { useEffect, useState } from 'react';
+import { Plus, Building2, Users, Shield } from 'lucide-react';
 
-export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos = [], selectedDojoId = null, flash }) {
+const ROLE_LABELS = {
+    sensei: { label: 'Sensei', color: 'bg-athlix-red/10 text-athlix-red' },
+    head_coach: { label: 'Head Coach', color: 'bg-blue-100 text-blue-700' },
+    assistant: { label: 'Asisten', color: 'bg-purple-100 text-purple-700' },
+};
+
+export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos = [], selectedDojoId = null, isAllDojos = false }) {
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [assignModal, setAssignModal] = useState({ open: false, sensei: null, athleteIds: [] });
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
@@ -36,6 +44,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                     setEditingId(null);
                     form.reset();
                     form.setData('dojo_id', dojoId || '');
+                    setIsAddModalOpen(false);
                 },
             });
             return;
@@ -46,8 +55,35 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
             onSuccess: () => {
                 form.reset();
                 form.setData('dojo_id', dojoId || '');
+                setIsAddModalOpen(false);
             },
         });
+    };
+
+    const openAddModal = (sensei = null) => {
+        if (sensei) {
+            setEditingId(sensei.id);
+            form.setData({
+                name: sensei.name || '',
+                email: sensei.email || '',
+                phone_number: sensei.phone_number || '',
+                password: '',
+                profile_photo: null,
+                dojo_id: dojoId || '',
+            });
+        } else {
+            setEditingId(null);
+            form.reset();
+            form.setData('dojo_id', dojoId || '');
+        }
+        setIsAddModalOpen(true);
+    };
+
+    const closeAddModal = () => {
+        setIsAddModalOpen(false);
+        setEditingId(null);
+        form.reset();
+        form.setData('dojo_id', dojoId || '');
     };
 
     const openAssignModal = (sensei) => {
@@ -79,111 +115,244 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
         });
     };
 
+    // Group by role for summary stats
+    const totalSensei = senseis.filter(s => s.role === 'sensei').length;
+    const totalCoach = senseis.filter(s => s.role === 'head_coach').length;
+    const totalAssistant = senseis.filter(s => s.role === 'assistant').length;
+
     return (
-        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Database Pelatih</h2>}>
+        <AdminLayout user={auth?.user} header={
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
+                <div>
+                    <h2 className="text-2xl font-black tracking-tight">Database Pelatih</h2>
+                    <p className="text-sm text-neutral-500 mt-0.5">
+                        {isAllDojos ? 'Semua Dojo' : (dojo?.name || 'Dojo')}
+                    </p>
+                </div>
+                {dojos.length > 0 && (
+                    <DbSelect
+                        inputId="dojo-sensei-dojo-filter"
+                        className="min-w-[200px]"
+                        options={[
+                            { value: '', label: '🌐 Semua Dojo' },
+                            ...dojos.map((item) => ({ value: String(item.id), label: item.name }))
+                        ]}
+                        value={dojoId || ''}
+                        placeholder="Pilih Dojo"
+                        onChange={(next) => {
+                            setDojoId(next);
+                            form.setData('dojo_id', next);
+                            router.get(route('dojo-admin.sensei.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
+                        }}
+                    />
+                )}
+            </div>
+        }>
             <Head title="Database Pelatih" />
             <div className="space-y-6 py-4">
-                {flash?.success && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{flash.success}</div>}
-                {flash?.error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{flash.error}</div>}
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{editingId ? 'Edit Pelatih' : `Tambah Pelatih - ${dojo?.name || 'Dojo'}`}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {dojos.length > 0 && (
-                            <DbSelect
-                                inputId="dojo-sensei-dojo-filter"
-                                className="md:col-span-2 xl:col-span-3"
-                                options={dojos.map((item) => ({ value: String(item.id), label: item.name }))}
-                                value={dojoId || ''}
-                                placeholder="Pilih Dojo"
-                                onChange={(next) => {
-                                    setDojoId(next);
-                                    form.setData('dojo_id', next);
-                                    router.get(route('dojo-admin.sensei.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
-                                }}
-                            />
-                        )}
-
-                        <Input className="text-sm" placeholder="Nama Sensei" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
-                        <Input className="text-sm" placeholder="Email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
-                        <Input className="text-sm" placeholder="No. WhatsApp" value={form.data.phone_number} onChange={(e) => form.setData('phone_number', e.target.value)} />
-                        <Input className="text-sm" type="password" placeholder={editingId ? 'Password baru (opsional)' : 'Password'} value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
-                        <input type="file" accept=".jpg,.jpeg,.png,.webp" className="border rounded-lg px-3 py-2 text-sm" onChange={(e) => form.setData('profile_photo', e.target.files?.[0] ?? null)} />
-
-                        <div className="md:col-span-2 xl:col-span-3 flex flex-wrap gap-2">
-                            <Button onClick={submit}>{editingId ? 'Simpan Perubahan' : 'Simpan Pelatih'}</Button>
-                            {editingId && (
-                                <Button type="button" variant="outline" onClick={() => {
-                                    setEditingId(null);
-                                    form.reset();
-                                    form.setData('dojo_id', dojoId || '');
-                                }}>
-                                    Batal
-                                </Button>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader><CardTitle>Daftar Pelatih Dojo</CardTitle></CardHeader>
-                    <CardContent className="space-y-3">
-                        {senseis.map((sensei) => (
-                            <div key={sensei.id} className="p-3 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                                <div className="min-w-0 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-neutral-100 overflow-hidden flex items-center justify-center text-xs font-black">
-                                        {sensei.profile_photo_path ? (
-                                            <img src={resolveMediaUrl(sensei.profile_photo_path)} alt={sensei.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            sensei.name?.charAt(0)
-                                        )}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="font-semibold truncate">{sensei.name}</p>
-                                        <p className="text-sm text-neutral-500 break-all">{sensei.email}</p>
-                                        <p className="text-xs text-neutral-500">{sensei.phone_number || '-'}</p>
-                                        <p className="text-xs text-neutral-500">Murid terhubung: {sensei.athletes?.length || 0}</p>
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-3 shrink-0">
-                                    <button className="text-xs text-athlix-red font-bold" onClick={() => openAssignModal(sensei)}>Kelola Murid</button>
-                                    <button
-                                        className="text-blue-600 text-sm"
-                                        onClick={() => {
-                                            setEditingId(sensei.id);
-                                            form.setData({
-                                                name: sensei.name || '',
-                                                email: sensei.email || '',
-                                                phone_number: sensei.phone_number || '',
-                                                password: '',
-                                                profile_photo: null,
-                                                dojo_id: dojoId || '',
-                                            });
-                                        }}
-                                    >Edit</button>
-                                    <button className="text-red-500 text-sm" onClick={() => router.delete(route('dojo-admin.sensei.destroy', sensei.id))}>Hapus</button>
-                                </div>
+                {/* Summary stats */}
+                <div className="grid grid-cols-3 gap-4">
+                    <Card className="border-neutral-200/80">
+                        <CardContent className="p-4 flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-athlix-red/10"><Shield size={18} className="text-athlix-red" /></div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sensei</p>
+                                <p className="text-2xl font-black">{totalSensei}</p>
                             </div>
-                        ))}
+                        </CardContent>
+                    </Card>
+                    <Card className="border-neutral-200/80">
+                        <CardContent className="p-4 flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-blue-100"><Users size={18} className="text-blue-600" /></div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Head Coach</p>
+                                <p className="text-2xl font-black">{totalCoach}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-neutral-200/80">
+                        <CardContent className="p-4 flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-purple-100"><Users size={18} className="text-purple-600" /></div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Asisten</p>
+                                <p className="text-2xl font-black">{totalAssistant}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Sensei Table */}
+                <Card className="border-neutral-200/80">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between gap-4">
+                            <CardTitle className="text-base font-black uppercase tracking-widest">
+                                Daftar Pelatih {isAllDojos ? '— Semua Dojo' : `— ${dojo?.name || ''}`}
+                            </CardTitle>
+                            <Button
+                                onClick={() => openAddModal()}
+                                className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
+                            >
+                                <Plus size={14} /> Tambah Pelatih
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {senseis.length === 0 ? (
+                            <div className="p-8 text-center text-sm text-neutral-400">
+                                Belum ada pelatih terdaftar.
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                {senseis.map((sensei) => {
+                                    const roleInfo = ROLE_LABELS[sensei.role] || { label: sensei.role, color: 'bg-neutral-100 text-neutral-600' };
+                                    return (
+                                        <div key={sensei.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-10 h-10 rounded-xl bg-neutral-100 overflow-hidden flex items-center justify-center text-sm font-black shrink-0">
+                                                    {sensei.profile_photo_path ? (
+                                                        <img src={resolveMediaUrl(sensei.profile_photo_path)} alt={sensei.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        sensei.name?.charAt(0)
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <p className="font-bold truncate">{sensei.name}</p>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${roleInfo.color}`}>
+                                                            {roleInfo.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-neutral-500 break-all">{sensei.email}</p>
+                                                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                                        {sensei.phone_number && (
+                                                            <p className="text-xs text-neutral-400">{sensei.phone_number}</p>
+                                                        )}
+                                                        {isAllDojos && sensei.dojo_name && (
+                                                            <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
+                                                                <Building2 size={10} /> {sensei.dojo_name}
+                                                            </span>
+                                                        )}
+                                                        <p className="text-xs text-neutral-400">
+                                                            {sensei.athletes?.length || 0} murid ditugaskan
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0 pl-13 sm:pl-0">
+                                                <button
+                                                    className="text-xs font-bold text-athlix-red border border-athlix-red/30 rounded-lg px-3 py-1.5 hover:bg-athlix-red hover:text-white transition-colors"
+                                                    onClick={() => openAssignModal(sensei)}
+                                                >
+                                                    Kelola Murid
+                                                </button>
+                                                <button
+                                                    className="text-xs font-bold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-600 hover:text-white transition-colors"
+                                                    onClick={() => openAddModal(sensei)}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    className="text-xs font-bold text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-500 hover:text-white transition-colors"
+                                                    onClick={() => router.delete(route('dojo-admin.sensei.destroy', sensei.id))}
+                                                >
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            <Modal show={assignModal.open} onClose={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })} maxWidth="2xl">
+            {/* Add/Edit Modal */}
+            <Modal show={isAddModalOpen} onClose={closeAddModal} maxWidth="lg">
+                <div className="p-6 space-y-5">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-black uppercase tracking-tight">
+                            {editingId ? 'Edit Pelatih' : 'Tambah Pelatih'}
+                        </h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {dojos.length > 0 && (
+                            <div className="sm:col-span-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Dojo</label>
+                                <DbSelect
+                                    inputId="add-sensei-dojo-select"
+                                    options={dojos.map((item) => ({ value: String(item.id), label: item.name }))}
+                                    value={form.data.dojo_id || ''}
+                                    placeholder="Pilih dojo"
+                                    onChange={(next) => form.setData('dojo_id', next)}
+                                />
+                                {form.errors.dojo_id && <p className="text-xs text-red-500 mt-1">{form.errors.dojo_id}</p>}
+                            </div>
+                        )}
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Nama Pelatih</label>
+                            <Input className="text-sm" placeholder="Nama lengkap" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
+                            {form.errors.name && <p className="text-xs text-red-500 mt-1">{form.errors.name}</p>}
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Email</label>
+                            <Input className="text-sm" type="email" placeholder="Email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
+                            {form.errors.email && <p className="text-xs text-red-500 mt-1">{form.errors.email}</p>}
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">No. WhatsApp</label>
+                            <Input className="text-sm" placeholder="08xxxxxxxxxx" value={form.data.phone_number} onChange={(e) => form.setData('phone_number', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">
+                                {editingId ? 'Password Baru (opsional)' : 'Password'}
+                            </label>
+                            <Input className="text-sm" type="password" placeholder="Minimal 8 karakter" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
+                            {form.errors.password && <p className="text-xs text-red-500 mt-1">{form.errors.password}</p>}
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Foto Profil</label>
+                            <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"
+                                onChange={(e) => form.setData('profile_photo', e.target.files?.[0] ?? null)}
+                            />
+                            {form.errors.profile_photo && <p className="text-xs text-red-500 mt-1">{form.errors.profile_photo}</p>}
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
+                        <Button type="button" variant="outline" onClick={closeAddModal}>Batal</Button>
+                        <Button
+                            onClick={submit}
+                            disabled={form.processing}
+                            className="bg-athlix-red hover:bg-red-700 text-white"
+                        >
+                            {form.processing ? 'Menyimpan...' : (editingId ? 'Simpan Perubahan' : 'Tambah Pelatih')}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Assign Athletes Modal */}
+            <Modal show={assignModal.open} onClose={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })} maxWidth="lg">
                 <div className="p-6 space-y-4">
-                    <h3 className="text-lg font-black uppercase tracking-tight">Kelola Murid - {assignModal.sensei?.name}</h3>
-                    <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                    <div>
+                        <h3 className="text-lg font-black uppercase tracking-tight">Kelola Murid</h3>
+                        <p className="text-sm text-neutral-500 mt-0.5">{assignModal.sensei?.name}</p>
+                    </div>
+                    <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">
                         {athletes.map((athlete) => {
                             const athleteId = String(athlete.id);
                             const checked = assignModal.athleteIds.includes(athleteId);
                             return (
-                                <label key={athlete.id} className="flex items-center gap-3 p-2 rounded-lg border border-neutral-200">
+                                <label key={athlete.id} className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-colors ${checked ? 'border-athlix-red/40 bg-athlix-red/5' : 'border-neutral-200 hover:border-neutral-300'}`}>
                                     <input
                                         type="checkbox"
                                         checked={checked}
                                         onChange={() => toggleAthlete(athleteId)}
+                                        className="accent-athlix-red"
                                     />
                                     <div>
                                         <p className="text-sm font-semibold">{athlete.full_name}</p>
@@ -193,9 +362,9 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                             );
                         })}
                     </div>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
                         <Button variant="outline" onClick={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })}>Batal</Button>
-                        <Button onClick={saveAssignments}>Simpan Penugasan</Button>
+                        <Button onClick={saveAssignments} className="bg-athlix-red hover:bg-red-700 text-white">Simpan Penugasan</Button>
                     </div>
                 </div>
             </Modal>

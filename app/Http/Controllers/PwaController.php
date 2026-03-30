@@ -19,7 +19,30 @@ class PwaController extends Controller
     {
         $user = auth()->user();
 
+        $targetAthleteId = null;
         if ($user?->athlete_id) {
+            $targetAthleteId = (int) $user->athlete_id;
+        } elseif ($user?->isParent()) {
+            $linkedAthletes = $user->guardianAthletes()
+                ->select('athletes.id')
+                ->orderByDesc('athlete_guardians.is_primary')
+                ->orderBy('athletes.full_name')
+                ->pluck('athletes.id')
+                ->values();
+
+            if ($linkedAthletes->isEmpty()) {
+                return null;
+            }
+
+            $requestedAthleteId = (int) request('athlete_id', 0);
+            if ($requestedAthleteId > 0 && $linkedAthletes->contains($requestedAthleteId)) {
+                $targetAthleteId = $requestedAthleteId;
+            } else {
+                $targetAthleteId = (int) $linkedAthletes->first();
+            }
+        }
+
+        if ($targetAthleteId) {
             return Athlete::with([
                 'belt',
                 'dojo',
@@ -28,7 +51,7 @@ class PwaController extends Controller
                 'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
                 'achievements' => fn ($query) => $query->latest('competition_date'),
                 'latestReport',
-            ])->find($user->athlete_id);
+            ])->find($targetAthleteId);
         }
 
         return null;

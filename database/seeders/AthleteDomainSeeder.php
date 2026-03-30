@@ -50,35 +50,38 @@ class AthleteDomainSeeder extends Seeder
 
             $docs = $this->resolveIdentityDocuments($globalIndex);
 
+            $fullName = $this->resolveAthleteName($globalIndex, $gender);
+            $emailSlug = $this->nameToEmailSlug($fullName, $globalIndex);
+
             $athlete = Athlete::query()->create([
-                'dojo_id' => $dojo->id,
-                'current_belt_id' => $belts[$beltOrder]?->id,
-                'athlete_code' => $athleteCode,
-                'full_name' => $this->resolveAthleteName($globalIndex, $gender),
-                'birth_place' => $this->resolveBirthPlace($globalIndex),
-                'phone_number' => $phoneNumber,
-                'photo_path' => SeedAssetsSeeder::ATHLETE_PHOTO,
-                'doc_kk_path' => $docs['doc_kk_path'],
-                'doc_akte_path' => $docs['doc_akte_path'],
-                'doc_ktp_path' => $docs['doc_ktp_path'],
-                'dob' => $dob->toDateString(),
-                'gender' => $gender,
-                'latest_weight' => $weight,
-                'latest_height' => $height,
-                'specialization' => $this->resolveSpecialization($globalIndex),
-                'class_note' => $this->resolveClassNote($age, $weight),
+                'dojo_id'          => $dojo->id,
+                'current_belt_id'  => $belts[$beltOrder]?->id,
+                'athlete_code'     => $athleteCode,
+                'full_name'        => $fullName,
+                'birth_place'      => $this->resolveBirthPlace($globalIndex),
+                'phone_number'     => $phoneNumber,
+                'photo_path'       => SeedAssetsSeeder::ATHLETE_PHOTO,
+                'doc_kk_path'      => $docs['doc_kk_path'],
+                'doc_akte_path'    => $docs['doc_akte_path'],
+                'doc_ktp_path'     => $docs['doc_ktp_path'],
+                'dob'              => $dob->toDateString(),
+                'gender'           => $gender,
+                'latest_weight'    => $weight,
+                'latest_height'    => $height,
+                'specialization'   => $this->resolveSpecialization($globalIndex),
+                'class_note'       => $this->resolveClassNote($age, $weight),
             ]);
 
             User::query()->create([
-                'name' => $athlete->full_name,
-                'email' => Str::lower("athlete.{$athleteCode}@athlix.test"),
-                'phone_number' => $phoneNumber,
+                'name'               => $athlete->full_name,
+                'email'              => "{$emailSlug}@athlix.test",
+                'phone_number'       => $phoneNumber,
                 'profile_photo_path' => SeedAssetsSeeder::PROFILE_PHOTO,
-                'password' => Hash::make(DatabaseSeeder::DEMO_PASSWORD),
-                'role' => 'murid',
-                'dojo_id' => $dojo->id,
-                'athlete_id' => $athlete->id,
-                'email_verified_at' => now(),
+                'password'           => Hash::make(DatabaseSeeder::DEMO_PASSWORD),
+                'role'               => 'murid',
+                'dojo_id'            => $dojo->id,
+                'athlete_id'         => $athlete->id,
+                'email_verified_at'  => now(),
             ]);
 
             $this->seedAthleteReports($athlete, $sensei?->id ?? $headCoach?->id);
@@ -89,7 +92,7 @@ class AthleteDomainSeeder extends Seeder
             $athletes->push($athlete);
         }
 
-        $this->seedParentGuardianLinks($dojo, $athletes);
+        $this->seedParentGuardianLinks($dojo, $athletes, $dojoIndex);
     }
 
     private function seedAthleteReports(Athlete $athlete, ?int $evaluatorId): void
@@ -193,64 +196,126 @@ class AthleteDomainSeeder extends Seeder
         }
     }
 
-    private function seedParentGuardianLinks(Dojo $dojo, $athletes): void
+    private function seedParentGuardianLinks(Dojo $dojo, $athletes, int $dojoIndex): void
     {
+        $parentData = [
+            [   // Dojo 0 – Makassar Pusat
+                ['name' => 'Andi Pratama',    'email' => 'andi.pratama@athlix.test'],
+                ['name' => 'Dian Ayu Lestari','email' => 'dian.ayu@athlix.test'],
+                ['name' => 'Rizal Fajar',     'email' => 'rizal.fajar@athlix.test'],
+                ['name' => 'Maya Sari Dewi',  'email' => 'maya.sari@athlix.test'],
+            ],
+            [   // Dojo 1 – Gowa
+                ['name' => 'Yusuf Ramadhan',  'email' => 'yusuf.ramadhan@athlix.test'],
+                ['name' => 'Nina Kartika',    'email' => 'nina.kartika@athlix.test'],
+                ['name' => 'Rahmat Hidayat',  'email' => 'rahmat.hidayat@athlix.test'],
+                ['name' => 'Siska Amelia',    'email' => 'siska.amelia@athlix.test'],
+            ],
+            [   // Dojo 2 – Maros
+                ['name' => 'Arman Nugraha',   'email' => 'arman.nugraha@athlix.test'],
+                ['name' => 'Lina Puspita',    'email' => 'lina.puspita@athlix.test'],
+                ['name' => 'Bima Saputra',    'email' => 'bima.saputra@athlix.test'],
+                ['name' => 'Rina Oktaviani',  'email' => 'rina.oktaviani@athlix.test'],
+            ],
+            [   // Dojo 3 – Takalar
+                ['name' => 'Galih Prabowo',   'email' => 'galih.prabowo@athlix.test'],
+                ['name' => 'Tia Maharani',    'email' => 'tia.maharani@athlix.test'],
+                ['name' => 'Ferry Maulana',   'email' => 'ferry.maulana@athlix.test'],
+                ['name' => 'Wulan Permata',   'email' => 'wulan.permata@athlix.test'],
+            ],
+            [   // Dojo 4 – Pangkep
+                ['name' => 'Iqbal Maulana',   'email' => 'iqbal.maulana@athlix.test'],
+                ['name' => 'Putri Anindya',   'email' => 'putri.anindya@athlix.test'],
+                ['name' => 'Dimas Alfarizi',  'email' => 'dimas.alfarizi@athlix.test'],
+                ['name' => 'Citra Lestari',   'email' => 'citra.lestari@athlix.test'],
+            ],
+        ];
+
         $pairs = $athletes->chunk(2)->values();
+        $dojoParents = $parentData[$dojoIndex] ?? $parentData[0];
+
         foreach ($pairs as $pairIndex => $pairAthletes) {
+            $info = $dojoParents[$pairIndex] ?? ['name' => 'Wali Murid', 'email' => "wali.{$dojo->id}.{$pairIndex}@athlix.test"];
+
             $parent = User::query()->create([
-                'name' => "Orang Tua {$dojo->name} " . ($pairIndex + 1),
-                'email' => "parent.{$dojo->id}." . ($pairIndex + 1) . '@athlix.test',
-                'phone_number' => '08' . str_pad((string) (880000000 + ($dojo->id * 100) + $pairIndex), 9, '0', STR_PAD_LEFT),
+                'name'               => $info['name'],
+                'email'              => $info['email'],
+                'phone_number'       => '08' . str_pad((string) (880000000 + ($dojoIndex * 100) + $pairIndex), 9, '0', STR_PAD_LEFT),
                 'profile_photo_path' => SeedAssetsSeeder::PROFILE_PHOTO,
-                'password' => Hash::make(DatabaseSeeder::DEMO_PASSWORD),
-                'role' => 'parent',
-                'dojo_id' => $dojo->id,
-                'email_verified_at' => now(),
+                'password'           => Hash::make(DatabaseSeeder::DEMO_PASSWORD),
+                'role'               => 'parent',
+                'dojo_id'            => $dojo->id,
+                'email_verified_at'  => now(),
             ]);
 
             foreach ($pairAthletes as $index => $athlete) {
                 AthleteGuardian::query()->create([
-                    'tenant_id' => $dojo->id,
-                    'athlete_id' => $athlete->id,
-                    'guardian_user_id' => $parent->id,
-                    'relation_type' => 'parent',
-                    'is_primary' => $index === 0,
+                    'tenant_id'         => $dojo->id,
+                    'athlete_id'        => $athlete->id,
+                    'guardian_user_id'  => $parent->id,
+                    'relation_type'     => 'parent',
+                    'is_primary'        => $index === 0,
                     'emergency_contact' => true,
                 ]);
             }
         }
     }
 
+    private function nameToEmailSlug(string $fullName, int $index): string
+    {
+        $parts = explode(' ', Str::lower($fullName));
+        // firstname.lastname format, e.g. "muhammad.raka" — use first 2 words
+        $slug = implode('.', array_slice($parts, 0, 2));
+        // ensure global uniqueness by appending index if needed
+        return $slug . ($index > 0 ? $index : '');
+    }
+
     private function resolveAthleteName(int $index, string $gender): string
     {
-        $maleNames = [
-            'Muhammad Raka Saputra',
-            'Ahmad Fadli Ramadhan',
-            'Bagas Mahendra Putra',
-            'Daffa Alghifari Pratama',
-            'Rizky Fatur Rahman',
-            'Naufal Dzaky Hidayat',
-            'Ilham Syahputra Wijaya',
-            'Rayhan Akbar Pranata',
-            'Fikri Azzam Ramdhan',
-            'Aditya Nugraha Putra',
+        $maleFirstNames = [
+            'Muhammad Raka',
+            'Ahmad Fadli',
+            'Bagas Mahendra',
+            'Daffa Alghifari',
+            'Rizky Fatur',
+            'Naufal Dzaky',
+            'Ilham Syahputra',
+            'Rayhan Akbar',
+            'Fikri Azzam',
+            'Aditya Nugraha',
         ];
-        $femaleNames = [
-            'Nur Aisyah Ramadhani',
-            'Salsabila Putri Maharani',
-            'Anindya Citra Lestari',
-            'Zahra Khairunnisa Putri',
-            'Alya Safitri Rahma',
-            'Syifa Nabila Azzahra',
-            'Keisya Maharani Putri',
-            'Naura Adelia Syafitri',
-            'Aurel Cahyani Prameswari',
-            'Nadira Putri Lestari',
+        $femaleFirstNames = [
+            'Nur Aisyah',
+            'Salsabila Putri',
+            'Anindya Citra',
+            'Zahra Khairunnisa',
+            'Alya Safitri',
+            'Syifa Nabila',
+            'Keisya Maharani',
+            'Naura Adelia',
+            'Aurel Cahyani',
+            'Nadira Putri',
+        ];
+        $lastNames = [
+            'Saputra',
+            'Ramadhani',
+            'Wijaya',
+            'Pranata',
+            'Hidayat',
+            'Prameswari',
+            'Lestari',
+            'Rahman',
+            'Nugraha',
+            'Permana',
+            'Santoso',
+            'Maulana',
         ];
 
-        $pool = $gender === 'F' ? $femaleNames : $maleNames;
+        $pool = $gender === 'F' ? $femaleFirstNames : $maleFirstNames;
+        $firstName = $pool[$index % count($pool)];
+        $lastName = $lastNames[intdiv($index, count($pool)) % count($lastNames)];
 
-        return $pool[$index % count($pool)] . ' #' . str_pad((string) $index, 2, '0', STR_PAD_LEFT);
+        return "{$firstName} {$lastName}";
     }
 
     private function resolveBirthPlace(int $index): string

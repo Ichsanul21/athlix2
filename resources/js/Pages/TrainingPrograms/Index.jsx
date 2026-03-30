@@ -13,6 +13,9 @@ import {
     Trash2,
     X,
     Calendar,
+    AlertCircle,
+    ChevronRight,
+    Tag,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '@/Components/Modal';
@@ -22,11 +25,10 @@ import InputError from '@/Components/InputError';
 import { Skeleton } from '@/Components/ui/skeleton';
 import DbSelect from '@/Components/DbSelect';
 
-export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null }) {
+export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [] }) {
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Drill Teknik', 'Kumite Drill', 'Kata Session', 'Sparring', 'Pendinginan', 'Evaluasi'];
-    const coachTemplates = ['Sensei Utama', 'Assistant Sensei', 'Head Coach'];
     const programTitleTemplatesByType = {
         teknik: ['Fundamental Kihon', 'Teknik Kuda-kuda', 'Teknik Timing & Distance'],
         kata: ['Kata Inti Mingguan', 'Kata Kompetisi', 'Bunkai Kata'],
@@ -35,7 +37,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     };
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState(null);
-    const [expandedProgramId, setExpandedProgramId] = useState(null);
+    const [detailModal, setDetailModal] = useState(null); // program object for detail view
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const dojoOptions = useMemo(
         () => dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name })),
@@ -43,13 +45,11 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     );
 
     const coachOptions = useMemo(() => {
-        const fromSchedule = Object.values(weeklySchedule || {})
-            .flat()
-            .map((program) => program?.coach)
-            .filter(Boolean);
-
-        return Array.from(new Set([...coachTemplates, ...fromSchedule]));
-    }, [weeklySchedule]);
+        return senseis.map((s) => ({
+            value: s.name,
+            label: `${s.name} (${s.role.replace('_', ' ').toUpperCase()})`
+        }));
+    }, [senseis]);
 
     const { data, setData, post, patch, delete: destroy, processing, errors, reset, clearErrors } = useForm({
         title: '',
@@ -61,6 +61,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         description: '',
         agenda_items: [],
         dojo_id: selectedDojoId || '',
+        force_overlap: false,
     });
 
     useEffect(() => {
@@ -87,12 +88,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                     description: item.description || '',
                 })),
                 dojo_id: program.dojo_id || dojoId || '',
+                force_overlap: false,
             });
         } else {
             setEditingProgram(null);
             reset();
             setData('agenda_items', []);
             setData('dojo_id', dojoId || '');
+            setData('force_overlap', false);
         }
         setIsModalOpen(true);
     };
@@ -166,10 +169,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         () => titleOptions.map((option) => ({ value: option, label: option })),
         [titleOptions],
     );
-    const coachSelectOptions = useMemo(
-        () => coachOptions.map((coachName) => ({ value: coachName, label: coachName })),
-        [coachOptions],
-    );
+    const coachSelectOptions = coachOptions;
 
     if (isLoading) {
         return (
@@ -244,10 +244,8 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                 <div className="space-y-3">
                                     {weeklySchedule[day] && weeklySchedule[day].length > 0 ? (
                                         weeklySchedule[day].map((p) => {
-                                            const isExpanded = expandedProgramId === p.id;
-
                                             return (
-                                            <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/30 transition-all duration-300 overflow-visible relative card-hover ${isExpanded ? 'shadow-xl shadow-athlix-red/10 z-20' : ''}`}>
+                                            <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/40 transition-all duration-300 overflow-hidden relative card-hover`}>
                                                 <div className={`h-1 w-full ${typeColors[p.type] || 'bg-blue-500'} transition-all duration-300 group-hover:h-1.5`}></div>
 
                                                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
@@ -275,59 +273,33 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                                                 <button
                                                     type="button"
-                                                    onClick={() => setExpandedProgramId(isExpanded ? null : p.id)}
+                                                    onClick={() => setDetailModal(p)}
                                                     className="w-full text-left"
                                                 >
-                                                    <CardContent className="p-3 sm:p-4 space-y-3">
+                                                    <CardContent className="p-3 sm:p-4 space-y-2.5">
                                                         <div className="flex items-start justify-between gap-2 pr-10">
                                                             <h4 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors">{p.title}</h4>
-                                                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white ${typeColors[p.type] || 'bg-blue-500'}`}>
+                                                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shrink-0 ${typeColors[p.type] || 'bg-blue-500'}`}>
                                                                 {p.type}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
-                                                            <Calendar size={12} />
-                                                            {p.next_date}
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
-                                                            <Clock size={12} />
+                                                            <Clock size={11} />
                                                             {p.time}
                                                         </div>
-
-                                                        <div className="space-y-1.5 pt-2 border-t border-neutral-50 dark:border-neutral-800">
-                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 ">
-                                                                <User size={12} className="text-athlix-red" />
-                                                                {p.coach}
-                                                            </div>
-                                                            <p className="text-[11px] text-neutral-500">Agenda: {(p.agenda_items || []).length} item</p>
+                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                                                            <User size={11} className="text-athlix-red" />
+                                                            <span className="truncate">{p.coach}</span>
                                                         </div>
+                                                        {(p.agenda_items || []).length > 0 && (
+                                                            <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+                                                                <Tag size={10} />
+                                                                {p.agenda_items.length} sesi agenda
+                                                                <ChevronRight size={10} />
+                                                            </div>
+                                                        )}
                                                     </CardContent>
                                                 </button>
-
-                                                {isExpanded && (
-                                                    <div className="relative">
-                                                        <div className="mt-2 px-4 pb-4 pt-3 space-y-3 text-xs border border-neutral-100 dark:border-neutral-800 rounded-xl bg-white dark:bg-neutral-950 md:w-[min(34rem,calc(100vw-4rem))] md:-ml-6 lg:-ml-8">
-                                                        <div className="flex items-center gap-2 text-neutral-600 ">
-                                                            <Calendar size={12} className="text-athlix-red" />
-                                                            <span>Tanggal latihan terdekat: <span className="font-bold">{p.next_date}</span></span>
-                                                        </div>
-                                                        {(p.agenda_items || []).length > 0 ? (
-                                                            <div className="space-y-2">
-                                                                <p className="font-bold uppercase tracking-widest text-[10px] text-neutral-500">Detail Agenda</p>
-                                                                {p.agenda_items.map((item, idx) => (
-                                                                    <div key={`${p.id}-${idx}`} className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-2.5 bg-neutral-50/70 dark:bg-neutral-900/40">
-                                                                        <p className="font-mono font-bold text-athlix-red">{item.start_time} - {item.end_time}</p>
-                                                                        <p className="font-semibold text-neutral-700 ">{item.title}</p>
-                                                                        {item.description && <p className="text-neutral-500  mt-1">{item.description}</p>}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-neutral-500">Belum ada rincian child agenda untuk sesi ini.</p>
-                                                        )}
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </Card>
                                         );
                                         })
@@ -341,35 +313,12 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         ))}
                     </div>
 
-                    <Card className="mt-8 sm:mt-12 border-none bg-athlix-red text-white overflow-hidden relative animate-fade-in-up fill-both" style={{ animationDelay: '400ms' }}>
-                        <div className="absolute top-0 right-0 p-8 sm:p-12 opacity-10 rotate-12">
-                            <Dumbbell size={120} className="sm:w-[160px] sm:h-[160px]" />
-                        </div>
-                        <CardContent className="p-8 sm:p-12 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
-                            <div className="space-y-2 text-center md:text-left">
-                                <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
-                                    <div className="p-2 rounded-xl bg-white/20">
-                                        <CalendarDays size={20} />
-                                    </div>
-                                    <span className="text-xs font-bold uppercase tracking-widest">Agenda Dojo</span>
-                                </div>
-                                <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">Sinkronisasi Jadwal</h3>
-                                <p className="text-sm text-white/80 max-w-md">Klik kartu jadwal untuk lihat tanggal terdekat dan child agenda (briefing, stretching, drill, sparring) per jam.</p>
-                            </div>
-                            <div className="p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 w-full sm:w-auto sm:min-w-[180px] text-center shimmer">
-                                <p className="text-xs font-bold uppercase tracking-widest mb-1 opacity-60">Status Dojo</p>
-                                <div className="flex items-center justify-center gap-2">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></div>
-                                    <span className="text-xl font-black">AKTIF</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+
                 </div>
             </div>
 
             <Modal show={isModalOpen} onClose={closeModal} maxWidth="2xl">
-                <div className="p-6 sm:p-7 mt-3 sm:mt-4 max-h-[78vh] overflow-y-auto">
+                <div className="p-6 max-h-[85vh] overflow-y-auto">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-black uppercase tracking-tighter">
                             {editingProgram ? 'Edit Program Latihan' : 'Tambah Program Baru'}
@@ -506,16 +455,118 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                             </div>
                         </div>
 
+                        {errors.confirm_overlap && (
+                            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-xl mb-4 animate-fade-in-up">
+                                <p className="text-sm text-amber-800 dark:text-amber-200 font-bold mb-2 flex items-start gap-2">
+                                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                                    <span>{errors.confirm_overlap}</span>
+                                </p>
+                                <div className="flex gap-2 pl-6">
+                                    <Button
+                                        type="button"
+                                        onClick={() => {
+                                            clearErrors('confirm_overlap');
+                                            setData('force_overlap', true);
+                                            // Optional: User has to click Save again, or we could trigger it automatically.
+                                            // Letting them click generic save is safer so they see the state changed.
+                                        }}
+                                        className="bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 text-white text-xs h-8"
+                                    >
+                                        Ya, Saya Yakin
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            clearErrors('confirm_overlap');
+                                            setData('force_overlap', false);
+                                        }}
+                                        className="text-xs h-8"
+                                    >
+                                        Batal
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-end mt-6 gap-3">
                             <Button type="button" variant="outline" onClick={closeModal} className="text-xs font-bold uppercase tracking-widest">
                                 Batal
                             </Button>
                             <Button type="submit" className="text-xs font-black uppercase tracking-widest" disabled={processing}>
-                                {processing ? 'Menyimpan...' : 'Simpan Program'}
+                                {processing ? 'Menyimpan...' : (data.force_overlap ? 'Simpan dengan Paksa' : 'Simpan Program')}
                             </Button>
                         </div>
                     </form>
                 </div>
+            </Modal>
+            {/* Detail Program Modal */}
+            <Modal show={!!detailModal} onClose={() => setDetailModal(null)} maxWidth="lg">
+                {detailModal && (
+                    <div className="p-6 space-y-5">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider text-white ${typeColors[detailModal.type] || 'bg-blue-500'}`}>
+                                        {detailModal.type}
+                                    </span>
+                                </div>
+                                <h3 className="text-xl font-black tracking-tight">{detailModal.title}</h3>
+                            </div>
+                            <button onClick={() => setDetailModal(null)} className="shrink-0 p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Hari</p>
+                                <p className="font-bold text-sm">{detailModal.day}</p>
+                            </div>
+                            <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Tanggal Terdekat</p>
+                                <p className="font-bold text-sm">{detailModal.next_date}</p>
+                            </div>
+                            <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Jam</p>
+                                <p className="font-mono font-bold text-athlix-red text-sm">{detailModal.time}</p>
+                            </div>
+                            <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Pelatih</p>
+                                <p className="font-bold text-sm">{detailModal.coach || '-'}</p>
+                            </div>
+                        </div>
+
+                        {detailModal.desc && (
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400">{detailModal.desc}</p>
+                        )}
+
+                        {(detailModal.agenda_items || []).length > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Detail Agenda</p>
+                                {detailModal.agenda_items.map((item, idx) => (
+                                    <div key={idx} className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 bg-neutral-50/70 dark:bg-neutral-900/40">
+                                        <p className="font-mono font-bold text-athlix-red text-xs">{item.start_time} – {item.end_time}</p>
+                                        <p className="font-semibold text-sm mt-0.5">{item.title}</p>
+                                        {item.description && <p className="text-xs text-neutral-500 mt-1">{item.description}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-neutral-400 italic">Belum ada detail agenda untuk sesi ini.</p>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+                            <Button variant="outline" onClick={() => setDetailModal(null)}>Tutup</Button>
+                            <Button
+                                className="bg-athlix-red hover:bg-red-700 text-white"
+                                onClick={() => { setDetailModal(null); openModal(detailModal); }}
+                            >
+                                <Pencil size={14} className="mr-1.5" /> Edit Program
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </AdminLayout>
     );

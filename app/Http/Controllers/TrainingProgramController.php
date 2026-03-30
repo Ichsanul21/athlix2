@@ -16,9 +16,7 @@ class TrainingProgramController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        if ($user?->isSuperAdmin() && ! $selectedDojoId) {
-            $selectedDojoId = Dojo::query()->value('id');
-        }
+        $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
         $programs = TrainingProgram::query()
@@ -57,10 +55,16 @@ class TrainingProgramController extends Controller
             });
         }
 
+        $senseis = \App\Models\User::query()
+            ->whereIn('role', ['super_admin', 'dojo_admin', 'head_coach', 'sensei', 'assistant'])
+            ->get(['id', 'name', 'role']);
+
         return Inertia::render('TrainingPrograms/Index', [
             'weeklySchedule' => Inertia::defer(fn () => $structuredPrograms),
-            'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
-            'selectedDojoId' => Inertia::defer(fn () => $selectedDojoId),
+            'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'selectedDojoId' => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'isAllDojos'     => Inertia::defer(fn () => $isAllDojos),
+            'senseis'        => Inertia::defer(fn () => $senseis),
         ]);
     }
 
@@ -82,7 +86,11 @@ class TrainingProgramController extends Controller
             'agenda_items.*.title' => 'required_with:agenda_items|string|max:255',
             'agenda_items.*.description' => 'nullable|string|max:500',
             'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
+            'force_overlap' => 'nullable|boolean',
         ]);
+
+        $forceOverlap = $validated['force_overlap'] ?? false;
+        unset($validated['force_overlap']);
 
         $validated['agenda_items'] = $this->sanitizeAgendaItems($validated['agenda_items'] ?? []);
         $this->validateAgendaItemsWithinProgram($validated['agenda_items'], $validated['start_time'], $validated['end_time']);
@@ -96,7 +104,7 @@ class TrainingProgramController extends Controller
             $validated['dojo_id'] = $user->dojo_id;
         }
 
-        $this->ensureNoOverlappingSchedule($validated);
+        $this->ensureNoOverlappingSchedule($validated, null, $forceOverlap);
 
         TrainingProgram::create($validated);
 
@@ -124,12 +132,16 @@ class TrainingProgramController extends Controller
             'agenda_items.*.end_time' => 'required_with:agenda_items|date_format:H:i',
             'agenda_items.*.title' => 'required_with:agenda_items|string|max:255',
             'agenda_items.*.description' => 'nullable|string|max:500',
+            'force_overlap' => 'nullable|boolean',
         ]);
+
+        $forceOverlap = $validated['force_overlap'] ?? false;
+        unset($validated['force_overlap']);
 
         $validated['agenda_items'] = $this->sanitizeAgendaItems($validated['agenda_items'] ?? []);
         $this->validateAgendaItemsWithinProgram($validated['agenda_items'], $validated['start_time'], $validated['end_time']);
         $validated['dojo_id'] = $trainingProgram->dojo_id;
-        $this->ensureNoOverlappingSchedule($validated, $trainingProgram->id);
+        $this->ensureNoOverlappingSchedule($validated, $trainingProgram->id, $forceOverlap);
 
         $trainingProgram->update($validated);
 
@@ -149,19 +161,31 @@ class TrainingProgramController extends Controller
         return redirect()->back()->with('success', 'Program latihan berhasil dihapus.');
     }
 
-    private function ensureNoOverlappingSchedule(array $payload, ?int $ignoreId = null): void
+    private function ensureNoOverlappingSchedule(array $payload, ?int $ignoreId = null, bool $forceOverlap = false): void
     {
-        $hasConflict = TrainingProgram::query()
+        $conflicts = TrainingProgram::query()
             ->where('dojo_id', $payload['dojo_id'])
             ->where('day', $payload['day'])
             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
             ->where('start_time', '<', $payload['end_time'])
             ->where('end_time', '>', $payload['start_time'])
-            ->exists();
+            ->get();
 
-        if ($hasConflict) {
+        if ($conflicts->isEmpty()) {
+            return;
+        }
+
+        $sameSenseiConflict = $conflicts->contains(fn ($p) => strtolower(trim($p->coach_name)) === strtolower(trim($payload['coach_name'])));
+
+        if ($sameSenseiConflict) {
             throw ValidationException::withMessages([
-                'start_time' => 'Jadwal bentrok. Tidak boleh ada latihan di waktu yang sama.',
+                'start_time' => 'Jadwal bentrok. Sensei yang sama tidak bisa dijadwalkan mengajar pada dua jam yang beririsan.',
+            ]);
+        }
+
+        if (! $forceOverlap) {
+            throw ValidationException::withMessages([
+                'confirm_overlap' => 'Sistem mendeteksi jadwal beririsan dengan kegiatan/Sensei lain. Apakah Anda yakin ingin memaksakan jadwal ini masuk?',
             ]);
         }
     }
