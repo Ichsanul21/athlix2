@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { useLanguage } from '@/Components/LanguageProvider';
 import LanguageSwitch from '@/Components/LanguageSwitch';
 import { 
@@ -26,6 +26,11 @@ import GlobalFlashModal from '@/Components/GlobalFlashModal';
 export default function AdminLayout({ user, header, children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { t } = useLanguage();
+    const { props } = usePage();
+
+    const dojoBranding = props?.auth?.dojo_branding || null;
+    const logoSrc = dojoBranding?.logo_url || '/logo.png';
+    const accentColor = dojoBranding?.accent_color || null;
 
     const role = user?.role;
     const navigation = [
@@ -72,6 +77,20 @@ export default function AdminLayout({ user, header, children }) {
 
     return (
         <div className="min-h-screen bg-neutral-50 text-athlix-black transition-colors duration-300">
+            {accentColor && (
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                    :root { --athlix-red: ${accentColor}; }
+                    .text-athlix-red { color: ${accentColor} !important; }
+                    .bg-athlix-red { background-color: ${accentColor} !important; }
+                    .border-athlix-red { border-color: ${accentColor} !important; }
+                    .hover\\:text-athlix-red:hover { color: ${accentColor} !important; }
+                    .hover\\:bg-red-50:hover { background-color: color-mix(in srgb, ${accentColor} 10%, white) !important; }
+                    .shadow-athlix-red\\/20 { box-shadow: 0 4px 6px -1px color-mix(in srgb, ${accentColor} 20%, transparent), 0 2px 4px -2px color-mix(in srgb, ${accentColor} 20%, transparent) !important; }
+                    .shadow-athlix-red\\/30 { box-shadow: 0 4px 6px -1px color-mix(in srgb, ${accentColor} 30%, transparent), 0 2px 4px -2px color-mix(in srgb, ${accentColor} 30%, transparent) !important; }
+                    `
+                }} />
+            )}
             <GlobalFlashModal />
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
@@ -87,7 +106,7 @@ export default function AdminLayout({ user, header, children }) {
                 <div className="flex items-center justify-between h-16 px-6 border-b border-neutral-200/80">
                     <div className="flex items-center gap-3 animate-fade-in">
                         <div className="relative">
-                            <img src="/logo.png" alt="ATHLIX Logo" className="w-9 h-9 rounded-xl shadow-md object-cover" />
+                            <img src={logoSrc} alt="ATHLIX Logo" className="w-9 h-9 rounded-xl shadow-md object-cover" />
                             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                         </div>
                         <div>
