@@ -226,7 +226,7 @@ class AthleteController extends Controller
 
         $athlete = Athlete::create($validated);
 
-        $athleteLoginPassword = $athlete->athlete_code;
+        $athleteLoginPassword = "password123";
         User::query()->create([
             'name' => $athlete->full_name,
             'email' => $this->generateUniqueUserEmail('athlete.' . Str::lower($athlete->athlete_code) . '@athlix.test'),
@@ -669,7 +669,7 @@ class AthleteController extends Controller
 
     // â”€â”€ Helper methods â”€â”€
 
-    private function ensureAthleteAccessible(Athlete $athlete, $user): void
+    protected function ensureAthleteAccessible(Athlete $athlete, $user): void
     {
         if ($user?->isSuperAdmin()) return;
         if ($user?->isSensei() && (int) $athlete->dojo_id === (int) $user->dojo_id) return;
