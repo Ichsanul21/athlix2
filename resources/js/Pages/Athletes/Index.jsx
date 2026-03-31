@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
-import { Search, Plus, ChevronRight, Loader2, X } from 'lucide-react';
+import { Search, Plus, ChevronRight, Loader2, X, Pencil, Trash2 } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 import Modal from '@/Components/Modal';
 import { useState, useEffect } from 'react';

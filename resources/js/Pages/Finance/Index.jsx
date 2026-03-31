@@ -59,7 +59,7 @@ export default function Index({
         errors: customErrors,
         clearErrors: clearCustomErrors,
         reset: resetCustomForm,
-    } = useForm({ new_amount: '', reason: '', source_athlete_id: '' });
+    } = useForm({ new_amount: '', reason: '' });
 
     const isLoading = !records;
     const sourceRecords = records ?? [];
@@ -357,7 +357,6 @@ export default function Index({
         setCustomForm({
             new_amount: String(record.amount || ''),
             reason: '',
-            source_athlete_id: '',
         });
     };
 
@@ -367,7 +366,6 @@ export default function Index({
             preserveScroll: true,
             data: {
                 ...customForm,
-                source_athlete_id: customForm.source_athlete_id || null,
             },
             onSuccess: () => {
                 setCustomModal({ show: false, record: null });
@@ -720,7 +718,7 @@ export default function Index({
 
                     <Card className="border-neutral-200/80 dark:border-neutral-800">
                         <CardHeader>
-                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Audit Cross-Subsidi</CardTitle>
+                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Audit Penyesuaian Tarif</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm">
                             {filteredRecords.flatMap((record) => (record.adjustments || []).map((item) => ({ ...item, athlete: record.athlete?.full_name }))).slice(0, 8).map((item) => (
@@ -728,7 +726,6 @@ export default function Index({
                                     <p className="font-semibold">{item.athlete}</p>
                                     <p className="text-xs text-neutral-500">{formatIDR(item.old_amount)} {'->'} {formatIDR(item.new_amount)} | Delta: {formatIDR(item.delta_amount)}</p>
                                     <p className="text-xs text-neutral-600 ">Alasan: {item.reason}</p>
-                                    {item.source_athlete && <p className="text-xs text-neutral-500">Sumber subsidi: {item.source_athlete}</p>}
                                     <p className="text-xs text-neutral-400">{item.created_at}</p>
                                 </div>
                             ))}
@@ -760,12 +757,10 @@ export default function Index({
             <Modal show={customModal.show} onClose={() => setCustomModal({ show: false, record: null })} maxWidth="lg">
                 <div className="p-6 space-y-4">
                     <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">
-                        {canDirectSenseiNominal ? 'Ubah Nominal SPP Atlet' : 'Custom Nominal Per Athlete'}
+                        Penyesuaian Nominal SPP
                     </h3>
                     <p className="text-sm text-neutral-700">
-                        {canDirectSenseiNominal
-                            ? 'Perubahan nominal langsung diterapkan ke tagihan atlet dan tercatat pada audit log.'
-                            : 'Gunakan form ini untuk skema cross-subsidi. Semua perubahan akan tercatat otomatis pada audit log.'}
+                        Perubahan nominal langsung diterapkan ke tagihan atlet dan tercatat pada audit log.
                     </p>
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-1">
@@ -779,22 +774,6 @@ export default function Index({
                             />
                             {customErrors.new_amount && <p className="text-xs text-athlix-red">{customErrors.new_amount}</p>}
                         </div>
-                        {!canDirectSenseiNominal && (
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sumber Cross-Subsidi</label>
-                                <DbSelect
-                                    inputId="finance-custom-source-athlete"
-                                    options={[
-                                        { value: '', label: 'Tidak ada (manual)' },
-                                        ...athletes.map((athlete) => ({ value: String(athlete.id), label: athlete.full_name })),
-                                    ]}
-                                    value={customForm.source_athlete_id}
-                                    onChange={(next) => setCustomForm('source_athlete_id', next)}
-                                    placeholder="Pilih atlet sumber"
-                                />
-                                {customErrors.source_athlete_id && <p className="text-xs text-athlix-red">{customErrors.source_athlete_id}</p>}
-                            </div>
-                        )}
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alasan Penyesuaian</label>
@@ -802,7 +781,7 @@ export default function Index({
                             className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm min-h-24 text-neutral-900"
                             value={customForm.reason}
                             onChange={(e) => setCustomForm('reason', e.target.value)}
-                            placeholder="Contoh: subsidi silang dari atlet sponsor internal dojo"
+                            placeholder="Contoh: penyesuaian khusus dari manajemen dojo"
                         />
                         {customErrors.reason && <p className="text-xs text-athlix-red">{customErrors.reason}</p>}
                     </div>

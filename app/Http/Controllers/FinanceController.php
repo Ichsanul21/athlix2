@@ -161,38 +161,18 @@ class FinanceController extends Controller
     {
         $this->ensureFinanceCustomizer($finance);
 
-        if (($request->input('source_athlete_id') ?? '') === '') {
-            $request->merge(['source_athlete_id' => null]);
-        }
-
         $validated = $request->validate([
             'new_amount' => 'required|numeric|min:0',
             'reason' => 'required|string|max:500',
-            'source_athlete_id' => 'nullable|exists:athletes,id',
         ]);
 
         $oldAmount = (float) $finance->amount;
         $newAmount = (float) $validated['new_amount'];
-        $sourceAthleteId = $validated['source_athlete_id'] ?? null;
-        if ($sourceAthleteId === $finance->athlete_id) {
-            $sourceAthleteId = null;
-        }
-
-        if ($sourceAthleteId) {
-            $allowedSource = $this->scopeAthletesForUser(Athlete::query()->whereKey($sourceAthleteId), auth()->user())->exists();
-            $sameDojo = Athlete::query()
-                ->whereKey($sourceAthleteId)
-                ->where('dojo_id', Athlete::query()->whereKey($finance->athlete_id)->value('dojo_id'))
-                ->exists();
-            if (! $allowedSource || ! $sameDojo) {
-                $sourceAthleteId = null;
-            }
-        }
 
         FinanceAdjustment::create([
             'finance_record_id' => $finance->id,
             'athlete_id' => $finance->athlete_id,
-            'source_athlete_id' => $sourceAthleteId,
+            'source_athlete_id' => null,
             'old_amount' => $oldAmount,
             'new_amount' => $newAmount,
             'delta_amount' => $newAmount - $oldAmount,
@@ -202,7 +182,7 @@ class FinanceController extends Controller
 
         $finance->update(['amount' => $newAmount]);
 
-        return back()->with('success', 'Nominal tagihan berhasil dikustom untuk skema cross-subsidi.');
+        return back()->with('success', 'Nominal tagihan berhasil diperbarui.');
     }
 
     public function generateMonthly(DynamicBillingService $billingService)
