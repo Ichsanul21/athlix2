@@ -85,18 +85,23 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         { label: 'Kondisi Fisik', value: conditionScore },
         { label: 'Gap', value: Math.max(0, 100 - conditionScore) },
     ];
+
+    const safeParseDynScores = (raw) => {
+        if (!raw) return {};
+        if (typeof raw === 'object') return raw;
+        if (typeof raw === 'string') {
+            try { return JSON.parse(raw) || {}; } catch { return {}; }
+        }
+        return {};
+    };
+
     const categorySeries = reportCategories.length
         ? reportCategories.map((cat) => {
-              let dynScores = {};
-              const raw = activeReport?.dynamic_scores;
-              if (raw && typeof raw === 'string') {
-                  try { dynScores = JSON.parse(raw) || {}; } catch { dynScores = {}; }
-              } else if (raw && typeof raw === 'object') {
-                  dynScores = raw;
-              }
+              const snapshot = safeParseDynScores(activeReport?.dynamic_scores);
+              const catSnapshot = snapshot?.categories?.[cat.id];
               return {
                   label: cat.name,
-                  score: Number(dynScores[cat.id]?.scaled_score ?? performance?.categories?.find((item) => item.label === cat.name)?.score ?? 0),
+                  score: Number(catSnapshot?.score ?? performance?.categories?.find((item) => item.label === cat.name)?.score ?? 0),
               };
           })
         : performance?.categories?.map((item) => ({ label: item.label, score: Number(item.score) })) || [];
@@ -196,27 +201,41 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         notes: '',
         certificate: null,
     });
-    const safeParseDynScores = (raw) => {
-        if (!raw) return {};
-        if (typeof raw === 'object') return raw;
-        if (typeof raw === 'string') {
-            try { return JSON.parse(raw) || {}; } catch { return {}; }
-        }
-        return {};
+
+    // Build test_values keyed by test ID from the last report snapshot
+    const buildTestValues = () => {
+        const vals = {};
+        const snapshot = safeParseDynScores(activeReport?.dynamic_scores);
+        reportCategories.forEach((cat) => {
+            (cat.sub_categories || []).forEach((sub) => {
+                (sub.tests || []).forEach((test) => {
+                    vals[test.id] = snapshot?.tests?.[test.id]?.raw_value ?? 0;
+                });
+            });
+        });
+        return vals;
     };
 
-    const buildDynamicScores = () => {
-        const dyn = {};
-        const parsed = safeParseDynScores(activeReport?.dynamic_scores);
-        reportCategories.forEach((cat) => {
-            dyn[cat.id] = parsed[cat.id]?.raw_value ?? 0;
-        });
-        return dyn;
+    // Calculate a test score locally for preview
+    const calcTestScore = (test, rawValue) => {
+        const raw = Number(rawValue) || 0;
+        const min = Number(test.min_threshold);
+        const max = Number(test.max_threshold);
+        if (min === max) return raw >= max ? 100 : 0;
+        if (max > min) {
+            if (raw <= min) return 0;
+            if (raw >= max) return 100;
+            return Math.round(((raw - min) / (max - min)) * 100);
+        } else {
+            if (raw >= min) return 0;
+            if (raw <= max) return 100;
+            return Math.round(((min - raw) / (min - max)) * 100);
+        }
     };
 
     const reportForm = useForm({
         condition_percentage: activeReport?.condition_percentage ?? 0,
-        dynamic_scores: buildDynamicScores(),
+        test_values: buildTestValues(),
         notes: '',
         recorded_at: new Date().toISOString().slice(0, 10),
     });
@@ -224,7 +243,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const resetReportForm = () => {
         reportForm.setData({
             condition_percentage: activeReport?.condition_percentage ?? 0,
-            dynamic_scores: buildDynamicScores(),
+            test_values: buildTestValues(),
             notes: '',
             recorded_at: new Date().toISOString().slice(0, 10),
         });
@@ -651,76 +670,96 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 </div>
             </Modal>
 
-            {/* ── Report Modal — Input Raw Value + Threshold preview ── */}
-            <Modal show={reportModalOpen} onClose={() => setReportModalOpen(false)} maxWidth="2xl">
+            {/* ── Report Modal — 3-Level Hierarchy Input ── */}
+            <Modal show={reportModalOpen} onClose={() => setReportModalOpen(false)} maxWidth="3xl">
                 <form onSubmit={submitReport} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
                     <div>
                         <h3 className="text-lg font-black uppercase tracking-tight">Input Rapor Kemampuan Atlet</h3>
-                        <p className="text-xs text-neutral-500 mt-1">Masukkan nilai mentah (raw). Skor 1-100 akan dihitung otomatis berdasarkan threshold yang dikonfigurasi.</p>
+                        <p className="text-xs text-neutral-500 mt-1">Masukkan nilai mentah (raw) per test. Skor 1-100 dihitung otomatis. Sub-kategori & kategori di-average dari test.</p>
                     </div>
 
-                    <div className="space-y-3">
-                        {reportCategories.map((field) => {
-                            const rawVal = reportForm.data.dynamic_scores[field.id] !== undefined ? reportForm.data.dynamic_scores[field.id] : 0;
-                            const unitLabel = field.unit === 'duration' ? 'detik' : 'kali';
-                            const isLowerBetter = field.max_threshold < field.min_threshold;
-
-                            // Calculate preview score locally
-                            let previewScore = 0;
-                            const minT = Number(field.min_threshold);
-                            const maxT = Number(field.max_threshold);
-                            const rv = Number(rawVal);
-                            if (minT === maxT) {
-                                previewScore = rv >= maxT ? 100 : 0;
-                            } else if (maxT > minT) {
-                                if (rv <= minT) previewScore = 0;
-                                else if (rv >= maxT) previewScore = 100;
-                                else previewScore = Math.round(((rv - minT) / (maxT - minT)) * 100);
-                            } else {
-                                if (rv >= minT) previewScore = 0;
-                                else if (rv <= maxT) previewScore = 100;
-                                else previewScore = Math.round(((minT - rv) / (minT - maxT)) * 100);
-                            }
-                            previewScore = Math.max(0, Math.min(100, previewScore));
-
-                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-600';
+                    <div className="space-y-4">
+                        {reportCategories.map((cat) => {
+                            const subs = cat.sub_categories || [];
+                            const subScores = subs.map((sub) => {
+                                const tests = sub.tests || [];
+                                const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[t.id] ?? 0));
+                                return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                            });
+                            const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
+                            const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
 
                             return (
-                                <div key={field.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <span className="text-sm font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{field.name}</span>
-                                            <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded">{field.unit === 'duration' ? 'DURASI' : 'REPETISI'}</span>
-                                        </div>
-                                        <span className={`text-lg font-black ${scoreColor}`}>{previewScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                    {/* Category Header */}
+                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                        <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            min="0"
-                                            className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm"
-                                            value={rawVal}
-                                            onChange={(e) => {
-                                                const curr = { ...reportForm.data.dynamic_scores };
-                                                curr[field.id] = parseFloat(e.target.value) || 0;
-                                                reportForm.setData('dynamic_scores', curr);
-                                            }}
-                                            placeholder={`Masukkan ${unitLabel}`}
-                                            required
-                                        />
-                                        <span className="text-xs font-bold text-neutral-500 shrink-0 w-12">{unitLabel}</span>
-                                    </div>
+                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                        {subs.map((sub, si) => {
+                                            const tests = sub.tests || [];
+                                            const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[t.id] ?? 0));
+                                            const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                            const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
 
-                                    <div className="flex items-center gap-2 text-[10px] text-neutral-400">
-                                        <span>Threshold: {isLowerBetter ? `${minT} ${unitLabel} (0) → ${maxT} ${unitLabel} (100)` : `${minT} ${unitLabel} (0) → ${maxT} ${unitLabel} (100)`}</span>
-                                        {isLowerBetter && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">Makin rendah makin bagus</span>}
-                                    </div>
+                                            return (
+                                                <div key={sub.id} className="px-4 py-3 space-y-2">
+                                                    {/* Sub-Category Header */}
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">{sub.name}</span>
+                                                        <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
+                                                    </div>
 
-                                    {/* Score preview bar */}
-                                    <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-                                        <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                    <div className="space-y-2">
+                                                        {tests.map((test) => {
+                                                            const rawVal = reportForm.data.test_values[test.id] ?? 0;
+                                                            const previewScore = calcTestScore(test, rawVal);
+                                                            const unitLabel = test.unit === 'duration' ? 'detik' : 'kali';
+                                                            const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
+                                                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+
+                                                            return (
+                                                                <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
+                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500">{test.unit === 'duration' ? 'DURASI' : 'REP'}</span>
+                                                                            {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
+                                                                        </div>
+                                                                        <span className={`text-sm font-black ${scoreColor}`}>{previewScore}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.1"
+                                                                            min="0"
+                                                                            className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900"
+                                                                            value={rawVal}
+                                                                            onChange={(e) => {
+                                                                                const curr = { ...reportForm.data.test_values };
+                                                                                curr[test.id] = parseFloat(e.target.value) || 0;
+                                                                                reportForm.setData('test_values', curr);
+                                                                            }}
+                                                                            placeholder={`Masukkan ${unitLabel}`}
+                                                                        />
+                                                                        <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                                                            <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                        </div>
+                                                                        <span className="text-[9px] text-neutral-400">{test.min_threshold}→{test.max_threshold}</span>
+                                                                        {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold">↓</span>}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );
@@ -774,21 +813,18 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 </form>
             </Modal>
 
-            {/* ── Category Management Modal ── */}
-            <Modal show={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} maxWidth="lg">
-                <div className="p-6 space-y-5">
+            {/* ── 3-Level Hierarchy Management Modal ── */}
+            <Modal show={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} maxWidth="3xl">
+                <div className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
                     <div>
-                        <h3 className="text-lg font-black uppercase tracking-tight">
-                            {editingCategory ? 'Edit Kategori Test' : 'Tambah Kategori Test Baru'}
-                        </h3>
-                        <p className="text-xs text-neutral-500 mt-1">
-                            Konfigurasi label test, tipe pengukuran (durasi/repetisi), dan threshold batas bawah-atas untuk menghitung skor 1-100.
-                        </p>
+                        <h3 className="text-lg font-black uppercase tracking-tight">Kelola Struktur Test Rapor</h3>
+                        <p className="text-xs text-neutral-500 mt-1">Kategori › Sub-Kategori › Test. Threshold dan tipe pengukuran ada di level test.</p>
                     </div>
 
-                    <form onSubmit={submitCategory} className="space-y-4">
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Nama Label Test *</label>
+                    {/* Add Category Form */}
+                    <form onSubmit={submitCategory} className="flex items-end gap-2">
+                        <div className="flex-1 space-y-1">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Tambah Kategori Baru</label>
                             <Input
                                 value={catForm.name}
                                 onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
@@ -796,96 +832,30 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                 required
                             />
                         </div>
-
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tipe Pengukuran *</label>
-                            <DbSelect
-                                inputId="cat-unit"
-                                options={[
-                                    { value: 'repetition', label: 'Repetisi (kali)' },
-                                    { value: 'duration', label: 'Durasi (detik)' },
-                                ]}
-                                value={catForm.unit}
-                                onChange={(val) => setCatForm({ ...catForm, unit: val })}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                                    Threshold Bawah (Skor 0)
-                                </label>
-                                <Input
-                                    type="number"
-                                    step="0.1"
-                                    min="0"
-                                    value={catForm.min_threshold}
-                                    onChange={(e) => setCatForm({ ...catForm, min_threshold: parseFloat(e.target.value) || 0 })}
-                                    required
-                                />
-                                <p className="text-[10px] text-neutral-400">Nilai mentah di bawah/sama dengan ini = skor 0</p>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                                    Threshold Atas (Skor 100)
-                                </label>
-                                <Input
-                                    type="number"
-                                    step="0.1"
-                                    min="0"
-                                    value={catForm.max_threshold}
-                                    onChange={(e) => setCatForm({ ...catForm, max_threshold: parseFloat(e.target.value) || 0 })}
-                                    required
-                                />
-                                <p className="text-[10px] text-neutral-400">Nilai mentah di atas/sama dengan ini = skor 100</p>
-                            </div>
-                        </div>
-
-                        {/* Explanation card */}
-                        <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 space-y-2">
-                            <p className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Cara Kerja Skor:</p>
-                            <div className="text-[11px] text-neutral-500 space-y-1">
-                                {catForm.max_threshold > catForm.min_threshold ? (
-                                    <>
-                                        <p>• <strong>Makin tinggi makin bagus</strong> (cocok untuk repetisi)</p>
-                                        <p>• Nilai ≤ {catForm.min_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-red-600">0</strong></p>
-                                        <p>• Nilai ≥ {catForm.max_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-emerald-600">100</strong></p>
-                                    </>
-                                ) : catForm.max_threshold < catForm.min_threshold ? (
-                                    <>
-                                        <p>• <strong>Makin rendah makin bagus</strong> (cocok untuk durasi/speed)</p>
-                                        <p>• Nilai ≥ {catForm.min_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-red-600">0</strong></p>
-                                        <p>• Nilai ≤ {catForm.max_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-emerald-600">100</strong></p>
-                                    </>
-                                ) : (
-                                    <p>• Threshold atas dan bawah sama — setiap nilai mentah ≥ batas = <strong>100</strong>, di bawah = <strong>0</strong>.</p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-2 pt-1">
-                            <Button type="button" variant="outline" onClick={() => setCategoryModalOpen(false)}>Batal</Button>
-                            <Button type="submit" disabled={catFormProcessing}>
-                                {catFormProcessing ? <Loader2 size={14} className="animate-spin mr-1.5" /> : null}
-                                {editingCategory ? 'Simpan Perubahan' : 'Tambah Kategori'}
-                            </Button>
-                        </div>
+                        <Button type="submit" disabled={catFormProcessing} className="shrink-0">
+                            {catFormProcessing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                        </Button>
                     </form>
 
-                    {/* Existing categories overview */}
+                    {/* Hierarchy Tree */}
                     {reportCategories.length > 0 && (
-                        <div className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
-                            <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Kategori Test Saat Ini ({reportCategories.length})</p>
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                                {reportCategories.map((cat) => (
-                                    <div key={cat.id} className="flex items-center justify-between rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-neutral-700 dark:text-neutral-200">{cat.name}</span>
-                                            <span className="text-[10px] bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-400 font-bold uppercase">{cat.unit === 'duration' ? 'DURASI' : 'REPETISI'}</span>
-                                            <span className="text-neutral-400">{cat.min_threshold} → {cat.max_threshold}</span>
-                                        </div>
+                        <div className="space-y-3">
+                            {reportCategories.map((cat) => (
+                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                    {/* Category Row */}
+                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-4 py-2.5">
+                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
                                         <div className="flex items-center gap-1">
-                                            <button type="button" onClick={() => openEditCategory(cat)} className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-athlix-red transition-colors">
+                                            <button type="button" onClick={() => {
+                                                const name = prompt('Nama sub-kategori baru:', '');
+                                                if (name) router.post(route('report-sub-categories.store'), { report_category_id: cat.id, name }, { preserveScroll: true });
+                                            }} className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-emerald-600 transition-colors" title="Tambah Sub-Kategori">
+                                                <Plus size={13} />
+                                            </button>
+                                            <button type="button" onClick={() => {
+                                                const name = prompt('Ubah nama kategori:', cat.name);
+                                                if (name && name !== cat.name) router.patch(route('report-categories.update', cat.id), { name }, { preserveScroll: true });
+                                            }} className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-blue-600 transition-colors">
                                                 <Pencil size={12} />
                                             </button>
                                             <button type="button" onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
@@ -893,8 +863,85 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                             </button>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+
+                                    {/* Sub-Categories */}
+                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                        {(cat.sub_categories || []).map((sub) => (
+                                            <div key={sub.id} className="px-4 py-2 space-y-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <button type="button" onClick={() => {
+                                                            const name = prompt('Nama test baru:', '');
+                                                            if (name) router.post(route('report-tests.store'), {
+                                                                report_sub_category_id: sub.id, name, unit: 'repetition', min_threshold: 0, max_threshold: 100
+                                                            }, { preserveScroll: true });
+                                                        }} className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-emerald-600 transition-colors" title="Tambah Test">
+                                                            <Plus size={11} />
+                                                        </button>
+                                                        <button type="button" onClick={() => {
+                                                            const name = prompt('Ubah nama sub-kategori:', sub.name);
+                                                            if (name && name !== sub.name) router.patch(route('report-sub-categories.update', sub.id), { name }, { preserveScroll: true });
+                                                        }} className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-blue-600 transition-colors">
+                                                            <Pencil size={10} />
+                                                        </button>
+                                                        <button type="button" onClick={() => {
+                                                            if (confirm(`Hapus sub-kategori "${sub.name}" beserta semua testnya?`))
+                                                                router.delete(route('report-sub-categories.destroy', sub.id), { preserveScroll: true });
+                                                        }} className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Tests */}
+                                                {(sub.tests || []).map((test) => (
+                                                    <div key={test.id} className="flex items-center justify-between rounded-md bg-neutral-50/70 dark:bg-neutral-900/30 px-3 py-1.5 text-[11px]">
+                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                            <span className="font-bold text-neutral-600 dark:text-neutral-300 truncate">{test.name}</span>
+                                                            <span className="shrink-0 bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 font-bold uppercase text-[9px]">
+                                                                {test.unit === 'duration' ? 'DUR' : 'REP'}
+                                                            </span>
+                                                            <span className="text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
+                                                            {test.max_duration_seconds ? <span className="text-neutral-400 shrink-0">({test.max_duration_seconds}s)</span> : null}
+                                                        </div>
+                                                        <div className="flex items-center gap-0.5 shrink-0">
+                                                            <button type="button" onClick={() => {
+                                                                const name = prompt('Nama test:', test.name);
+                                                                if (!name) return;
+                                                                const unit = prompt('Tipe (repetition/duration):', test.unit);
+                                                                const min = prompt('Min threshold:', String(test.min_threshold));
+                                                                const max = prompt('Max threshold:', String(test.max_threshold));
+                                                                const dur = prompt('Max durasi (detik, kosong=tidak ada):', String(test.max_duration_seconds || ''));
+                                                                router.patch(route('report-tests.update', test.id), {
+                                                                    name, unit: unit || test.unit,
+                                                                    min_threshold: parseFloat(min) || 0, max_threshold: parseFloat(max) || 100,
+                                                                    max_duration_seconds: dur ? parseInt(dur) : null,
+                                                                }, { preserveScroll: true });
+                                                            }} className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-blue-600 transition-colors">
+                                                                <Pencil size={10} />
+                                                            </button>
+                                                            <button type="button" onClick={() => {
+                                                                if (confirm(`Hapus test "${test.name}"?`))
+                                                                    router.delete(route('report-tests.destroy', test.id), { preserveScroll: true });
+                                                            }} className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
+                                                                <Trash2 size={10} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                {(sub.tests || []).length === 0 && (
+                                                    <p className="text-[10px] text-neutral-400 italic pl-3">Belum ada test. Klik + untuk menambah.</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {(cat.sub_categories || []).length === 0 && (
+                                            <p className="text-xs text-neutral-400 italic px-4 py-3">Belum ada sub-kategori. Klik + pada header untuk menambah.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

@@ -61,6 +61,12 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/report-categories', [AthleteController::class, 'storeReportCategory'])->name('report-categories.store');
         Route::patch('/report-categories/{reportCategory}', [AthleteController::class, 'updateReportCategory'])->name('report-categories.update');
         Route::delete('/report-categories/{reportCategory}', [AthleteController::class, 'destroyReportCategory'])->name('report-categories.destroy');
+        Route::post('/report-sub-categories', [AthleteController::class, 'storeReportSubCategory'])->name('report-sub-categories.store');
+        Route::patch('/report-sub-categories/{reportSubCategory}', [AthleteController::class, 'updateReportSubCategory'])->name('report-sub-categories.update');
+        Route::delete('/report-sub-categories/{reportSubCategory}', [AthleteController::class, 'destroyReportSubCategory'])->name('report-sub-categories.destroy');
+        Route::post('/report-tests', [AthleteController::class, 'storeReportTest'])->name('report-tests.store');
+        Route::patch('/report-tests/{reportTest}', [AthleteController::class, 'updateReportTest'])->name('report-tests.update');
+        Route::delete('/report-tests/{reportTest}', [AthleteController::class, 'destroyReportTest'])->name('report-tests.destroy');
 
         Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
         Route::post('/finance/generate', [FinanceController::class, 'generateMonthly'])->name('finance.generate');

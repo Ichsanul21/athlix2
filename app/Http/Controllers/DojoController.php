@@ -161,19 +161,29 @@ class DojoController extends Controller
             );
         }
 
-        // Setup default report categories
-        $defaultCategories = [
-            ['name' => 'Power', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
-            ['name' => 'Strength', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
-            ['name' => 'Endurance', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
-            ['name' => 'Speed', 'unit' => 'duration', 'min_threshold' => 30, 'max_threshold' => 10], // e.g. lower time is better
-            ['name' => 'Agility', 'unit' => 'duration', 'min_threshold' => 20, 'max_threshold' => 5],
-            ['name' => 'Core', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
-            ['name' => 'Flexibility', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
+        // Setup default 3-level report hierarchy
+        $defaults = [
+            'Power' => [['sub' => 'Upper Body', 'tests' => [['name' => 'Standing Long Jump', 'unit' => 'repetition', 'min' => 0, 'max' => 100], ['name' => 'Medicine Ball Throw', 'unit' => 'repetition', 'min' => 0, 'max' => 100]]], ['sub' => 'Lower Body', 'tests' => [['name' => 'Box Jump', 'unit' => 'repetition', 'min' => 0, 'max' => 50]]]],
+            'Strength' => [['sub' => 'Upper Body', 'tests' => [['name' => 'Push Up', 'unit' => 'repetition', 'min' => 0, 'max' => 100, 'dur' => 60], ['name' => 'Pull Up', 'unit' => 'repetition', 'min' => 0, 'max' => 30]]], ['sub' => 'Lower Body', 'tests' => [['name' => 'Squat', 'unit' => 'repetition', 'min' => 0, 'max' => 100, 'dur' => 60]]]],
+            'Endurance' => [['sub' => 'Cardio', 'tests' => [['name' => 'Lari 12 Menit', 'unit' => 'repetition', 'min' => 0, 'max' => 3000]]]],
+            'Speed' => [['sub' => 'Sprint', 'tests' => [['name' => 'Sprint 30m', 'unit' => 'duration', 'min' => 10, 'max' => 3]]]],
+            'Agility' => [['sub' => 'Shuttle', 'tests' => [['name' => 'Shuttle Run', 'unit' => 'duration', 'min' => 20, 'max' => 8], ['name' => 'T-Test', 'unit' => 'duration', 'min' => 15, 'max' => 8]]]],
+            'Core' => [['sub' => 'Perut', 'tests' => [['name' => 'Sit Up', 'unit' => 'repetition', 'min' => 0, 'max' => 100, 'dur' => 60], ['name' => 'Plank Hold', 'unit' => 'duration', 'min' => 0, 'max' => 180]]]],
+            'Flexibility' => [['sub' => 'General', 'tests' => [['name' => 'Sit and Reach', 'unit' => 'repetition', 'min' => 0, 'max' => 50]]]],
         ];
 
-        foreach ($defaultCategories as $category) {
-            \App\Models\ReportCategory::create(array_merge($category, ['dojo_id' => $dojo->id]));
+        foreach ($defaults as $catName => $subItems) {
+            $cat = \App\Models\ReportCategory::create(['name' => $catName, 'dojo_id' => $dojo->id]);
+            foreach ($subItems as $si => $subItem) {
+                $sub = \App\Models\ReportSubCategory::create(['report_category_id' => $cat->id, 'name' => $subItem['sub'], 'sort_order' => $si]);
+                foreach ($subItem['tests'] as $ti => $test) {
+                    \App\Models\ReportTest::create([
+                        'report_sub_category_id' => $sub->id, 'name' => $test['name'],
+                        'unit' => $test['unit'], 'min_threshold' => $test['min'], 'max_threshold' => $test['max'],
+                        'max_duration_seconds' => $test['dur'] ?? null, 'sort_order' => $ti,
+                    ]);
+                }
+            }
         }
 
         return back()->with('success', 'Dojo berhasil ditambahkan beserta admin dan rapor tes bawaan.');

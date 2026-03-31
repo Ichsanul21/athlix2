@@ -6,6 +6,8 @@ use App\Models\Attendance;
 use App\Models\Athlete;
 use App\Models\Dojo;
 use App\Models\FinanceRecord;
+use App\Models\TrainingProgram;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -296,12 +298,17 @@ class AttendanceController extends Controller
 
     private function recordAttendance(Athlete $athlete, string $action = 'checkin', array $payload = []): Attendance
     {
+        // Auto-close stale check-ins from previous days
+        $this->autoCloseStaleCheckIns($athlete);
+
         $attendance = Attendance::query()
             ->where('athlete_id', $athlete->id)
             ->whereDate('recorded_at', now()->toDateString())
             ->first();
 
         if ($action === 'checkin') {
+            // Validate training schedule
+            $this->ensureTrainingScheduleToday($athlete);
             $this->ensureAthleteHasNoOutstandingBills($athlete);
 
             if ($attendance && $attendance->check_in_at) {
@@ -447,4 +454,42 @@ class AttendanceController extends Controller
         return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $value)) ?: null;
     }
 
+    /**
+     * Check if there's a training program scheduled today for the athlete's dojo.
+     */
+    private function ensureTrainingScheduleToday(Athlete $athlete): void
+    {
+        $dojoId = $athlete->dojo_id;
+        if (! $dojoId) return;
+
+        $dayMap = [
+            'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu',
+        ];
+        $todayIndo = $dayMap[Carbon::now()->format('l')] ?? 'Senin';
+
+        $hasProgram = TrainingProgram::where('dojo_id', $dojoId)
+            ->where('day', $todayIndo)
+            ->exists();
+
+        if (! $hasProgram) {
+            throw ValidationException::withMessages([
+                'athlete_code' => "Tidak ada jadwal latihan hari ini ({$todayIndo}). Check-in tidak dapat dilakukan.",
+            ]);
+        }
+    }
+
+    /**
+     * Auto-close any check-in from previous days that was never checked out.
+     */
+    private function autoCloseStaleCheckIns(Athlete $athlete): void
+    {
+        Attendance::query()
+            ->where('athlete_id', $athlete->id)
+            ->whereNotNull('check_in_at')
+            ->whereNull('check_out_at')
+            ->whereDate('recorded_at', '<', now()->toDateString())
+            ->update(['check_out_at' => \DB::raw('check_in_at')]);
+    }
 }
+

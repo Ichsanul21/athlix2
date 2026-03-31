@@ -382,22 +382,18 @@ class AthleteController extends Controller
 
         $reportCategories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
             ->orWhereNull('dojo_id')
+            ->with(['subCategories.tests'])
+            ->orderBy('sort_order')
             ->get();
 
         $latestDynamicScores = is_array($latestReport?->dynamic_scores) ? $latestReport->dynamic_scores : json_decode($latestReport?->dynamic_scores ?? '{}', true) ?? [];
+
+        // Build category-level scores from snapshot or fallback
         $categories = [];
         foreach ($reportCategories as $cat) {
-            $score = 0;
-            if (isset($latestDynamicScores[$cat->id])) {
-                $score = $latestDynamicScores[$cat->id]['scaled_score'] ?? 0;
-            } else {
-                // Example fallback computation taking elements from $attendanceRate or $bmiScore
-                $score = max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2)));
-            }
-            $categories[] = [
-                'label' => $cat->name,
-                'score' => (int) $score
-            ];
+            $catSnapshot = $latestDynamicScores['categories'][$cat->id] ?? null;
+            $score = $catSnapshot['score'] ?? max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2)));
+            $categories[] = ['label' => $cat->name, 'score' => (int) $score];
         }
 
         $performance = [
@@ -420,9 +416,9 @@ class AthleteController extends Controller
             'latestReport' => Inertia::defer(fn () => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,
-                'dynamic_scores' => is_array($latestReport->dynamic_scores) ? $latestReport->dynamic_scores : json_decode($latestReport->dynamic_scores ?? '{}', true) ?? [],
+                'dynamic_scores' => $latestDynamicScores,
                 'notes' => $latestReport->notes,
-                'recorded_at' => optional($latestReport->recorded_at)->toDateString() ?? now()->toDateString(),
+                'recorded_at' => optional($latestReport->recorded_at)?->toDateString() ?? now()->toDateString(),
             ] : null),
         ]);
     }
@@ -437,36 +433,74 @@ class AthleteController extends Controller
 
         $validated = $request->validate([
             'condition_percentage' => 'required|integer|min:0|max:100',
-            'dynamic_scores' => 'required|array',
-            'dynamic_scores.*' => 'required|numeric|min:0',
+            'test_values' => 'required|array',
+            'test_values.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
             'recorded_at' => 'required|date',
         ]);
 
-        $reportCategories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+        // Load the full hierarchy for this dojo
+        $categories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
             ->orWhereNull('dojo_id')
-            ->get()
-            ->keyBy('id');
+            ->with(['subCategories.tests'])
+            ->orderBy('sort_order')
+            ->get();
 
-        $computedScores = [];
-        foreach ($validated['dynamic_scores'] as $categoryId => $rawValue) {
-            $category = $reportCategories->get($categoryId);
-            if ($category) {
-                $computedScores[$categoryId] = [
-                    'category_id' => $category->id,
-                    'name' => $category->name,
-                    'unit' => $category->unit,
-                    'raw_value' => (float) $rawValue,
-                    'scaled_score' => $category->calculateScore((float) $rawValue),
+        // Build the full JSON snapshot with bottom-up score calculation
+        $snapshot = ['categories' => [], 'sub_categories' => [], 'tests' => []];
+
+        foreach ($categories as $cat) {
+            $subScores = [];
+
+            foreach ($cat->subCategories as $sub) {
+                $testScores = [];
+
+                foreach ($sub->tests as $test) {
+                    $rawValue = (float) ($validated['test_values'][$test->id] ?? 0);
+                    $scaledScore = $test->calculateScore($rawValue);
+
+                    $snapshot['tests'][$test->id] = [
+                        'test_id' => $test->id,
+                        'test_name' => $test->name,
+                        'sub_category_name' => $sub->name,
+                        'category_name' => $cat->name,
+                        'unit' => $test->unit,
+                        'min_threshold' => $test->min_threshold,
+                        'max_threshold' => $test->max_threshold,
+                        'max_duration_seconds' => $test->max_duration_seconds,
+                        'raw_value' => $rawValue,
+                        'scaled_score' => $scaledScore,
+                    ];
+
+                    $testScores[] = $scaledScore;
+                }
+
+                $subAvg = count($testScores) > 0 ? (int) round(array_sum($testScores) / count($testScores)) : 0;
+                $snapshot['sub_categories'][$sub->id] = [
+                    'sub_category_id' => $sub->id,
+                    'name' => $sub->name,
+                    'category_name' => $cat->name,
+                    'score' => $subAvg,
+                    'test_count' => count($testScores),
                 ];
+
+                $subScores[] = $subAvg;
             }
+
+            $catAvg = count($subScores) > 0 ? (int) round(array_sum($subScores) / count($subScores)) : 0;
+            $snapshot['categories'][$cat->id] = [
+                'category_id' => $cat->id,
+                'name' => $cat->name,
+                'score' => $catAvg,
+                'sub_category_count' => count($subScores),
+            ];
         }
 
         \App\Models\AthleteReport::create([
             'condition_percentage' => $validated['condition_percentage'],
             'notes' => $validated['notes'] ?? null,
             'recorded_at' => $validated['recorded_at'],
-            'dynamic_scores' => $computedScores,
+            'dynamic_scores' => $snapshot,
             'athlete_id' => $athlete->id,
             'evaluator_id' => auth()->id(),
         ]);
@@ -501,21 +535,172 @@ class AthleteController extends Controller
         return back()->with('success', 'Prestasi atlet berhasil ditambahkan.');
     }
 
-    public function destroyAchievement(Athlete $athlete, AthleteAchievement $achievement)
+    public function destroyAchievement(Athlete $athlete, $achievementId)
     {
         $this->ensureAthleteAccessible($athlete, auth()->user());
+        $athlete->achievements()->findOrFail($achievementId)->delete();
 
-        if ($achievement->athlete_id !== $athlete->id) {
-            abort(404);
-        }
+        return back()->with('success', 'Prestasi atlet berhasil dihapus.');
+    }
 
-        if ($achievement->certificate_path && Storage::disk('public')->exists($achievement->certificate_path)) {
-            Storage::disk('public')->delete($achievement->certificate_path);
-        }
+    // â”€â”€ Report Hierarchy CRUD (Sensei manages categories, sub-categories, tests) â”€â”€
 
-        $achievement->delete();
+    public function storeReportCategory(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
 
-        return back()->with('success', 'Data prestasi berhasil dihapus.');
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'dojo_id' => 'required|integer|exists:dojos,id',
+        ]);
+
+        $cat = \App\Models\ReportCategory::create($validated);
+
+        return back()->with('success', "Kategori \"{$cat->name}\" berhasil ditambahkan.");
+    }
+
+    public function updateReportCategory(Request $request, \App\Models\ReportCategory $reportCategory)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $validated = $request->validate(['name' => 'required|string|max:100']);
+        $reportCategory->update($validated);
+
+        return back()->with('success', "Kategori \"{$validated['name']}\" berhasil diperbarui.");
+    }
+
+    public function destroyReportCategory(\App\Models\ReportCategory $reportCategory)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $name = $reportCategory->name;
+        $reportCategory->delete();
+
+        return back()->with('success', "Kategori \"{$name}\" berhasil dihapus.");
+    }
+
+    public function storeReportSubCategory(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $validated = $request->validate([
+            'report_category_id' => 'required|integer|exists:report_categories,id',
+            'name' => 'required|string|max:100',
+        ]);
+
+        \App\Models\ReportSubCategory::create($validated);
+
+        return back()->with('success', "Sub-kategori \"{$validated['name']}\" berhasil ditambahkan.");
+    }
+
+    public function updateReportSubCategory(Request $request, \App\Models\ReportSubCategory $reportSubCategory)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $validated = $request->validate(['name' => 'required|string|max:100']);
+        $reportSubCategory->update($validated);
+
+        return back()->with('success', "Sub-kategori \"{$validated['name']}\" berhasil diperbarui.");
+    }
+
+    public function destroyReportSubCategory(\App\Models\ReportSubCategory $reportSubCategory)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $name = $reportSubCategory->name;
+        $reportSubCategory->delete();
+
+        return back()->with('success', "Sub-kategori \"{$name}\" berhasil dihapus.");
+    }
+
+    public function storeReportTest(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $validated = $request->validate([
+            'report_sub_category_id' => 'required|integer|exists:report_sub_categories,id',
+            'name' => 'required|string|max:100',
+            'unit' => 'required|in:duration,repetition',
+            'min_threshold' => 'required|numeric|min:0',
+            'max_threshold' => 'required|numeric|min:0',
+            'max_duration_seconds' => 'nullable|integer|min:0',
+        ]);
+
+        \App\Models\ReportTest::create($validated);
+
+        return back()->with('success', "Test \"{$validated['name']}\" berhasil ditambahkan.");
+    }
+
+    public function updateReportTest(Request $request, \App\Models\ReportTest $reportTest)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'unit' => 'required|in:duration,repetition',
+            'min_threshold' => 'required|numeric|min:0',
+            'max_threshold' => 'required|numeric|min:0',
+            'max_duration_seconds' => 'nullable|integer|min:0',
+        ]);
+
+        $reportTest->update($validated);
+
+        return back()->with('success', "Test \"{$validated['name']}\" berhasil diperbarui.");
+    }
+
+    public function destroyReportTest(\App\Models\ReportTest $reportTest)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+
+        $name = $reportTest->name;
+        $reportTest->delete();
+
+        return back()->with('success', "Test \"{$name}\" berhasil dihapus.");
+    }
+
+    // â”€â”€ Helper methods â”€â”€
+
+    private function ensureAthleteAccessible(Athlete $athlete, $user): void
+    {
+        if ($user?->isSuperAdmin()) return;
+        if ($user?->isSensei() && (int) $athlete->dojo_id === (int) $user->dojo_id) return;
+        if ($user?->isDojoAdmin() && (int) $athlete->dojo_id === (int) $user->dojo_id) return;
+        abort(403);
+    }
+
+    private function resolveBmiScore(?float $bmi): int
+    {
+        if (! $bmi) return 0;
+        if ($bmi >= 18.5 && $bmi <= 24.9) return 92;
+        if ($bmi < 18.5) return (int) max(55, 82 - (18.5 - $bmi) * 6);
+        return (int) max(50, 82 - ($bmi - 24.9) * 4);
+    }
+
+    private function resolveConditionScore(?float $bmi, float $attendanceRate): int
+    {
+        $bmiScore = $this->resolveBmiScore($bmi);
+        return max(0, min(100, (int) round(($bmiScore * 0.6) + ($attendanceRate * 0.4))));
+    }
+
+    private function resolveAbilityStatus(array $scores): string
+    {
+        if (empty($scores)) return 'Belum Dinilai';
+
+        $average = (int) round(collect($scores)->avg());
+
+        if ($average >= 85) return 'Sangat Baik';
+        if ($average >= 70) return 'Baik';
+        if ($average >= 55) return 'Cukup';
+        return 'Perlu Pembinaan';
     }
 
     public function update(Request $request, Athlete $athlete)
@@ -550,7 +735,6 @@ class AthleteController extends Controller
             throw ValidationException::withMessages(['phone_number' => 'No HP atlet harus diawali 08 dan hanya berisi angka.']);
         }
 
-        // Ensure phone is not taken by another athlete
         if (Athlete::where('phone_number', $athletePhone)->where('id', '!=', $athlete->id)->exists()) {
             throw ValidationException::withMessages(['phone_number' => 'No HP atlet sudah digunakan atlet lain.']);
         }
@@ -558,7 +742,6 @@ class AthleteController extends Controller
         $validated['phone_number'] = $athletePhone;
         $validated['class_note'] = $validated['class_note'] ?: 'Umum';
 
-        // Handle file uploads
         if ($request->hasFile('photo')) {
             if ($athlete->photo_path) Storage::disk('public')->delete($athlete->photo_path);
             $validated['photo_path'] = $request->file('photo')->store('athletes/photos', 'public');
@@ -576,7 +759,6 @@ class AthleteController extends Controller
             $validated['doc_ktp_path'] = $request->file('doc_ktp')->store('athletes/documents', 'public');
         }
 
-        // Update parent/guardian if provided
         $parentName = trim((string) ($validated['parent_name'] ?? ''));
         $parentRelationType = trim((string) ($validated['parent_relation_type'] ?? '')) ?: 'parent';
         $parentEmail = isset($validated['parent_email']) && trim((string) $validated['parent_email']) !== ''
@@ -596,7 +778,6 @@ class AthleteController extends Controller
 
         $athlete->update($validated);
 
-        // Sync user account phone + name
         $athleteUser = User::where('athlete_id', $athlete->id)->first();
         if ($athleteUser) {
             $athleteUser->update([
@@ -605,7 +786,6 @@ class AthleteController extends Controller
             ]);
         }
 
-        // Update guardian if parentName was provided
         if ($parentName) {
             $rawParentPhone = $this->normalizePhoneNumber((string) ($request->input('parent_phone_number', '') ?? ''));
             $primaryGuardian = $athlete->guardians()->wherePivot('is_primary', true)->first();
@@ -628,16 +808,13 @@ class AthleteController extends Controller
         $user = auth()->user();
         $this->ensureAthleteAccessible($athlete, $user);
 
-        // Delete stored files
         foreach (['photo_path', 'doc_kk_path', 'doc_akte_path', 'doc_ktp_path'] as $field) {
             if ($athlete->$field) {
                 Storage::disk('public')->delete($athlete->$field);
             }
         }
 
-        // Delete associated athlete user account
         User::where('athlete_id', $athlete->id)->delete();
-
         $athlete->delete();
 
         return redirect()->route('athletes.index')->with('success', 'Data atlet berhasil dihapus.');
@@ -678,12 +855,8 @@ class AthleteController extends Controller
         $local = Str::before($seedEmail, '@');
         $domain = Str::after($seedEmail, '@');
 
-        if ($local === '') {
-            $local = 'user';
-        }
-        if ($domain === '' || ! str_contains($domain, '.')) {
-            $domain = 'athlix.test';
-        }
+        if ($local === '') $local = 'user';
+        if ($domain === '' || ! str_contains($domain, '.')) $domain = 'athlix.test';
 
         $candidate = "{$local}@{$domain}";
         $suffix = 2;
@@ -697,120 +870,9 @@ class AthleteController extends Controller
 
     private function resolveHealthStatus(?float $bmi): string
     {
-        if (!$bmi) {
-            return 'Pemulihan';
-        }
-
-        if ($bmi >= 18.5 && $bmi <= 24.9) {
-            return 'Prima';
-        }
-
-        if ($bmi > 24.9) {
-            return 'Kelelahan';
-        }
-
+        if (!$bmi) return 'Pemulihan';
+        if ($bmi >= 18.5 && $bmi <= 24.9) return 'Prima';
+        if ($bmi > 24.9) return 'Kelelahan';
         return 'Pemulihan';
-    }
-
-    private function resolveBmiScore(?float $bmi): int
-    {
-        if (! $bmi) {
-            return 0;
-        }
-
-        if ($bmi >= 18.5 && $bmi <= 24.9) {
-            return 92;
-        }
-
-        if ($bmi < 18.5) {
-            return (int) max(55, 82 - (18.5 - $bmi) * 6);
-        }
-
-        return (int) max(50, 82 - ($bmi - 24.9) * 4);
-    }
-
-    private function resolveConditionScore(?float $bmi, int $attendanceRate): int
-    {
-        $bmiScore = $this->resolveBmiScore($bmi);
-        $conditionScore = (int) round((($bmiScore * 0.6) + ($attendanceRate * 0.4)));
-
-        return max(0, min(100, $conditionScore));
-    }
-
-    private function resolveAbilityStatus(array $scores): string
-    {
-        if (empty($scores)) {
-            return 'Belum Dinilai';
-        }
-
-        $average = (int) round(collect($scores)->avg());
-
-        if ($average >= 85) {
-            return 'Sangat Baik';
-        }
-
-        if ($average >= 70) {
-            return 'Baik';
-        }
-
-        if ($average >= 55) {
-            return 'Cukup';
-        }
-
-        return 'Perlu Pembinaan';
-    }
-
-    // ── Report Category CRUD (Sensei manages test labels & thresholds) ──
-
-    public function storeReportCategory(Request $request)
-    {
-        $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'unit' => 'required|in:duration,repetition',
-            'min_threshold' => 'required|numeric|min:0',
-            'max_threshold' => 'required|numeric|min:0',
-            'dojo_id' => 'required|integer|exists:dojos,id',
-        ]);
-
-        \App\Models\ReportCategory::create($validated);
-
-        return back()->with('success', "Kategori test \"{$validated['name']}\" berhasil ditambahkan.");
-    }
-
-    public function updateReportCategory(Request $request, \App\Models\ReportCategory $reportCategory)
-    {
-        $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'unit' => 'required|in:duration,repetition',
-            'min_threshold' => 'required|numeric|min:0',
-            'max_threshold' => 'required|numeric|min:0',
-        ]);
-
-        $reportCategory->update($validated);
-
-        return back()->with('success', "Kategori test \"{$validated['name']}\" berhasil diperbarui.");
-    }
-
-    public function destroyReportCategory(\App\Models\ReportCategory $reportCategory)
-    {
-        $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) {
-            abort(403);
-        }
-
-        $name = $reportCategory->name;
-        $reportCategory->delete();
-
-        return back()->with('success', "Kategori test \"{$name}\" berhasil dihapus.");
     }
 }
