@@ -53,11 +53,21 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [sessionExpired, setSessionExpired] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('session_expired') === '1') {
+            setSessionExpired(true);
+            // Clean the URL so it doesn't show again on refresh
+            window.history.replaceState({}, '', window.location.pathname);
+        }
     }, []);
 
     return (
@@ -418,6 +428,33 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
 
             <style>{`@keyframes scrollX { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
             
+            {/* Session Expired Modal */}
+            {sessionExpired && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center space-y-5 animate-fade-in">
+                        <div className="mx-auto w-16 h-16 rounded-full bg-red-500/10 ring-8 ring-red-500/5 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black uppercase tracking-tight text-white">Sesi Login Berakhir</h3>
+                            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
+                                Masa login Anda telah habis demi keamanan akun. Silakan login kembali untuk melanjutkan.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <Link href={route('login')} className="w-full rounded-xl bg-red-600 px-6 py-3 font-bold text-white shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors text-center text-sm uppercase tracking-widest">
+                                Login Kembali
+                            </Link>
+                            <button onClick={() => setSessionExpired(false)} className="w-full rounded-xl border border-slate-700 px-6 py-3 font-bold text-slate-400 hover:text-white hover:border-slate-500 transition-colors text-sm">
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <RegistrationModal show={showRegistrationModal} onClose={() => setShowRegistrationModal(false)} />
         </>
     );

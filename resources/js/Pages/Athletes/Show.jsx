@@ -6,7 +6,7 @@ import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
-import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck } from 'lucide-react';
+import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, Settings, Plus } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -27,6 +27,49 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
+    const [catFormProcessing, setCatFormProcessing] = useState(false);
+    const [catForm, setCatForm] = useState({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100 });
+
+    const isSensei = auth?.user?.role === 'sensei' || auth?.user?.role === 'head_coach' || auth?.user?.role === 'assistant' || auth?.user?.role === 'super_admin' || auth?.user?.role === 'dojo_admin';
+
+    const resetCatForm = () => setCatForm({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100 });
+
+    const openAddCategory = () => {
+        setEditingCategory(null);
+        resetCatForm();
+        setCategoryModalOpen(true);
+    };
+
+    const openEditCategory = (cat) => {
+        setEditingCategory(cat);
+        setCatForm({ name: cat.name, unit: cat.unit, min_threshold: Number(cat.min_threshold), max_threshold: Number(cat.max_threshold) });
+        setCategoryModalOpen(true);
+    };
+
+    const submitCategory = (e) => {
+        e.preventDefault();
+        setCatFormProcessing(true);
+        if (editingCategory) {
+            router.patch(route('report-categories.update', editingCategory.id), catForm, {
+                preserveScroll: true,
+                onSuccess: () => { setCategoryModalOpen(false); resetCatForm(); },
+                onFinish: () => setCatFormProcessing(false),
+            });
+        } else {
+            router.post(route('report-categories.store'), { ...catForm, dojo_id: athlete.dojo_id }, {
+                preserveScroll: true,
+                onSuccess: () => { setCategoryModalOpen(false); resetCatForm(); },
+                onFinish: () => setCatFormProcessing(false),
+            });
+        }
+    };
+
+    const deleteCategory = (catId) => {
+        if (!confirm('Hapus kategori test ini? Data skor lama yang terkait akan tetap tersimpan.')) return;
+        router.delete(route('report-categories.destroy', catId), { preserveScroll: true });
+    };
     const [selectedReportId, setSelectedReportId] = useState(reportHistory?.[0]?.id ?? latestReport?.id ?? '');
 
     const sortedReports = useMemo(
@@ -371,19 +414,70 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                     </div>
 
                     <Card className="border-neutral-200/80 dark:border-neutral-800">
-                        <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle></CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
+                            {isSensei && (
+                                <Button type="button" variant="outline" size="sm" className="gap-1.5 font-bold text-xs" onClick={openAddCategory}>
+                                    <Settings size={13} /> Kelola Kategori Test
+                                </Button>
+                            )}
+                        </CardHeader>
                         <CardContent className="space-y-3">
-                            {categorySeries.map((item) => (
-                                <div key={item.label} className="space-y-1">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="font-bold uppercase tracking-wider text-neutral-500">{item.label}</span>
-                                        <span className="font-black text-athlix-red">{item.score}</span>
+                            {categorySeries.map((item) => {
+                                const catMeta = reportCategories.find(c => c.name === item.label);
+                                const dynScores = activeReport?.dynamic_scores
+                                    ? (typeof activeReport.dynamic_scores === 'string' ? JSON.parse(activeReport.dynamic_scores) : activeReport.dynamic_scores)
+                                    : {};
+                                const rawEntry = catMeta ? dynScores[catMeta.id] : null;
+                                const rawValue = rawEntry?.raw_value;
+                                const unitLabel = catMeta?.unit === 'duration' ? 'detik' : 'kali';
+                                const scoreColor = item.score >= 80 ? 'text-emerald-600' : item.score >= 50 ? 'text-amber-600' : 'text-athlix-red';
+
+                                return (
+                                    <div key={item.label} className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold uppercase tracking-wider text-neutral-500">{item.label}</span>
+                                                {catMeta && (
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+                                                        {catMeta.unit === 'duration' ? 'DURASI' : 'REPETISI'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {rawValue !== undefined && rawValue !== null && (
+                                                    <span className="text-neutral-400 font-medium">{rawValue} {unitLabel}</span>
+                                                )}
+                                                <span className={`font-black text-sm ${scoreColor}`}>{item.score}<span className="text-neutral-400 text-[10px] font-bold">/100</span></span>
+                                            </div>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${item.score >= 80 ? 'bg-emerald-500' : item.score >= 50 ? 'bg-amber-500' : 'bg-athlix-red'}`} style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
+                                        </div>
+                                        {catMeta && (
+                                            <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                                                <span>Threshold: {catMeta.min_threshold} → {catMeta.max_threshold} {unitLabel}</span>
+                                                {isSensei && (
+                                                    <div className="flex items-center gap-1">
+                                                        <button type="button" onClick={() => openEditCategory(catMeta)} className="p-0.5 hover:text-athlix-red transition-colors"><Pencil size={10} /></button>
+                                                        <button type="button" onClick={() => deleteCategory(catMeta.id)} className="p-0.5 hover:text-red-600 transition-colors"><Trash2 size={10} /></button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="h-2 rounded-full bg-neutral-100 overflow-hidden">
-                                        <div className="h-full rounded-full bg-athlix-red" style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
-                                    </div>
+                                );
+                            })}
+                            {categorySeries.length === 0 && (
+                                <div className="text-center py-8 space-y-3">
+                                    <p className="text-sm text-neutral-400">Belum ada kategori test. Sensei perlu mengkonfigurasi label test terlebih dahulu.</p>
+                                    {isSensei && (
+                                        <Button type="button" variant="outline" className="gap-1.5" onClick={openAddCategory}>
+                                            <Plus size={14} /> Tambah Kategori Test
+                                        </Button>
+                                    )}
                                 </div>
-                            ))}
+                            )}
                         </CardContent>
                     </Card>
 
@@ -552,31 +646,95 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 </div>
             </Modal>
 
-            {/* ── Report Modal ── */}
-            <Modal show={reportModalOpen} onClose={() => setReportModalOpen(false)} maxWidth="4xl">
-                <form onSubmit={submitReport} className="p-6 space-y-4">
-                    <h3 className="text-lg font-black uppercase tracking-tight">Input Rapor Kemampuan Atlet</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {reportCategories.map((field) => (
-                            <label key={field.id} className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                                {field.name} {field.unit === 'duration' ? '(detik)' : '(repetisi)'}
-                                <input type="number" step="0.1" min="0" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.dynamic_scores[field.id] !== undefined ? reportForm.data.dynamic_scores[field.id] : 0} onChange={(e) => {
-                                    const curr = { ...reportForm.data.dynamic_scores };
-                                    curr[field.id] = parseFloat(e.target.value) || 0;
-                                    reportForm.setData('dynamic_scores', curr);
-                                }} required />
-                            </label>
-                        ))}
+            {/* ── Report Modal — Input Raw Value + Threshold preview ── */}
+            <Modal show={reportModalOpen} onClose={() => setReportModalOpen(false)} maxWidth="2xl">
+                <form onSubmit={submitReport} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+                    <div>
+                        <h3 className="text-lg font-black uppercase tracking-tight">Input Rapor Kemampuan Atlet</h3>
+                        <p className="text-xs text-neutral-500 mt-1">Masukkan nilai mentah (raw). Skor 1-100 akan dihitung otomatis berdasarkan threshold yang dikonfigurasi.</p>
+                    </div>
+
+                    <div className="space-y-3">
+                        {reportCategories.map((field) => {
+                            const rawVal = reportForm.data.dynamic_scores[field.id] !== undefined ? reportForm.data.dynamic_scores[field.id] : 0;
+                            const unitLabel = field.unit === 'duration' ? 'detik' : 'kali';
+                            const isLowerBetter = field.max_threshold < field.min_threshold;
+
+                            // Calculate preview score locally
+                            let previewScore = 0;
+                            const minT = Number(field.min_threshold);
+                            const maxT = Number(field.max_threshold);
+                            const rv = Number(rawVal);
+                            if (minT === maxT) {
+                                previewScore = rv >= maxT ? 100 : 0;
+                            } else if (maxT > minT) {
+                                if (rv <= minT) previewScore = 0;
+                                else if (rv >= maxT) previewScore = 100;
+                                else previewScore = Math.round(((rv - minT) / (maxT - minT)) * 100);
+                            } else {
+                                if (rv >= minT) previewScore = 0;
+                                else if (rv <= maxT) previewScore = 100;
+                                else previewScore = Math.round(((minT - rv) / (minT - maxT)) * 100);
+                            }
+                            previewScore = Math.max(0, Math.min(100, previewScore));
+
+                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-600';
+
+                            return (
+                                <div key={field.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <span className="text-sm font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{field.name}</span>
+                                            <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded">{field.unit === 'duration' ? 'DURASI' : 'REPETISI'}</span>
+                                        </div>
+                                        <span className={`text-lg font-black ${scoreColor}`}>{previewScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            min="0"
+                                            className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm"
+                                            value={rawVal}
+                                            onChange={(e) => {
+                                                const curr = { ...reportForm.data.dynamic_scores };
+                                                curr[field.id] = parseFloat(e.target.value) || 0;
+                                                reportForm.setData('dynamic_scores', curr);
+                                            }}
+                                            placeholder={`Masukkan ${unitLabel}`}
+                                            required
+                                        />
+                                        <span className="text-xs font-bold text-neutral-500 shrink-0 w-12">{unitLabel}</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-[10px] text-neutral-400">
+                                        <span>Threshold: {isLowerBetter ? `${minT} ${unitLabel} (0) → ${maxT} ${unitLabel} (100)` : `${minT} ${unitLabel} (0) → ${maxT} ${unitLabel} (100)`}</span>
+                                        {isLowerBetter && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">Makin rendah makin bagus</span>}
+                                    </div>
+
+                                    {/* Score preview bar */}
+                                    <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Kondisi Fisik (%)
-                            <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.condition_percentage} onChange={(e) => reportForm.setData('condition_percentage', e.target.value)} required />
+                            <input type="number" min="0" max="100" className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.condition_percentage} onChange={(e) => reportForm.setData('condition_percentage', e.target.value)} required />
                         </label>
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1 md:col-span-2">
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tanggal Penilaian
-                            <input type="date" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
+                            <input type="date" className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
                         </label>
                     </div>
-                    <textarea className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm min-h-24" value={reportForm.data.notes} onChange={(e) => reportForm.setData('notes', e.target.value)} placeholder="Catatan rapor..." />
+
+                    <textarea className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm min-h-20" value={reportForm.data.notes} onChange={(e) => reportForm.setData('notes', e.target.value)} placeholder="Catatan rapor dari sensei..." />
+
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => setReportModalOpen(false)}>Batal</Button>
                         <Button type="submit" disabled={reportForm.processing}>{reportForm.processing ? 'Menyimpan...' : 'Simpan Rapor'}</Button>
@@ -609,6 +767,132 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <Button type="submit" disabled={achievementForm.processing}>{achievementForm.processing ? 'Menyimpan...' : 'Simpan Prestasi'}</Button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* ── Category Management Modal ── */}
+            <Modal show={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} maxWidth="lg">
+                <div className="p-6 space-y-5">
+                    <div>
+                        <h3 className="text-lg font-black uppercase tracking-tight">
+                            {editingCategory ? 'Edit Kategori Test' : 'Tambah Kategori Test Baru'}
+                        </h3>
+                        <p className="text-xs text-neutral-500 mt-1">
+                            Konfigurasi label test, tipe pengukuran (durasi/repetisi), dan threshold batas bawah-atas untuk menghitung skor 1-100.
+                        </p>
+                    </div>
+
+                    <form onSubmit={submitCategory} className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Nama Label Test *</label>
+                            <Input
+                                value={catForm.name}
+                                onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+                                placeholder="Contoh: Power, Strength, Speed..."
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tipe Pengukuran *</label>
+                            <DbSelect
+                                inputId="cat-unit"
+                                options={[
+                                    { value: 'repetition', label: 'Repetisi (kali)' },
+                                    { value: 'duration', label: 'Durasi (detik)' },
+                                ]}
+                                value={catForm.unit}
+                                onChange={(val) => setCatForm({ ...catForm, unit: val })}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                                    Threshold Bawah (Skor 0)
+                                </label>
+                                <Input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={catForm.min_threshold}
+                                    onChange={(e) => setCatForm({ ...catForm, min_threshold: parseFloat(e.target.value) || 0 })}
+                                    required
+                                />
+                                <p className="text-[10px] text-neutral-400">Nilai mentah di bawah/sama dengan ini = skor 0</p>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                                    Threshold Atas (Skor 100)
+                                </label>
+                                <Input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={catForm.max_threshold}
+                                    onChange={(e) => setCatForm({ ...catForm, max_threshold: parseFloat(e.target.value) || 0 })}
+                                    required
+                                />
+                                <p className="text-[10px] text-neutral-400">Nilai mentah di atas/sama dengan ini = skor 100</p>
+                            </div>
+                        </div>
+
+                        {/* Explanation card */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 space-y-2">
+                            <p className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Cara Kerja Skor:</p>
+                            <div className="text-[11px] text-neutral-500 space-y-1">
+                                {catForm.max_threshold > catForm.min_threshold ? (
+                                    <>
+                                        <p>• <strong>Makin tinggi makin bagus</strong> (cocok untuk repetisi)</p>
+                                        <p>• Nilai ≤ {catForm.min_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-red-600">0</strong></p>
+                                        <p>• Nilai ≥ {catForm.max_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-emerald-600">100</strong></p>
+                                    </>
+                                ) : catForm.max_threshold < catForm.min_threshold ? (
+                                    <>
+                                        <p>• <strong>Makin rendah makin bagus</strong> (cocok untuk durasi/speed)</p>
+                                        <p>• Nilai ≥ {catForm.min_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-red-600">0</strong></p>
+                                        <p>• Nilai ≤ {catForm.max_threshold} {catForm.unit === 'duration' ? 'detik' : 'kali'} = Skor <strong className="text-emerald-600">100</strong></p>
+                                    </>
+                                ) : (
+                                    <p>• Threshold atas dan bawah sama — setiap nilai mentah ≥ batas = <strong>100</strong>, di bawah = <strong>0</strong>.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-1">
+                            <Button type="button" variant="outline" onClick={() => setCategoryModalOpen(false)}>Batal</Button>
+                            <Button type="submit" disabled={catFormProcessing}>
+                                {catFormProcessing ? <Loader2 size={14} className="animate-spin mr-1.5" /> : null}
+                                {editingCategory ? 'Simpan Perubahan' : 'Tambah Kategori'}
+                            </Button>
+                        </div>
+                    </form>
+
+                    {/* Existing categories overview */}
+                    {reportCategories.length > 0 && (
+                        <div className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+                            <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Kategori Test Saat Ini ({reportCategories.length})</p>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {reportCategories.map((cat) => (
+                                    <div key={cat.id} className="flex items-center justify-between rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                            <span className="text-[10px] bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-400 font-bold uppercase">{cat.unit === 'duration' ? 'DURASI' : 'REPETISI'}</span>
+                                            <span className="text-neutral-400">{cat.min_threshold} → {cat.max_threshold}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button type="button" onClick={() => openEditCategory(cat)} className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-athlix-red transition-colors">
+                                                <Pencil size={12} />
+                                            </button>
+                                            <button type="button" onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </Modal>
         </AdminLayout>
     );

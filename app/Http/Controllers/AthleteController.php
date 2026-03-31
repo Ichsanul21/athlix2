@@ -759,4 +759,58 @@ class AthleteController extends Controller
 
         return 'Perlu Pembinaan';
     }
+
+    // ── Report Category CRUD (Sensei manages test labels & thresholds) ──
+
+    public function storeReportCategory(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'unit' => 'required|in:duration,repetition',
+            'min_threshold' => 'required|numeric|min:0',
+            'max_threshold' => 'required|numeric|min:0',
+            'dojo_id' => 'required|integer|exists:dojos,id',
+        ]);
+
+        \App\Models\ReportCategory::create($validated);
+
+        return back()->with('success', "Kategori test \"{$validated['name']}\" berhasil ditambahkan.");
+    }
+
+    public function updateReportCategory(Request $request, \App\Models\ReportCategory $reportCategory)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'unit' => 'required|in:duration,repetition',
+            'min_threshold' => 'required|numeric|min:0',
+            'max_threshold' => 'required|numeric|min:0',
+        ]);
+
+        $reportCategory->update($validated);
+
+        return back()->with('success', "Kategori test \"{$validated['name']}\" berhasil diperbarui.");
+    }
+
+    public function destroyReportCategory(\App\Models\ReportCategory $reportCategory)
+    {
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) {
+            abort(403);
+        }
+
+        $name = $reportCategory->name;
+        $reportCategory->delete();
+
+        return back()->with('success', "Kategori test \"{$name}\" berhasil dihapus.");
+    }
 }
