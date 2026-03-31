@@ -10,6 +10,7 @@ class AthleteReport extends Model
 
     protected $casts = [
         'recorded_at' => 'date',
+        'dynamic_scores' => 'array',
     ];
 
     public function athlete()
