@@ -101,6 +101,26 @@ export default function Edit({ auth, mustVerifyEmail, status, profilePhotoUrl, a
                                 </Card>
                             )}
 
+                            {(athleteData?.linked_athletes && auth.user.role === 'parent') && (
+                                <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                    <CardHeader className="pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                                        <CardTitle className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                            <User size={14} /> Atlet Tertaut
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-4 space-y-3">
+                                        {athleteData.linked_athletes.length > 0 ? athleteData.linked_athletes.map(linked => (
+                                            <div key={linked.id} className="text-sm border-b border-neutral-100/50 last:border-0 pb-3 last:pb-0">
+                                                <p className="font-semibold">{linked.full_name} <span className="font-normal text-xs text-neutral-400">({linked.relation_type})</span></p>
+                                                <p className="text-xs text-athlix-red font-semibold">{linked.belt || '-'}</p>
+                                            </div>
+                                        )) : (
+                                            <p className="text-xs text-neutral-500">Belum ada atlet yang ditautkan ke akun ini.</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             {dojoData && (
                                 <Card className="border-neutral-200/80 dark:border-neutral-800">
                                     <CardHeader className="pb-3 border-b border-neutral-100 dark:border-neutral-800">

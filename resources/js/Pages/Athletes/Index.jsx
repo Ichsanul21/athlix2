@@ -225,12 +225,21 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <Link href={route('athletes.show', athlete.id)}>
-                                                    <Button variant="outline" size="sm" className="h-8 text-xs font-bold border-neutral-200 dark:border-neutral-800 hover:bg-athlix-red hover:text-white hover:border-athlix-red transition-all group">
-                                                        Lihat Rapor
-                                                        <ChevronRight size={14} className="ml-1 transition-transform group-hover:translate-x-0.5" />
+                                                <div className="flex justify-end items-center gap-2">
+                                                    <Link href={route('athletes.show', athlete.id)}>
+                                                        <Button variant="outline" size="sm" className="h-8 text-xs font-bold border-neutral-200 dark:border-neutral-800 hover:bg-athlix-red hover:text-white hover:border-athlix-red transition-all group">
+                                                            Rapor
+                                                        </Button>
+                                                    </Link>
+                                                    <Link href={`${route('athletes.show', athlete.id)}?edit=1`}>
+                                                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-blue-600 border-blue-200 hover:bg-blue-50">
+                                                            <Pencil size={13} />
+                                                        </Button>
+                                                    </Link>
+                                                    <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-red-600 border-red-200 hover:bg-red-50" onClick={() => router.delete(route('athletes.destroy', athlete.id))}>
+                                                        <Trash2 size={13} />
                                                     </Button>
-                                                </Link>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

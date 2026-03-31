@@ -380,13 +380,25 @@ class AthleteController extends Controller
                 ];
             });
 
-        $categories = [
-            ['label' => 'Stamina', 'score' => (int) ($latestReport?->stamina ?? max(0, min(100, $attendanceRate)))],
-            ['label' => 'Keseimbangan', 'score' => (int) ($latestReport?->balance ?? max(0, min(100, $bmiScore)))],
-            ['label' => 'Kecepatan', 'score' => (int) ($latestReport?->speed ?? max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2))))],
-            ['label' => 'Kekuatan', 'score' => (int) ($latestReport?->strength ?? max(0, min(100, (int) round(($attendanceRate * 0.4) + ($bmiScore * 0.6)))) )],
-            ['label' => 'Kelincahan', 'score' => (int) ($latestReport?->agility ?? max(0, min(100, (int) round(($attendanceRate * 0.5) + ($bmiScore * 0.5)))) )],
-        ];
+        $reportCategories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+            ->orWhereNull('dojo_id')
+            ->get();
+
+        $latestDynamicScores = is_array($latestReport?->dynamic_scores) ? $latestReport->dynamic_scores : json_decode($latestReport?->dynamic_scores ?? '{}', true) ?? [];
+        $categories = [];
+        foreach ($reportCategories as $cat) {
+            $score = 0;
+            if (isset($latestDynamicScores[$cat->id])) {
+                $score = $latestDynamicScores[$cat->id]['scaled_score'] ?? 0;
+            } else {
+                // Example fallback computation taking elements from $attendanceRate or $bmiScore
+                $score = max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2)));
+            }
+            $categories[] = [
+                'label' => $cat->name,
+                'score' => (int) $score
+            ];
+        }
 
         $performance = [
             'condition' => [
@@ -403,15 +415,12 @@ class AthleteController extends Controller
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
             'reportHistory' => Inertia::defer(fn () => $reportHistory),
+            'reportCategories' => Inertia::defer(fn () => $reportCategories),
             'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
             'latestReport' => Inertia::defer(fn () => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,
-                'stamina' => (int) $latestReport->stamina,
-                'balance' => (int) $latestReport->balance,
-                'speed' => (int) $latestReport->speed,
-                'strength' => (int) $latestReport->strength,
-                'agility' => (int) $latestReport->agility,
+                'dynamic_scores' => is_array($latestReport->dynamic_scores) ? $latestReport->dynamic_scores : json_decode($latestReport->dynamic_scores ?? '{}', true) ?? [],
                 'notes' => $latestReport->notes,
                 'recorded_at' => optional($latestReport->recorded_at)->toDateString() ?? now()->toDateString(),
             ] : null),
@@ -428,17 +437,36 @@ class AthleteController extends Controller
 
         $validated = $request->validate([
             'condition_percentage' => 'required|integer|min:0|max:100',
-            'stamina' => 'required|integer|min:0|max:100',
-            'balance' => 'required|integer|min:0|max:100',
-            'speed' => 'required|integer|min:0|max:100',
-            'strength' => 'required|integer|min:0|max:100',
-            'agility' => 'required|integer|min:0|max:100',
+            'dynamic_scores' => 'required|array',
+            'dynamic_scores.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
             'recorded_at' => 'required|date',
         ]);
 
-        AthleteReport::create([
-            ...$validated,
+        $reportCategories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+            ->orWhereNull('dojo_id')
+            ->get()
+            ->keyBy('id');
+
+        $computedScores = [];
+        foreach ($validated['dynamic_scores'] as $categoryId => $rawValue) {
+            $category = $reportCategories->get($categoryId);
+            if ($category) {
+                $computedScores[$categoryId] = [
+                    'category_id' => $category->id,
+                    'name' => $category->name,
+                    'unit' => $category->unit,
+                    'raw_value' => (float) $rawValue,
+                    'scaled_score' => $category->calculateScore((float) $rawValue),
+                ];
+            }
+        }
+
+        \App\Models\AthleteReport::create([
+            'condition_percentage' => $validated['condition_percentage'],
+            'notes' => $validated['notes'] ?? null,
+            'recorded_at' => $validated['recorded_at'],
+            'dynamic_scores' => $computedScores,
             'athlete_id' => $athlete->id,
             'evaluator_id' => auth()->id(),
         ]);

@@ -85,6 +85,21 @@ class LandingCmsController extends Controller
             ]);
 
             $dojoRegistration->update(['status' => 'approved']);
+
+            // Setup default report categories for new dojo
+            $defaultCategories = [
+                ['name' => 'Power', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
+                ['name' => 'Strength', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
+                ['name' => 'Endurance', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
+                ['name' => 'Speed', 'unit' => 'duration', 'min_threshold' => 30, 'max_threshold' => 10], // e.g. lower time is better
+                ['name' => 'Agility', 'unit' => 'duration', 'min_threshold' => 20, 'max_threshold' => 5],
+                ['name' => 'Core', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
+                ['name' => 'Flexibility', 'unit' => 'repetition', 'min_threshold' => 0, 'max_threshold' => 100],
+            ];
+
+            foreach ($defaultCategories as $category) {
+                \App\Models\ReportCategory::create(array_merge($category, ['dojo_id' => $dojo->id]));
+            }
         });
 
         return back()->with('success', 'Pendaftaran Dojo '. $dojoRegistration->dojo_name .' berhasil disetujui. Akun admin dibuat.');

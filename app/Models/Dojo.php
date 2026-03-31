@@ -139,8 +139,8 @@ class Dojo extends Model
     {
         $start = Carbon::parse($startedAt);
         $expiresAt = $start->copy()->addMonths($cycleMonths)->subDay();
-        $stage1 = $expiresAt->copy()->addDays(7);
-        $stage2 = $expiresAt->copy()->addDays(14);
+        $stage1 = $expiresAt->copy()->addDays(14);
+        $stage2 = $expiresAt->copy()->addDays(28);
 
         return [
             'subscription_expires_at' => $expiresAt->toDateString(),

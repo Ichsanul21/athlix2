@@ -68,7 +68,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
         saas_plan_name: 'Basic',
         monthly_saas_fee: planPricing['Basic'] || 300000,
         billing_cycle_months: 1,
-        subscription_started_at: '',
+        subscription_started_at: new Date().toISOString().slice(0, 10),
         subscription_expires_at: '',
         grace_period_stage1_ends_at: '',
         grace_period_ends_at: '',
@@ -86,9 +86,9 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
         expires.setMonth(expires.getMonth() + Number(cycleMonths));
         expires.setDate(expires.getDate() - 1);
         const stage1 = new Date(expires);
-        stage1.setDate(stage1.getDate() + 7);
+        stage1.setDate(stage1.getDate() + 14);
         const stage2 = new Date(expires);
-        stage2.setDate(stage2.getDate() + 14);
+        stage2.setDate(stage2.getDate() + 28);
         return {
             subscription_expires_at: expires.toISOString().slice(0, 10),
             grace_period_stage1_ends_at: stage1.toISOString().slice(0, 10),
@@ -532,7 +532,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                         onChange={(e) => form.setData('grace_period_stage1_ends_at', e.target.value)}
                                         className="bg-neutral-50 dark:bg-neutral-900"
                                     />
-                                    <p className="text-[10px] text-neutral-400">Auto: berakhir + 7 hari</p>
+                                    <p className="text-[10px] text-neutral-400">Auto: berakhir + 14 hari</p>
                                 </label>
                                 <label className="text-sm font-semibold space-y-1.5">
                                     <span className="block text-neutral-500">Grace Tahap 2 (Terbatas)</span>
@@ -542,7 +542,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                         onChange={(e) => form.setData('grace_period_ends_at', e.target.value)}
                                         className="bg-neutral-50 dark:bg-neutral-900"
                                     />
-                                    <p className="text-[10px] text-neutral-400">Auto: berakhir + 14 hari</p>
+                                    <p className="text-[10px] text-neutral-400">Auto: berakhir + 28 hari</p>
                                 </label>
                             </div>
                         </div>

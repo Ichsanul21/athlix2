@@ -217,6 +217,10 @@ export default function RegistrationModal({ show, onClose }) {
                                     <span className="text-slate-500 text-xs">Tagihan setelah trial berakhir</span>
                                     <span className="font-black text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}<span className="text-xs font-normal">/bln</span></span>
                                 </div>
+                                <div className="border-t border-slate-200 pt-1.5 flex justify-between rounded bg-green-50 px-2 py-1 mt-2">
+                                    <span className="text-green-700 font-bold text-sm">Total Tagihan Saat Ini</span>
+                                    <span className="font-black text-green-700 text-sm">Rp 0</span>
+                                </div>
                             </div>
                         )}
                     </div>

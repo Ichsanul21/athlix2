@@ -11,13 +11,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGri
 import { useEffect, useMemo, useState } from 'react';
 
 const COLORS = ['#DC2626', '#404040'];
-const SCORE_FIELDS = [
-    { key: 'stamina', label: 'Stamina' },
-    { key: 'balance', label: 'Keseimbangan' },
-    { key: 'speed', label: 'Kecepatan' },
-    { key: 'strength', label: 'Kekuatan' },
-    { key: 'agility', label: 'Kelincahan' },
-];
+// SCORE_FIELDS removed as it is now dynamic
 
 const resolveAbilityStatus = (scores) => {
     const average = scores.length ? Math.round(scores.reduce((a, b) => a + Number(b || 0), 0) / scores.length) : 0;
@@ -27,7 +21,7 @@ const resolveAbilityStatus = (scores) => {
     return average > 0 ? 'Perlu Pembinaan' : 'Belum Dinilai';
 };
 
-export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [] }) {
+export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [], reportCategories = [] }) {
     const isLoading = !athlete || !performance;
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
@@ -48,10 +42,19 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         { label: 'Kondisi Fisik', value: conditionScore },
         { label: 'Gap', value: Math.max(0, 100 - conditionScore) },
     ];
-    const categorySeries = SCORE_FIELDS.map(({ key, label }) => ({
-        label,
-        score: Number(activeReport?.[key] ?? performance?.categories?.find((item) => item.label === label)?.score ?? 0),
-    }));
+    const categorySeries = reportCategories.length
+        ? reportCategories.map((cat) => {
+              const dynScores = isNaN(activeReport?.dynamic_scores) && activeReport?.dynamic_scores !== null
+                  ? (typeof activeReport.dynamic_scores === 'string'
+                      ? JSON.parse(activeReport.dynamic_scores)
+                      : activeReport.dynamic_scores)
+                  : {};
+              return {
+                  label: cat.name,
+                  score: Number(dynScores[cat.id]?.scaled_score ?? performance?.categories?.find((item) => item.label === cat.name)?.score ?? 0),
+              };
+          })
+        : performance?.categories?.map((item) => ({ label: item.label, score: Number(item.score) })) || [];
     const averageScore = categorySeries.length ? Math.round(categorySeries.reduce((acc, item) => acc + item.score, 0) / categorySeries.length) : 0;
     const abilityStatus = resolveAbilityStatus(categorySeries.map((item) => item.score));
     const reportOptions = sortedReports.map((item) => ({
@@ -65,6 +68,13 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             setSelectedReportId(sortedReports[0].id);
         }
     }, [sortedReports]);
+
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('edit') === '1') {
+            setEditModalOpen(true);
+        }
+    }, []);
 
     // Edit form — pre-populated from athlete + primary_guardian
     const primaryGuardian = athlete?.primary_guardian;
@@ -141,13 +151,22 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         notes: '',
         certificate: null,
     });
+    const buildDynamicScores = () => {
+        const dyn = {};
+        reportCategories.forEach((cat) => {
+            let activeVal = 0;
+            if (activeReport?.dynamic_scores) {
+                const activeData = typeof activeReport.dynamic_scores === 'string' ? JSON.parse(activeReport.dynamic_scores) : activeReport.dynamic_scores;
+                activeVal = activeData[cat.id]?.raw_value ?? 0;
+            }
+            dyn[cat.id] = activeVal;
+        });
+        return dyn;
+    };
+
     const reportForm = useForm({
         condition_percentage: activeReport?.condition_percentage ?? 0,
-        stamina: activeReport?.stamina ?? 0,
-        balance: activeReport?.balance ?? 0,
-        speed: activeReport?.speed ?? 0,
-        strength: activeReport?.strength ?? 0,
-        agility: activeReport?.agility ?? 0,
+        dynamic_scores: buildDynamicScores(),
         notes: '',
         recorded_at: new Date().toISOString().slice(0, 10),
     });
@@ -155,11 +174,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const resetReportForm = () => {
         reportForm.setData({
             condition_percentage: activeReport?.condition_percentage ?? 0,
-            stamina: activeReport?.stamina ?? 0,
-            balance: activeReport?.balance ?? 0,
-            speed: activeReport?.speed ?? 0,
-            strength: activeReport?.strength ?? 0,
-            agility: activeReport?.agility ?? 0,
+            dynamic_scores: buildDynamicScores(),
             notes: '',
             recorded_at: new Date().toISOString().slice(0, 10),
         });
@@ -542,10 +557,14 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 <form onSubmit={submitReport} className="p-6 space-y-4">
                     <h3 className="text-lg font-black uppercase tracking-tight">Input Rapor Kemampuan Atlet</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {SCORE_FIELDS.map((field) => (
-                            <label key={field.key} className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                                {field.label}
-                                <input type="number" min="0" max="100" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data[field.key]} onChange={(e) => reportForm.setData(field.key, e.target.value)} required />
+                        {reportCategories.map((field) => (
+                            <label key={field.id} className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                                {field.name} {field.unit === 'duration' ? '(detik)' : '(repetisi)'}
+                                <input type="number" step="0.1" min="0" className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.dynamic_scores[field.id] !== undefined ? reportForm.data.dynamic_scores[field.id] : 0} onChange={(e) => {
+                                    const curr = { ...reportForm.data.dynamic_scores };
+                                    curr[field.id] = parseFloat(e.target.value) || 0;
+                                    reportForm.setData('dynamic_scores', curr);
+                                }} required />
                             </label>
                         ))}
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
