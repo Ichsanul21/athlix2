@@ -87,11 +87,13 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     ];
     const categorySeries = reportCategories.length
         ? reportCategories.map((cat) => {
-              const dynScores = isNaN(activeReport?.dynamic_scores) && activeReport?.dynamic_scores !== null
-                  ? (typeof activeReport.dynamic_scores === 'string'
-                      ? JSON.parse(activeReport.dynamic_scores)
-                      : activeReport.dynamic_scores)
-                  : {};
+              let dynScores = {};
+              const raw = activeReport?.dynamic_scores;
+              if (raw && typeof raw === 'string') {
+                  try { dynScores = JSON.parse(raw) || {}; } catch { dynScores = {}; }
+              } else if (raw && typeof raw === 'object') {
+                  dynScores = raw;
+              }
               return {
                   label: cat.name,
                   score: Number(dynScores[cat.id]?.scaled_score ?? performance?.categories?.find((item) => item.label === cat.name)?.score ?? 0),
@@ -194,15 +196,20 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         notes: '',
         certificate: null,
     });
+    const safeParseDynScores = (raw) => {
+        if (!raw) return {};
+        if (typeof raw === 'object') return raw;
+        if (typeof raw === 'string') {
+            try { return JSON.parse(raw) || {}; } catch { return {}; }
+        }
+        return {};
+    };
+
     const buildDynamicScores = () => {
         const dyn = {};
+        const parsed = safeParseDynScores(activeReport?.dynamic_scores);
         reportCategories.forEach((cat) => {
-            let activeVal = 0;
-            if (activeReport?.dynamic_scores) {
-                const activeData = typeof activeReport.dynamic_scores === 'string' ? JSON.parse(activeReport.dynamic_scores) : activeReport.dynamic_scores;
-                activeVal = activeData[cat.id]?.raw_value ?? 0;
-            }
-            dyn[cat.id] = activeVal;
+            dyn[cat.id] = parsed[cat.id]?.raw_value ?? 0;
         });
         return dyn;
     };
@@ -425,9 +432,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <CardContent className="space-y-3">
                             {categorySeries.map((item) => {
                                 const catMeta = reportCategories.find(c => c.name === item.label);
-                                const dynScores = activeReport?.dynamic_scores
-                                    ? (typeof activeReport.dynamic_scores === 'string' ? JSON.parse(activeReport.dynamic_scores) : activeReport.dynamic_scores)
-                                    : {};
+                                const dynScores = safeParseDynScores(activeReport?.dynamic_scores);
                                 const rawEntry = catMeta ? dynScores[catMeta.id] : null;
                                 const rawValue = rawEntry?.raw_value;
                                 const unitLabel = catMeta?.unit === 'duration' ? 'detik' : 'kali';
