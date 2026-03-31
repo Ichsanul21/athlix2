@@ -90,7 +90,8 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
 
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-5">
-                    {flash?.success && <div className="p-3 rounded-xl border border-green-200 bg-green-50 text-green-700 text-sm">{flash.success}</div>}
+
+
                     <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                         <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-xs uppercase tracking-widest font-bold text-neutral-500">Check-in</p><p className="text-2xl font-black">{summary.checkedIn}</p></div><CalendarCheck2 className="text-green-600" /></CardContent></Card>
                         <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-xs uppercase tracking-widest font-bold text-neutral-500">Check-out</p><p className="text-2xl font-black">{summary.checkedOut}</p></div><CheckCircle2 className="text-athlix-red" /></CardContent></Card>

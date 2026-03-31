@@ -62,12 +62,8 @@ export default function Notifications({ auth, dojo, athletes = [], notifications
             <Head title="Notifikasi Sensei PWA" />
 
             <div className="space-y-5 pb-24">
-                {flash?.success && (
-                    <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{flash.success}</div>
-                )}
-                {flash?.error && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{flash.error}</div>
-                )}
+
+
                 {errors && Object.keys(errors).length > 0 && (
                     <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                         {Object.values(errors)[0]}

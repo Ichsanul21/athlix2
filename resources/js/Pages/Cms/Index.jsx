@@ -72,7 +72,8 @@ export default function Index({ auth, articles = [], galleries = [], priceLists 
         <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">CMS Landing Page</h2>}>
             <Head title="CMS Landing" />
             <div className="space-y-6 py-4">
-                {flash?.success && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{flash.success}</div>}
+
+
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     <Card>

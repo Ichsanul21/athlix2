@@ -132,11 +132,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-                    {flash?.success && (
-                        <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-xl dark:bg-green-900/30  animate-fade-in-up border border-green-200 dark:border-green-800">
-                            {flash.success}
-                        </div>
-                    )}
+
 
                     {/* Search & Filter bar */}
                     <div className="flex items-center gap-2 animate-fade-in-up">

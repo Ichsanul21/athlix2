@@ -10,6 +10,7 @@ export default function Modal({
     show = false,
     maxWidth = '2xl',
     closeable = true,
+    centered = false,
     onClose = () => {},
 }) {
     const close = () => {
@@ -31,7 +32,7 @@ export default function Modal({
             <Dialog
                 as="div"
                 id="modal"
-                className="fixed inset-0 z-50 flex transform items-start overflow-y-auto px-4 py-4 sm:py-8 transition-all sm:px-0"
+                className={`fixed inset-0 z-50 flex transform overflow-y-auto px-4 py-4 sm:py-8 transition-all sm:px-0 ${centered ? 'items-center justify-center' : 'items-start'}`}
                 onClose={close}
             >
                 <TransitionChild

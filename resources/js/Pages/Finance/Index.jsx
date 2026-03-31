@@ -378,36 +378,20 @@ export default function Index({
         <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Manajemen Keuangan</h2>}>
             <Head title="Finance" />
 
-            {/* Global Toast Peringatan */}
-            {(flash?.success || flash?.error || dynamicError || dynamicSuccess) && (
-                <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full animate-fade-in-up">
-                    {flash?.success && (
-                        <div className="flex items-center gap-3 p-4 rounded-xl border border-green-200 bg-green-50 text-green-700 shadow-xl shadow-green-500/10 dark:bg-green-900/80 dark:border-green-800 dark:text-green-50">
-                            <Check size={20} className="shrink-0" />
-                            <p className="text-sm font-bold">{flash.success}</p>
-                            <button type="button" onClick={() => (flash.success = null)} className="ml-auto p-1 opacity-70 hover:opacity-100 text-green-700"><Check size={14}/></button>
+
+            {/* Dynamic Billing Local Feedback Modal */}
+            {(dynamicError || dynamicSuccess) && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => { setDynamicError(''); setDynamicSuccess(''); }}>
+                    <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 text-center space-y-3" onClick={(e) => e.stopPropagation()}>
+                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${dynamicError ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                            <Check size={24} />
                         </div>
-                    )}
-                    {flash?.error && (
-                        <div className="flex items-center gap-3 p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 shadow-xl shadow-red-500/10 dark:bg-red-900/80 dark:border-red-800 dark:text-red-50">
-                            <Check size={20} className="shrink-0" />
-                            <p className="text-sm font-bold">{flash.error}</p>
-                            <button type="button" onClick={() => (flash.error = null)} className="ml-auto p-1 opacity-70 hover:opacity-100 text-red-700"><Check size={14}/></button>
-                        </div>
-                    )}
-                    {(dynamicSuccess || dynamicError) && (
-                        <div className={`flex items-center gap-3 p-4 rounded-xl border shadow-xl ${
-                            dynamicError
-                                ? 'border-red-200 bg-red-50 text-red-700 shadow-red-500/10 dark:bg-red-900/80 dark:border-red-800 dark:text-red-50'
-                                : 'border-green-200 bg-green-50 text-green-700 shadow-green-500/10 dark:bg-green-900/80 dark:border-green-800 dark:text-green-50'
-                        }`}>
-                            <Check size={20} className="shrink-0" />
-                            <p className="text-sm font-bold">{dynamicError || dynamicSuccess}</p>
-                            <button type="button" onClick={() => { setDynamicError(''); setDynamicSuccess(''); }} className="ml-auto p-1 text-inherit opacity-70 hover:opacity-100"><Check size={14}/></button>
-                        </div>
-                    )}
+                        <p className={`text-sm font-bold ${dynamicError ? 'text-red-600' : 'text-emerald-600'}`}>{dynamicError || dynamicSuccess}</p>
+                        <button type="button" onClick={() => { setDynamicError(''); setDynamicSuccess(''); }} className="w-full rounded-xl bg-neutral-900 text-white py-2.5 text-sm font-bold hover:bg-neutral-800 transition">Tutup</button>
+                    </div>
                 </div>
             )}
+
 
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">

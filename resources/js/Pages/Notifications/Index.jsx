@@ -40,9 +40,8 @@ export default function Index({ auth, notifications = [], athletes = [], dojos =
             <Head title="Notifikasi Atlet" />
 
             <div className="space-y-6 py-4">
-                {flash?.success && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{flash.success}</div>}
-                {flash?.warning && <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm">{flash.warning}</div>}
-                {flash?.error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{flash.error}</div>}
+
+
 
                 <Card>
                     <CardHeader>
