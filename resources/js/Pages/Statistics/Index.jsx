@@ -63,7 +63,7 @@ export default function Index({
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
 
-                    
+
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">Ringkasan Dojo</h3>
                         {dojos.length > 0 && (
@@ -138,7 +138,7 @@ export default function Index({
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
                                         <XAxis dataKey="month" fontSize={10} axisLine={false} tickLine={false} />
                                         <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                                        <Tooltip 
+                                        <Tooltip
                                             contentStyle={{ backgroundColor: '#171717', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
                                             itemStyle={{ color: '#E61E32' }}
                                         />
@@ -148,39 +148,85 @@ export default function Index({
                             </CardContent>
                         </Card>
 
-                        <Card className="border-neutral-200/80 dark:border-neutral-800 animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
-                            <CardHeader>
+                        <Card className="border-neutral-200/80 dark:border-neutral-800 overflow-hidden animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
+                            <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                                    <Award size={16} className="text-yellow-500" />
+                                    <div className="p-1.5 rounded-lg bg-yellow-500/10">
+                                        <Award size={14} className="text-yellow-500" />
+                                    </div>
                                     Komposisi Sabuk
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="h-[250px] sm:h-[300px] min-h-[220px] min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                                    <PieChart>
-                                        <Pie
-                                            data={beltDistribution}
-                                            innerRadius={55}
-                                            outerRadius={75}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                        >
-                                            {beltDistribution.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip 
-                                            contentStyle={{ backgroundColor: '#171717', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
-                                        />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-xs uppercase font-bold text-neutral-500">
-                                    {beltDistribution.map((entry, index) => (
-                                        <div key={index} className="flex items-center gap-1.5">
-                                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                            {entry.name}
-                                        </div>
-                                    ))}
+                            <CardContent className="pb-5 space-y-0">
+                                <div className="relative h-[220px] sm:h-[240px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={beltDistribution}
+                                                innerRadius={60}
+                                                outerRadius={82}
+                                                paddingAngle={3}
+                                                dataKey="value"
+                                                strokeWidth={0}
+                                                animationBegin={200}
+                                                animationDuration={800}
+                                                animationEasing="ease-out"
+                                            >
+                                                {beltDistribution.map((entry, index) => (
+                                                    <Cell
+                                                        key={`cell-${index}`}
+                                                        fill={COLORS[index % COLORS.length]}
+                                                        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
+                                                    />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip
+                                                content={({ active, payload }) => {
+                                                    if (!active || !payload?.length) return null;
+                                                    const data = payload[0].payload;
+                                                    const total = beltDistribution.reduce((a, b) => a + b.value, 0);
+                                                    const pct = total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
+                                                    return (
+                                                        <div className="bg-neutral-900 dark:bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 shadow-2xl">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.fill }} />
+                                                                <span className="text-xs font-black uppercase text-white tracking-wider">{data.name}</span>
+                                                            </div>
+                                                            <p className="text-lg font-black text-white leading-none">{data.value} <span className="text-xs font-medium text-neutral-400 ml-1">atlet</span></p>
+                                                            <p className="text-xs text-neutral-400 mt-0.5">{pct}% dari total</p>
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    {/* Center Label */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-3xl sm:text-4xl font-black text-neutral-800 dark:text-white leading-none">
+                                            {beltDistribution.reduce((a, b) => a + b.value, 0)}
+                                        </span>
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mt-1">Total Atlet</span>
+                                    </div>
+                                </div>
+
+                                {/* Legend Grid */}
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-2">
+                                    {beltDistribution.map((entry, index) => {
+                                        const total = beltDistribution.reduce((a, b) => a + b.value, 0);
+                                        const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
+                                        return (
+                                            <div key={index} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors group cursor-default">
+                                                <div className="w-3 h-3 rounded-md shrink-0 shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 truncate group-hover:text-athlix-red transition-colors">{entry.name}</p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <span className="text-xs font-black text-neutral-800 dark:text-white">{entry.value}</span>
+                                                    <span className="text-[10px] text-neutral-400 ml-0.5">{pct}%</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </CardContent>
                         </Card>
@@ -199,7 +245,7 @@ export default function Index({
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
                                     <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
                                     <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                                    <Tooltip 
+                                    <Tooltip
                                         contentStyle={{ backgroundColor: '#171717', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
                                     />
                                     <Bar dataKey="present" fill="#10b981" radius={[6, 6, 0, 0]} />

@@ -301,7 +301,10 @@ class AthleteController extends Controller
     public function show(Athlete $athlete)
     {
         $user = auth()->user();
-        $this->ensureAthleteAccessible($athlete, $user);
+
+        if (! $user || ! $this->scopeAthletesForUser(\App\Models\Athlete::query(), $user)->whereKey($athlete->id)->exists()) {
+            abort(403);
+        }
 
         $athlete->load([
             'belt',
@@ -427,7 +430,7 @@ class AthleteController extends Controller
     {
         $this->ensureAthleteAccessible($athlete, auth()->user());
 
-        if (! auth()->user()?->isSuperAdmin() && ! auth()->user()?->isSensei()) {
+        if (! auth()->user()?->isCoachGroup()) {
             abort(403);
         }
 
@@ -548,7 +551,7 @@ class AthleteController extends Controller
     public function storeReportCategory(Request $request)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
@@ -563,7 +566,7 @@ class AthleteController extends Controller
     public function updateReportCategory(Request $request, \App\Models\ReportCategory $reportCategory)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $validated = $request->validate(['name' => 'required|string|max:100']);
         $reportCategory->update($validated);
@@ -574,7 +577,7 @@ class AthleteController extends Controller
     public function destroyReportCategory(\App\Models\ReportCategory $reportCategory)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $name = $reportCategory->name;
         $reportCategory->delete();
@@ -585,7 +588,7 @@ class AthleteController extends Controller
     public function storeReportSubCategory(Request $request)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $validated = $request->validate([
             'report_category_id' => 'required|integer|exists:report_categories,id',
@@ -600,7 +603,7 @@ class AthleteController extends Controller
     public function updateReportSubCategory(Request $request, \App\Models\ReportSubCategory $reportSubCategory)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $validated = $request->validate(['name' => 'required|string|max:100']);
         $reportSubCategory->update($validated);
@@ -611,7 +614,7 @@ class AthleteController extends Controller
     public function destroyReportSubCategory(\App\Models\ReportSubCategory $reportSubCategory)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $name = $reportSubCategory->name;
         $reportSubCategory->delete();
@@ -622,7 +625,7 @@ class AthleteController extends Controller
     public function storeReportTest(Request $request)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $validated = $request->validate([
             'report_sub_category_id' => 'required|integer|exists:report_sub_categories,id',
@@ -641,7 +644,7 @@ class AthleteController extends Controller
     public function updateReportTest(Request $request, \App\Models\ReportTest $reportTest)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
@@ -659,7 +662,7 @@ class AthleteController extends Controller
     public function destroyReportTest(\App\Models\ReportTest $reportTest)
     {
         $user = auth()->user();
-        if (! $user?->isSuperAdmin() && ! $user?->isSensei() && ! $user?->isDojoAdmin()) abort(403);
+        if (! $user?->isCoachGroup()) abort(403);
 
         $name = $reportTest->name;
         $reportTest->delete();
@@ -672,8 +675,12 @@ class AthleteController extends Controller
     protected function ensureAthleteAccessible(Athlete $athlete, $user): void
     {
         if ($user?->isSuperAdmin()) return;
-        if ($user?->isSensei() && (int) $athlete->dojo_id === (int) $user->dojo_id) return;
-        if ($user?->isDojoAdmin() && (int) $athlete->dojo_id === (int) $user->dojo_id) return;
+        
+        // Allow if user is in coach group and belongs to the same dojo
+        if ($user?->isCoachGroup() && (int) $athlete->dojo_id === (int) $user->dojo_id) {
+            return;
+        }
+
         abort(403);
     }
 

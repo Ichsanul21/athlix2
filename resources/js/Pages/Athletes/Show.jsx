@@ -6,12 +6,11 @@ import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
-import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, Settings, Plus } from 'lucide-react';
+import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, Settings, Plus, AlertTriangle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
 
 const COLORS = ['#DC2626', '#404040'];
-// SCORE_FIELDS removed as it is now dynamic
 
 const resolveAbilityStatus = (scores) => {
     const average = scores.length ? Math.round(scores.reduce((a, b) => a + Number(b || 0), 0) / scores.length) : 0;
@@ -31,6 +30,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const [editingCategory, setEditingCategory] = useState(null);
     const [catFormProcessing, setCatFormProcessing] = useState(false);
     const [catForm, setCatForm] = useState({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100 });
+    const [reportError, setReportError] = useState('');
 
     const isSensei = auth?.user?.role === 'sensei' || auth?.user?.role === 'head_coach' || auth?.user?.role === 'assistant' || auth?.user?.role === 'super_admin' || auth?.user?.role === 'dojo_admin';
 
@@ -126,7 +126,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         }
     }, []);
 
-    // Edit form — pre-populated from athlete + primary_guardian
     const primaryGuardian = athlete?.primary_guardian;
     const editForm = useForm({
         full_name: athlete?.full_name || '',
@@ -202,21 +201,19 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         certificate: null,
     });
 
-    // Build test_values keyed by test ID from the last report snapshot
     const buildTestValues = () => {
         const vals = {};
         const snapshot = safeParseDynScores(activeReport?.dynamic_scores);
         reportCategories.forEach((cat) => {
             (cat.sub_categories || []).forEach((sub) => {
                 (sub.tests || []).forEach((test) => {
-                    vals[test.id] = snapshot?.tests?.[test.id]?.raw_value ?? 0;
+                    vals[String(test.id)] = snapshot?.tests?.[test.id]?.raw_value ?? 0;
                 });
             });
         });
         return vals;
     };
 
-    // Calculate a test score locally for preview
     const calcTestScore = (test, rawValue) => {
         const raw = Number(rawValue) || 0;
         const min = Number(test.min_threshold);
@@ -241,6 +238,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     });
 
     const resetReportForm = () => {
+        setReportError('');
+        reportForm.clearErrors();
         reportForm.setData({
             condition_percentage: activeReport?.condition_percentage ?? 0,
             test_values: buildTestValues(),
@@ -251,14 +250,45 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const submitReport = (event) => {
         event.preventDefault();
+        setReportError('');
+
+        if (!isSensei) {
+            setReportError('Anda tidak memiliki izin untuk menambahkan rapor. Hanya Sensei atau Admin yang bisa menambahkan rapor.');
+            return;
+        }
+
+        if (!athlete?.id) {
+            setReportError('Data atlet tidak ditemukan. Silakan refresh halaman.');
+            return;
+        }
+
+        const formattedTestValues = {};
+        Object.entries(reportForm.data.test_values).forEach(([key, value]) => {
+            formattedTestValues[String(key)] = Number(value) || 0;
+        });
+
+        reportForm.setData('test_values', formattedTestValues);
+
         reportForm.post(route('athletes.reports.store', athlete.id), {
             preserveScroll: true,
-            onSuccess: () => setReportModalOpen(false),
+            onSuccess: () => {
+                setReportModalOpen(false);
+                setReportError('');
+            },
+            onError: (errors) => {
+                console.error('Report validation errors:', errors);
+                const errorMessages = Object.values(errors).join(', ');
+                setReportError(errorMessages || 'Terjadi kesalahan validasi. Periksa kembali isian form Anda.');
+            },
         });
     };
 
     const submitAchievement = (event) => {
         event.preventDefault();
+        if (!isSensei) {
+            alert('Anda tidak memiliki izin untuk menambahkan prestasi.');
+            return;
+        }
         achievementForm.post(route('athletes.achievements.store', athlete.id), {
             forceFormData: true,
             preserveScroll: true,
@@ -270,6 +300,10 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     };
 
     const deleteAchievement = (achievementId) => {
+        if (!isSensei) {
+            alert('Anda tidak memiliki izin untuk menghapus prestasi.');
+            return;
+        }
         router.delete(route('athletes.achievements.destroy', [athlete.id, achievementId]));
     };
 
@@ -321,26 +355,28 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-1.5 font-bold"
-                                        onClick={() => setEditModalOpen(true)}
-                                    >
-                                        <Pencil size={13} /> Edit Atlet
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-1.5 font-bold text-red-600 border-red-200 hover:bg-red-50"
-                                        onClick={() => setDeleteConfirmOpen(true)}
-                                    >
-                                        <Trash2 size={13} /> Hapus
-                                    </Button>
-                                </div>
+                                {isSensei && (
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1.5 font-bold"
+                                            onClick={() => setEditModalOpen(true)}
+                                        >
+                                            <Pencil size={13} /> Edit Atlet
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1.5 font-bold text-red-600 border-red-200 hover:bg-red-50"
+                                            onClick={() => setDeleteConfirmOpen(true)}
+                                        >
+                                            <Trash2 size={13} /> Hapus
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Documents section */}
@@ -373,9 +409,11 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Riwayat Rapor Kemampuan Atlet</CardTitle>
-                                <Button type="button" className="w-full sm:w-auto gap-2" onClick={() => { resetReportForm(); setReportModalOpen(true); }}>
-                                    <FilePlus2 size={14} /> Tambah Rapor
-                                </Button>
+                                {isSensei && (
+                                    <Button type="button" className="w-full sm:w-auto gap-2" onClick={() => { resetReportForm(); setReportModalOpen(true); }}>
+                                        <FilePlus2 size={14} /> Tambah Rapor
+                                    </Button>
+                                )}
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-4">
@@ -387,7 +425,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                     </div>
                                 </>
                             ) : (
-                                <p className="text-sm text-neutral-500">Belum ada data rapor. Tambahkan data pertama melalui tombol tambah rapor.</p>
+                                <p className="text-sm text-neutral-500">Belum ada data rapor.{isSensei ? ' Tambahkan data pertama melalui tombol tambah rapor.' : ''}</p>
                             )}
                         </CardContent>
                     </Card>
@@ -506,15 +544,17 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                     </Card>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Tambah Prestasi Atlet</CardTitle></CardHeader>
-                            <CardContent>
-                                <Button type="button" className="w-full gap-2" onClick={() => setAchievementModalOpen(true)}>
-                                    <Trophy size={14} /> Tambah Prestasi (Popup)
-                                </Button>
-                            </CardContent>
-                        </Card>
-                        <Card className="border-neutral-200/80 dark:border-neutral-800 overflow-hidden">
+                        {isSensei && (
+                            <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Tambah Prestasi Atlet</CardTitle></CardHeader>
+                                <CardContent>
+                                    <Button type="button" className="w-full gap-2" onClick={() => setAchievementModalOpen(true)}>
+                                        <Trophy size={14} /> Tambah Prestasi (Popup)
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
+                        <Card className={`border-neutral-200/80 dark:border-neutral-800 overflow-hidden ${!isSensei ? 'lg:col-span-2' : ''}`}>
                             <CardHeader className="border-b border-neutral-100 dark:border-neutral-800"><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Riwayat Prestasi</CardTitle></CardHeader>
                             <CardContent className="p-0">
                                 {achievementHistory.length > 0 ? achievementHistory.map((achievement) => (
@@ -524,9 +564,11 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                                 <p className="font-bold">{achievement.competition_name}</p>
                                                 <p className="text-xs text-neutral-500">{achievement.competition_date} | {achievement.competition_level}</p>
                                             </div>
-                                            <button type="button" className="p-1 rounded text-red-500 hover:bg-red-50" onClick={() => deleteAchievement(achievement.id)}>
-                                                <Trash2 size={14} />
-                                            </button>
+                                            {isSensei && (
+                                                <button type="button" className="p-1 rounded text-red-500 hover:bg-red-50" onClick={() => deleteAchievement(achievement.id)}>
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                         <p className="text-xs text-neutral-600">Hasil: {achievement.result_title || '-'} | Jenis: {achievement.competition_type}</p>
                                         {achievement.certificate_url && <a href={achievement.certificate_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-athlix-red hover:underline"><FileText size={12} /> Lihat Sertifikat</a>}
@@ -613,7 +655,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             </div>
                         </div>
 
-                        {/* Document replacements */}
                         <div className="rounded-xl border border-dashed border-neutral-300 p-4 space-y-3">
                             <p className="text-sm font-semibold">Perbarui Dokumen (opsional)</p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -626,7 +667,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             </div>
                         </div>
 
-                        {/* Guardian update */}
                         <div className="rounded-xl border border-dashed border-neutral-300 p-4 space-y-3">
                             <p className="text-sm font-semibold">Data Orang Tua / Wali Utama</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -678,12 +718,30 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <p className="text-xs text-neutral-500 mt-1">Masukkan nilai mentah (raw) per test. Skor 1-100 dihitung otomatis. Sub-kategori & kategori di-average dari test.</p>
                     </div>
 
+                    {/* Error Display */}
+                    {reportError && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50 p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                <AlertTriangle size={16} className="shrink-0" />
+                                <span className="text-sm font-bold">Gagal Menyimpan Rapor</span>
+                            </div>
+                            <p className="text-xs text-red-600/80 dark:text-red-400/80 pl-6">{reportError}</p>
+                            {reportForm.errors && Object.keys(reportForm.errors).length > 0 && (
+                                <ul className="text-xs text-red-600/70 dark:text-red-400/70 pl-6 list-disc space-y-0.5">
+                                    {Object.entries(reportForm.errors).map(([field, message]) => (
+                                        <li key={field}>{message}</li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+
                     <div className="space-y-4">
                         {reportCategories.map((cat) => {
                             const subs = cat.sub_categories || [];
                             const subScores = subs.map((sub) => {
                                 const tests = sub.tests || [];
-                                const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[t.id] ?? 0));
+                                const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
                                 return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
                             });
                             const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
@@ -691,30 +749,28 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
                             return (
                                 <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    {/* Category Header */}
                                     <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
                                         <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
                                         <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
                                     </div>
 
                                     <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {subs.map((sub, si) => {
+                                        {subs.map((sub) => {
                                             const tests = sub.tests || [];
-                                            const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[t.id] ?? 0));
+                                            const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
                                             const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
                                             const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
 
                                             return (
                                                 <div key={sub.id} className="px-4 py-3 space-y-2">
-                                                    {/* Sub-Category Header */}
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">{sub.name}</span>
+                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
                                                         <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
                                                     </div>
 
                                                     <div className="space-y-2">
                                                         {tests.map((test) => {
-                                                            const rawVal = reportForm.data.test_values[test.id] ?? 0;
+                                                            const rawVal = reportForm.data.test_values[String(test.id)] ?? 0;
                                                             const previewScore = calcTestScore(test, rawVal);
                                                             const unitLabel = test.unit === 'duration' ? 'detik' : 'kali';
                                                             const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
@@ -739,7 +795,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                                                             value={rawVal}
                                                                             onChange={(e) => {
                                                                                 const curr = { ...reportForm.data.test_values };
-                                                                                curr[test.id] = parseFloat(e.target.value) || 0;
+                                                                                curr[String(test.id)] = parseFloat(e.target.value) || 0;
                                                                                 reportForm.setData('test_values', curr);
                                                                             }}
                                                                             placeholder={`Masukkan ${unitLabel}`}
@@ -770,18 +826,26 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Kondisi Fisik (%)
                             <input type="number" min="0" max="100" className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.condition_percentage} onChange={(e) => reportForm.setData('condition_percentage', e.target.value)} required />
+                            {reportForm.errors.condition_percentage && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.condition_percentage}</p>}
                         </label>
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tanggal Penilaian
                             <input type="date" className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
+                            {reportForm.errors.recorded_at && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.recorded_at}</p>}
                         </label>
                     </div>
 
-                    <textarea className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm min-h-20" value={reportForm.data.notes} onChange={(e) => reportForm.setData('notes', e.target.value)} placeholder="Catatan rapor dari sensei..." />
+                    <div className="space-y-1">
+                        <textarea className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm min-h-20" value={reportForm.data.notes} onChange={(e) => reportForm.setData('notes', e.target.value)} placeholder="Catatan rapor dari sensei..." />
+                        {reportForm.errors.notes && <p className="text-xs text-athlix-red">{reportForm.errors.notes}</p>}
+                    </div>
 
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => setReportModalOpen(false)}>Batal</Button>
-                        <Button type="submit" disabled={reportForm.processing}>{reportForm.processing ? 'Menyimpan...' : 'Simpan Rapor'}</Button>
+                        <Button type="submit" disabled={reportForm.processing}>
+                            {reportForm.processing && <Loader2 size={14} className="animate-spin mr-2" />}
+                            Simpan Rapor
+                        </Button>
                     </div>
                 </form>
             </Modal>
@@ -821,7 +885,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <p className="text-xs text-neutral-500 mt-1">Kategori › Sub-Kategori › Test. Threshold dan tipe pengukuran ada di level test.</p>
                     </div>
 
-                    {/* Add Category Form */}
                     <form onSubmit={submitCategory} className="flex items-end gap-2">
                         <div className="flex-1 space-y-1">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Tambah Kategori Baru</label>
@@ -837,12 +900,10 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </Button>
                     </form>
 
-                    {/* Hierarchy Tree */}
                     {reportCategories.length > 0 && (
                         <div className="space-y-3">
                             {reportCategories.map((cat) => (
                                 <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    {/* Category Row */}
                                     <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-4 py-2.5">
                                         <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
                                         <div className="flex items-center gap-1">
@@ -864,7 +925,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         </div>
                                     </div>
 
-                                    {/* Sub-Categories */}
                                     <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                                         {(cat.sub_categories || []).map((sub) => (
                                             <div key={sub.id} className="px-4 py-2 space-y-1.5">
@@ -894,7 +954,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                                     </div>
                                                 </div>
 
-                                                {/* Tests */}
                                                 {(sub.tests || []).map((test) => (
                                                     <div key={test.id} className="flex items-center justify-between rounded-md bg-neutral-50/70 dark:bg-neutral-900/30 px-3 py-1.5 text-[11px]">
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">

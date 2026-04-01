@@ -72,14 +72,14 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
 
     return (
         <>
-            <Head title="ATHLIX | Dojo Operating System">
-                <meta name="description" content="Platform operasi dojo modern: anggota, jadwal, tagihan, artikel, galeri, dan performa dalam satu sistem." />
-                <meta property="og:title" content="ATHLIX | Dojo Operating System" />
-                <meta property="og:description" content="Kelola operasional dojo dengan kecepatan enterprise." />
+            <Head title="ATHLIX | Club Operating System">
+                <meta name="description" content="Platform operasi club modern: anggota, jadwal, tagihan, artikel, galeri, dan performa dalam satu sistem." />
+                <meta property="og:title" content="ATHLIX | Club Operating System" />
+                <meta property="og:description" content="Kelola operasional club dengan kecepatan enterprise." />
                 <meta property="og:image" content="/logo.png" />
                 <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content="ATHLIX | Dojo Operating System" />
-                <meta name="twitter:description" content="Kelola operasional dojo dengan kecepatan enterprise." />
+                <meta name="twitter:title" content="ATHLIX | Club Operating System" />
+                <meta name="twitter:description" content="Kelola operasional club dengan kecepatan enterprise." />
                 <meta name="twitter:image" content="/logo.png" />
                 <link rel="canonical" href={route('landing.index')} />
                 {localeAlternates.map((alternate) => (
@@ -102,7 +102,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <a href="#galeri" className="transition-colors hover:text-red-500">GALERI</a>
                             <LanguageSwitch compact />
                             <Link href={route('login')} className="rounded-md bg-red-600 px-6 py-2.5 text-white shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] transition-all hover:-translate-y-0.5 hover:bg-red-700">
-                                LOGIN DOJO
+                                LOGIN CLUB
                             </Link>
                         </div>
 
@@ -119,7 +119,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <a href="#galeri" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>GALERI</a>
                             <div className="py-2"><LanguageSwitch compact={false} /></div>
                             <Link href={route('login')} className="mt-2 rounded-md bg-red-600 px-4 py-3 text-center font-bold tracking-wider text-white">
-                                LOGIN DOJO
+                                LOGIN CLUB
                             </Link>
                         </div>
                     )}
@@ -137,7 +137,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                         <div className="flex flex-col gap-6 text-center lg:w-1/2 lg:text-left">
                             <div className="mx-auto inline-flex w-max items-center gap-2 rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 lg:mx-0">
                                 <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Dojo Operating System</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Club Operating System</span>
                             </div>
 
                             <h1 className="text-5xl font-black uppercase leading-tight tracking-tight lg:text-7xl">
@@ -147,7 +147,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             </h1>
 
                             <p className="mx-auto max-w-xl text-lg leading-relaxed text-slate-400 lg:mx-0">
-                                Sistem operasi dojo yang dirancang khusus untuk sasana bela diri. Kelola anggota, jadwal kelas, tagihan, dan level sabuk dalam satu platform super cepat.
+                                Sistem operasi club yang dirancang khusus untuk sasana bela diri. Kelola anggota, jadwal kelas, tagihan, dan level sabuk dalam satu platform super cepat.
                             </p>
 
                             <div className="mt-4 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
@@ -163,7 +163,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <div className="mt-8 flex items-center justify-center gap-8 border-t border-slate-800/60 pt-8 lg:justify-start">
                                 <div className="flex flex-col">
                                     <span className="text-3xl font-black text-white">500+</span>
-                                    <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Dojo Aktif</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Club Aktif</span>
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-3xl font-black text-white">50k+</span>
@@ -251,7 +251,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <h2 className="mb-3 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-widest text-red-500">
                                 <span className="h-px w-8 bg-red-500" /> Mengapa ATHLIX? <span className="h-px w-8 bg-red-500" />
                             </h2>
-                            <h3 className="text-3xl font-black uppercase tracking-tight md:text-5xl">Segala Kebutuhan Dojo<br />di Ujung Jari</h3>
+                            <h3 className="text-3xl font-black uppercase tracking-tight md:text-5xl">Segala Kebutuhan Club<br />di Ujung Jari</h3>
                         </div>
 
                         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
@@ -345,7 +345,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                     <div className="container mx-auto space-y-10 px-6 lg:px-12">
                         <div className="text-center">
                             <p className="text-sm font-bold uppercase tracking-widest text-red-500">Visual Story</p>
-                            <h3 className="mt-2 text-3xl font-black uppercase tracking-tight md:text-5xl">Galeri Dojo</h3>
+                            <h3 className="mt-2 text-3xl font-black uppercase tracking-tight md:text-5xl">Galeri Club</h3>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -399,7 +399,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                         <img src="/logo.png" alt="ATHLIX Logo" className="mb-6 h-16 w-16 rounded-2xl object-cover ring-2 ring-white/30" />
                         <h2 className="mb-6 text-4xl font-black uppercase tracking-tight text-white md:text-6xl">Siap Berevolusi?</h2>
                         <p className="mx-auto mb-10 max-w-2xl text-xl text-red-100">
-                            Bergabung dengan ratusan pemilik dojo yang sudah mengoptimalkan manajemen sasana mereka bersama ATHLIX.
+                            Bergabung dengan ratusan pemilik club yang sudah mengoptimalkan manajemen sasana mereka bersama ATHLIX.
                         </p>
                         <button onClick={() => setShowRegistrationModal(true)} className="flex items-center gap-3 rounded-lg border-b-4 border-slate-800 bg-slate-950 px-10 py-5 font-black uppercase tracking-widest text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:translate-y-1 active:border-b-0">
                             DAFTAR SEKARANG - GRATIS 14 HARI <ChevronRight className="h-5 w-5" />
@@ -413,7 +413,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20" />
                             <span className="text-xl font-black tracking-wide text-white">ATHLIX</span>
                         </div>
-                        <p className="text-sm font-medium text-slate-500">&copy; 2026 ATHLIX Dojo Operating System. All rights reserved.</p>
+                        <p className="text-sm font-medium text-slate-500">&copy; 2026 ATHLIX Club Operating System. All rights reserved.</p>
                         <div className="flex gap-4">
                             <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:border-slate-700 hover:bg-slate-800 hover:text-red-500">
                                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
@@ -427,7 +427,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
             </div>
 
             <style>{`@keyframes scrollX { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
-            
+
             {/* Session Expired Modal */}
             {sessionExpired && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">

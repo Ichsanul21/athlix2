@@ -24,29 +24,29 @@ class TrainingProgramController extends Controller
             ->orderBy('start_time')
             ->get()
             ->groupBy('day');
-        
+
         $structuredPrograms = [];
-        foreach($days as $day) {
-            $structuredPrograms[$day] = $programs->get($day, collect())->map(function($p) {
+        foreach ($days as $day) {
+            $structuredPrograms[$day] = $programs->get($day, collect())->map(function ($p) {
                 $nextDate = $this->resolveNextDate($p->day, Carbon::now());
 
                 return [
-                    'id' => $p->id,
-                    'title' => $p->title,
-                    'dojo_id' => $p->dojo_id,
-                    'day' => $p->day,
-                    'start_time' => substr($p->start_time, 0, 5),
-                    'end_time' => substr($p->end_time, 0, 5),
-                    'time' => substr($p->start_time, 0, 5) . ' - ' . substr($p->end_time, 0, 5),
-                    'coach' => $p->coach_name,
-                    'type' => $p->type,
-                    'desc' => $p->description,
-                    'next_date' => $nextDate->translatedFormat('d M Y'),
-                    'agenda_items' => collect($p->agenda_items ?? [])
+                    'id'            => $p->id,
+                    'title'         => $p->title,
+                    'dojo_id'       => $p->dojo_id,
+                    'day'           => $p->day,
+                    'start_time'    => substr($p->start_time, 0, 5),
+                    'end_time'      => substr($p->end_time, 0, 5),
+                    'time'          => substr($p->start_time, 0, 5) . ' - ' . substr($p->end_time, 0, 5),
+                    'coach'         => $p->coach_name,
+                    'type'          => $p->type,
+                    'desc'          => $p->description,
+                    'next_date'     => $nextDate->translatedFormat('d M Y'),
+                    'agenda_items'  => collect($p->agenda_items ?? [])
                         ->map(fn ($item) => [
-                            'start_time' => $item['start_time'] ?? null,
-                            'end_time' => $item['end_time'] ?? null,
-                            'title' => $item['title'] ?? '',
+                            'start_time'  => $item['start_time'] ?? null,
+                            'end_time'    => $item['end_time'] ?? null,
+                            'title'       => $item['title'] ?? '',
                             'description' => $item['description'] ?? null,
                         ])
                         ->filter(fn ($item) => $item['start_time'] && $item['end_time'] && $item['title'])
@@ -57,13 +57,25 @@ class TrainingProgramController extends Controller
 
         $senseis = \App\Models\User::query()
             ->whereIn('role', ['super_admin', 'dojo_admin', 'head_coach', 'sensei', 'assistant'])
+            ->when($selectedDojoId && !$isAllDojos, function ($query) use ($selectedDojoId) {
+                $query->whereIn('id', function ($q) use ($selectedDojoId) {
+                    $q->select('sensei_id')
+                    ->from('sensei_athlete')
+                    ->where('dojo_id', $selectedDojoId)
+                    ->distinct();
+                });
+            })
             ->get(['id', 'name', 'role']);
 
         return Inertia::render('TrainingPrograms/Index', [
             'weeklySchedule' => Inertia::defer(fn () => $structuredPrograms),
-            'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
+            'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin()
+                                ? Dojo::orderBy('name')->get(['id', 'name'])
+                                : ($selectedDojoId ? Dojo::where('id', $selectedDojoId)->get(['id', 'name']) : [])
+                            ),
             'selectedDojoId' => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
             'isAllDojos'     => Inertia::defer(fn () => $isAllDojos),
+            'isSuperAdmin'   => Inertia::defer(fn () => $user?->isSuperAdmin() ?? false),
             'senseis'        => Inertia::defer(fn () => $senseis),
         ]);
     }

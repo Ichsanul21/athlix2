@@ -182,10 +182,45 @@ class PwaController extends Controller
             ->orderBy('start_time')
             ->get();
 
+        $allDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $daysWithPrograms = $allPrograms->pluck('day')->unique()->values()->toArray();
+        $restDays = array_values(array_diff($allDays, $daysWithPrograms));
+
         $todayPrograms = $allPrograms
             ->where('day', $todayIndo)
             ->map(fn (TrainingProgram $program) => $this->mapProgramAgenda($program))
             ->values();
+
+        if ($todayPrograms->isEmpty() && in_array($todayIndo, $restDays)) {
+            $todayPrograms = collect([
+                [
+                    'id' => 'libur-today',
+                    'title' => 'Libur / Latihan Mandiri',
+                    'day' => $todayIndo,
+                    'time' => null,
+                    'coach' => null,
+                    'type' => 'libur',
+                    'agenda_items' => [],
+                ]
+            ]);
+        }
+
+        $liburAgenda = collect($restDays)->map(function ($day) use ($today) {
+            $nextDate = $this->resolveNextDate($day, $today);
+            return [
+                'id' => 'libur-' . $day,
+                'title' => 'Libur / Latihan Mandiri',
+                'day' => $day,
+                'start_time' => null,
+                'end_time' => null,
+                'time' => null,
+                'coach' => null,
+                'type' => 'libur',
+                'agenda_items' => [],
+                'date' => $nextDate->toDateString(),
+                'date_label' => $nextDate->translatedFormat('D, d M Y'),
+            ];
+        });
 
         $upcomingPrograms = $allPrograms
             ->map(function (TrainingProgram $program) use ($today) {
@@ -197,6 +232,7 @@ class PwaController extends Controller
                     'date_label' => $nextDate->translatedFormat('D, d M Y'),
                 ];
             })
+            ->concat($liburAgenda)
             ->filter(fn ($program) => $program['date'] !== $today->toDateString())
             ->sortBy([
                 ['date', 'asc'],
@@ -215,6 +251,7 @@ class PwaController extends Controller
                     'date_label' => $nextDate->translatedFormat('D, d M Y'),
                 ];
             })
+            ->concat($liburAgenda)
             ->sortBy([
                 ['date', 'asc'],
                 ['start_time', 'asc'],
@@ -571,12 +608,13 @@ class PwaController extends Controller
                 ->map(function (Attendance $attendance) {
                     return [
                         'id' => $attendance->id,
-                        'date' => Carbon::parse($attendance->recorded_at)->translatedFormat('d M Y'),
+                        'date' => Carbon::parse($attendance->recorded_at)->translatedFormat('l, d M Y'),
                         'status' => $attendance->status,
                         'check_in_at' => $attendance->check_in_at ? Carbon::parse($attendance->check_in_at)->format('H:i') : null,
                         'check_out_at' => $attendance->check_out_at ? Carbon::parse($attendance->check_out_at)->format('H:i') : null,
                         'post_training_mood_rating' => $attendance->post_training_mood_rating,
                         'post_training_load_rating' => $attendance->post_training_load_rating,
+                        'session_title' => $attendance->session_title ?? null,
                     ];
                 })
                 ->values();
@@ -617,6 +655,11 @@ class PwaController extends Controller
             ->orderBy('start_time')
             ->get();
 
+        // Cari hari apa saja yang TIDAK memiliki jadwal (Hari Libur)
+        $allDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $daysWithPrograms = $allPrograms->pluck('day')->unique()->values()->toArray();
+        $restDays = array_values(array_diff($allDays, $daysWithPrograms));
+
         $todaySessions = $allPrograms
             ->where('day', $todayIndo)
             ->map(fn ($program) => [
@@ -633,27 +676,39 @@ class PwaController extends Controller
                 ])->values(),
             ])->values();
 
-        $upcomingSessions = $allPrograms
-            ->map(function ($program) use ($today) {
-                $nextDate = $this->resolveNextDate($program->day, $today);
-                return [
-                    'title' => $program->title,
-                    'day' => $program->day,
-                    'time' => substr($program->start_time, 0, 5) . ' - ' . substr($program->end_time, 0, 5),
-                    'coach' => $program->coach_name,
-                    'type' => $program->type,
-                    'date' => $nextDate->toDateString(),
-                ];
-            })
-            ->filter(fn ($program) => $program['date'] !== $today->toDateString())
-            ->sortBy('date')
-            ->take(5)
-            ->values()
-            ->map(function ($program) {
-                $program['day'] = Carbon::parse($program['date'])->translatedFormat('l');
-                return $program;
-            });
+        // Jika hari ini tidak ada sesi dan masuk kedalam hari libur, tampilkan card libur
+        if ($todaySessions->isEmpty() && in_array($todayIndo, $restDays)) {
+            $todaySessions = collect([
+                [
+                    'id' => 'libur-today',
+                    'title' => 'Libur / Latihan Mandiri',
+                    'time' => null,
+                    'coach' => null,
+                    'type' => 'libur',
+                    'agenda_items' => [],
+                ]
+            ]);
+        }
 
+        // Buat entitas agenda untuk hari-hari libur
+        $liburAgenda = collect($restDays)->map(function ($day) use ($today) {
+            $nextDate = $this->resolveNextDate($day, $today);
+            return [
+                'id' => 'libur-' . $day,
+                'title' => 'Libur / Latihan Mandiri',
+                'day' => $day,
+                'date' => $nextDate->toDateString(),
+                'date_label' => $nextDate->translatedFormat('D, d M Y'),
+                'start_time' => null,
+                'end_time' => null,
+                'time' => null,
+                'coach' => null,
+                'type' => 'libur',
+                'agenda_items' => [],
+            ];
+        });
+
+        // Gabungkan agenda latihan aktif dengan agenda libur, lalu urutkan
         $allAgenda = $allPrograms
             ->map(function ($program) use ($today) {
                 $nextDate = $this->resolveNextDate($program->day, $today);
@@ -677,15 +732,15 @@ class PwaController extends Controller
                     ])->values(),
                 ];
             })
+            ->concat($liburAgenda)
             ->sortBy([
                 ['date', 'asc'],
-                ['start_time', 'asc'],
+                ['start_time', 'asc'], // Libur otomatis ke bawah karena start_time-nya null
             ])
             ->values();
 
         return Inertia::render('Schedule/Index', [
             'todaySessions' => Inertia::defer(fn () => $todaySessions),
-            'upcomingSessions' => Inertia::defer(fn () => $upcomingSessions),
             'allAgenda' => Inertia::defer(fn () => $allAgenda),
         ]);
     }

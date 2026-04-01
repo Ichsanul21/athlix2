@@ -131,7 +131,7 @@ class AttendanceController extends Controller
 
         $action = $validated['action'] ?? 'checkin';
         $payload = $validated;
-        
+
         if ($request->hasFile('check_in_document')) {
             $payload['check_in_document_path'] = $request->file('check_in_document')->store('attendance-documents', 'public');
             $payload['check_in_document_mime'] = $request->file('check_in_document')->getClientMimeType();
@@ -199,13 +199,12 @@ class AttendanceController extends Controller
         if (! $user) {
             abort(403);
         }
-        if (! $user->isSuperAdmin()) {
-            $allowed = $user->isSensei()
-                ? $user->senseiAthletes()->whereKey($attendance->athlete_id)->exists()
-                : false;
-            if (! $allowed) {
-                abort(403);
-            }
+
+        $athleteQuery = $this->scopeAthletesForUser(\App\Models\Athlete::query(), $user);
+        $allowed = $athleteQuery->whereKey($attendance->athlete_id)->exists();
+
+        if (! $allowed) {
+            abort(403);
         }
 
         $validated = $request->validate([

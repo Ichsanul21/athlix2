@@ -7,8 +7,7 @@ import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
 import {
     Users, Dumbbell, Activity, CreditCard, Sparkles, ChevronRight,
-    CheckCircle2, HeartPulse, AlertTriangle, Clock, User, X,
-    Calendar, TrendingUp, Shield,
+    CheckCircle2, Clock, User, X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -19,17 +18,13 @@ export default function Dashboard({
     nextTrainingReminder,
     attendanceSummary,
     recentAttendances = [],
-    wellnessSummary,
-    wellnessAlerts = [],
-    wellnessTrend = [],
     dojoName,
     dojos = [],
     selectedDojoId = null,
 }) {
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
-    const [scheduleModal, setScheduleModal] = useState(null);   // program detail
-    const [attendanceModal, setAttendanceModal] = useState(null); // attendance detail
-    const [wellnessModal, setWellnessModal] = useState(null);   // alert detail
+    const [scheduleModal, setScheduleModal] = useState(null);
+    const [attendanceModal, setAttendanceModal] = useState(null);
 
     useEffect(() => {
         setDojoId(selectedDojoId || '');
@@ -62,10 +57,7 @@ export default function Dashboard({
         dojoName === undefined ||
         nextTrainingReminder === undefined ||
         attendanceSummary === undefined ||
-        recentAttendances === undefined ||
-        wellnessSummary === undefined ||
-        wellnessAlerts === undefined ||
-        wellnessTrend === undefined;
+        recentAttendances === undefined;
 
     if (isLoading) {
         return (
@@ -91,7 +83,6 @@ export default function Dashboard({
         );
     }
 
-    const maxHighRiskCount = Math.max(1, ...wellnessTrend.map((item) => Number(item.high_risk_count || 0)));
     const isSuperAdmin = auth?.user?.role === 'super_admin';
 
     return (
@@ -110,7 +101,7 @@ export default function Dashboard({
                             inputId="dashboard-dojo-filter"
                             className="min-w-[220px]"
                             options={[
-                                { value: '', label: '🌐 Semua Dojo' },
+                                { value: '', label: 'Semua Dojo' },
                                 ...dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))
                             ]}
                             value={dojoId || ''}
@@ -160,7 +151,7 @@ export default function Dashboard({
                         })}
                     </div>
 
-                    {/* Main Content: 2/3 + 1/3 */}
+                    {/* Main Content */}
                     <div className="grid gap-6 lg:grid-cols-3 animate-fade-in-up fill-both" style={{ animationDelay: '180ms' }}>
 
                         {/* LEFT: Training Schedule */}
@@ -263,105 +254,51 @@ export default function Dashboard({
                             </Card>
                         </div>
 
-                        {/* RIGHT: Wellness */}
+                        {/* RIGHT: Quick Info */}
                         <div className="space-y-4">
-                            {/* Wellness Trend Chart */}
                             <Card className="bg-white dark:bg-neutral-900/80 border-neutral-200/80 dark:border-neutral-800">
-                                <CardContent className="p-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Tren Wellness 7 Hari</p>
-                                        <TrendingUp size={15} className="text-athlix-red" />
-                                    </div>
-                                    <p className="text-[11px] text-neutral-400">
-                                        <span className="inline-block w-2 h-2 rounded bg-athlix-red/80 mr-1" />Readiness
-                                        <span className="inline-block w-2 h-2 rounded bg-amber-500/80 mx-1 ml-3" />High ACWR
-                                    </p>
-                                    {wellnessTrend.length > 0 ? (
-                                        <div className="space-y-2">
-                                            <div className="grid grid-cols-7 gap-1">
-                                                {wellnessTrend.map((item) => {
-                                                    const readinessHeight = Math.max(6, Math.round(Number(item.average_readiness || 0)));
-                                                    const riskHeight = Math.max(
-                                                        6,
-                                                        Math.round((Number(item.high_risk_count || 0) / maxHighRiskCount) * 100)
-                                                    );
-                                                    return (
-                                                        <div key={item.date} className="space-y-1">
-                                                            <div className="h-20 rounded-lg bg-neutral-50 dark:bg-neutral-900 px-1 py-1 flex items-end justify-center gap-0.5">
-                                                                <div className="w-2 rounded bg-athlix-red/80" style={{ height: `${readinessHeight}%` }} title={`Readiness ${item.average_readiness}%`} />
-                                                                <div className="w-2 rounded bg-amber-500/80" style={{ height: `${riskHeight}%` }} title={`High ACWR ${item.high_risk_count}`} />
-                                                            </div>
-                                                            <p className="text-[10px] text-center text-neutral-500">{item.label}</p>
-                                                        </div>
-                                                    );
-                                                })}
+                                <CardContent className="p-5 space-y-4">
+                                    <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Informasi Cepat</p>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900">
+                                            <div className="p-2 rounded-xl bg-athlix-red/10">
+                                                <Clock size={16} className="text-athlix-red" />
                                             </div>
-                                            <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-1">
-                                                <span>Avg: {wellnessSummary?.average_readiness ?? 0}%</span>
-                                                <span>Max ACWR/hari: {maxHighRiskCount}</span>
+                                            <div>
+                                                <p className="text-[11px] text-neutral-500">Sesi Latihan Hari Ini</p>
+                                                <p className="font-black text-sm">{stats.find(s => s.icon === 'dumbbell')?.value ?? 0} sesi</p>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <p className="text-sm text-neutral-400">Belum ada data tren wellness.</p>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Wellness Summary KPIs */}
-                            <Card className="bg-white dark:bg-neutral-900/80 border-neutral-200/80 dark:border-neutral-800">
-                                <CardContent className="p-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Wellness Monitor</p>
-                                        <HeartPulse size={15} className="text-athlix-red" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2.5">
-                                            <p className="text-[11px] text-neutral-500">Avg Readiness</p>
-                                            <p className="font-black text-athlix-red text-lg leading-none">{wellnessSummary?.average_readiness ?? 0}%</p>
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900">
+                                            <div className="p-2 rounded-xl bg-emerald-500/10">
+                                                <CheckCircle2 size={16} className="text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-neutral-500">Kehadiran Hari Ini</p>
+                                                <p className="font-black text-sm">{attendanceSummary?.present ?? 0} dari {attendanceSummary?.total_athletes ?? 0} atlet</p>
+                                            </div>
                                         </div>
-                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2.5">
-                                            <p className="text-[11px] text-neutral-500">Tracked</p>
-                                            <p className="font-black text-lg leading-none">{wellnessSummary?.tracked_athletes ?? 0}</p>
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900">
+                                            <div className="p-2 rounded-xl bg-amber-500/10">
+                                                <Activity size={16} className="text-amber-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-neutral-500">Atlet Pantauan (BMI {'>'} 25)</p>
+                                                <p className="font-black text-sm">{stats.find(s => s.icon === 'activity')?.value ?? 0} atlet</p>
+                                            </div>
                                         </div>
-                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2.5">
-                                            <p className="text-[11px] text-neutral-500">Low Readiness</p>
-                                            <p className="font-black text-lg leading-none">{wellnessSummary?.low_readiness_count ?? 0}</p>
-                                        </div>
-                                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 px-3 py-2.5">
-                                            <p className="text-[11px] text-neutral-500">High ACWR</p>
-                                            <p className="font-black text-lg leading-none">{wellnessSummary?.high_workload_count ?? 0}</p>
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900">
+                                            <div className="p-2 rounded-xl bg-blue-500/10">
+                                                <CreditCard size={16} className="text-blue-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-neutral-500">Tunggakan SPP</p>
+                                                <p className="font-black text-sm">{stats.find(s => s.icon === 'credit-card')?.value ?? 0} atlet</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-
-                            {/* Wellness Alerts */}
-                            {wellnessAlerts.length > 0 && (
-                                <Card className="bg-white dark:bg-neutral-900/80 border-neutral-200/80 dark:border-neutral-800">
-                                    <CardContent className="p-5 space-y-2">
-                                        <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Alert Wellness</p>
-                                        {wellnessAlerts.slice(0, 4).map((alert, idx) => (
-                                            <button
-                                                key={`${alert.athlete_code}-${alert.type}-${idx}`}
-                                                type="button"
-                                                onClick={() => setWellnessModal(alert)}
-                                                className="w-full text-left rounded-xl border border-neutral-200/80 dark:border-neutral-800 px-3 py-2 hover:border-athlix-red/30 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors group"
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <p className="text-xs font-bold truncate">{alert.athlete_name}</p>
-                                                    <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-black shrink-0 ${
-                                                        alert.priority >= 3 ? 'text-athlix-red' : 'text-amber-600'
-                                                    }`}>
-                                                        <AlertTriangle size={11} />
-                                                        {alert.label}
-                                                    </span>
-                                                </div>
-                                                <p className="text-[11px] text-neutral-500 mt-0.5">{alert.athlete_code} | {alert.value}</p>
-                                            </button>
-                                        ))}
-                                    </CardContent>
-                                </Card>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -413,7 +350,7 @@ export default function Dashboard({
                                 <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Detail Agenda</p>
                                 {scheduleModal.agenda_items.map((item, idx) => (
                                     <div key={idx} className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 bg-neutral-50/70 dark:bg-neutral-900/40">
-                                        <p className="font-mono font-bold text-athlix-red text-xs">{item.start_time} – {item.end_time}</p>
+                                        <p className="font-mono font-bold text-athlix-red text-xs">{item.start_time} - {item.end_time}</p>
                                         <p className="font-semibold text-sm mt-0.5">{item.title}</p>
                                         {item.description && <p className="text-xs text-neutral-500 mt-1">{item.description}</p>}
                                     </div>
@@ -450,7 +387,6 @@ export default function Dashboard({
                                 </div>
                                 <div>
                                     <p className="font-bold">{attendanceModal.athlete_name}</p>
-                                    <p className="text-xs text-neutral-500">{attendanceModal.athlete_code}</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
@@ -472,44 +408,6 @@ export default function Dashboard({
                                     Buka Halaman Absensi <ChevronRight size={13} className="ml-1" />
                                 </Button>
                             </Link>
-                        </div>
-                    </div>
-                )}
-            </Modal>
-
-            {/* Wellness Alert Detail Modal */}
-            <Modal show={!!wellnessModal} onClose={() => setWellnessModal(null)} maxWidth="sm">
-                {wellnessModal && (
-                    <div className="p-6 space-y-4">
-                        <div className="flex items-start justify-between gap-4">
-                            <h3 className="text-lg font-black tracking-tight">Detail Wellness Alert</h3>
-                            <button onClick={() => setWellnessModal(null)} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors shrink-0">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${wellnessModal.priority >= 3 ? 'bg-athlix-red/10' : 'bg-amber-100'}`}>
-                                    <AlertTriangle size={18} className={wellnessModal.priority >= 3 ? 'text-athlix-red' : 'text-amber-600'} />
-                                </div>
-                                <div>
-                                    <p className="font-bold">{wellnessModal.athlete_name}</p>
-                                    <p className="text-xs text-neutral-500">{wellnessModal.athlete_code}</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Tipe Alert</p>
-                                    <p className={`font-black text-sm ${wellnessModal.priority >= 3 ? 'text-athlix-red' : 'text-amber-600'}`}>{wellnessModal.label}</p>
-                                </div>
-                                <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Nilai</p>
-                                    <p className="font-bold text-sm">{wellnessModal.value}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex justify-end pt-2 border-t border-neutral-100">
-                            <Button variant="outline" onClick={() => setWellnessModal(null)}>Tutup</Button>
                         </div>
                     </div>
                 )}

@@ -19,7 +19,6 @@ class DashboardController extends Controller
         $user = auth()->user();
         $requestedDojoId = request('dojo_id') ? (int) request('dojo_id') : null;
         $selectedDojoId = $this->resolveDojoId($user, $requestedDojoId);
-        // Super admin dengan no filter = tampilkan semua dojo (aggregate)
         $isAllDojos = $user?->isSuperAdmin() && !$selectedDojoId;
 
         $dojo = $selectedDojoId ? Dojo::find($selectedDojoId) : null;
@@ -56,7 +55,6 @@ class DashboardController extends Controller
             ['title' => 'Tunggakan SPP', 'value' => (string) $unpaidCount, 'icon' => 'credit-card'],
         ];
 
-        $todayIndo = $dayMap[now()->englishDayOfWeek] ?? 'Senin';
         $tomorrowIndo = $dayMap[now()->addDay()->englishDayOfWeek] ?? 'Selasa';
 
         $allPrograms = $programQuery->orderBy('start_time')->get();
@@ -79,7 +77,6 @@ class DashboardController extends Controller
         $todayProgramsList = $allPrograms->filter(fn ($p) => $p->day === $todayIndo)->map(fn ($p) => $formatProgram($p, true))->values();
         $tomorrowProgramsList = $allPrograms->filter(fn ($p) => $p->day === $tomorrowIndo)->map(fn ($p) => $formatProgram($p, false))->values();
 
-        // Gabung jika ingin, atau tampilkan langsung
         $trainingPrograms = $todayProgramsList->concat($tomorrowProgramsList);
 
         $nextTrainingReminder = $tomorrowProgramsList->isNotEmpty()
@@ -112,122 +109,12 @@ class DashboardController extends Controller
             })
             ->values();
 
-        $latestReadinessByAthlete = collect();
-        $latestWorkloadByAthlete = collect();
-
-        if ($selectedDojoId) {
-            $latestReadinessByAthlete = WellnessReadinessLog::query()
-                ->where('tenant_id', $selectedDojoId)
-                ->with('athlete:id,full_name,athlete_code')
-                ->orderByDesc('recorded_on')
-                ->orderByDesc('id')
-                ->get()
-                ->unique('athlete_id')
-                ->values();
-
-            $latestWorkloadByAthlete = WellnessWorkloadSnapshot::query()
-                ->where('tenant_id', $selectedDojoId)
-                ->with('athlete:id,full_name,athlete_code')
-                ->orderByDesc('snapshot_date')
-                ->orderByDesc('id')
-                ->get()
-                ->unique('athlete_id')
-                ->values();
-        }
-
-        $lowReadinessCount = $latestReadinessByAthlete
-            ->filter(fn ($item) => (int) $item->readiness_percentage < 60)
-            ->count();
-        $highWorkloadCount = $latestWorkloadByAthlete
-            ->filter(fn ($item) => in_array($item->risk_band, ['high', 'very_high'], true))
-            ->count();
-        $veryHighWorkloadCount = $latestWorkloadByAthlete
-            ->filter(fn ($item) => $item->risk_band === 'very_high')
-            ->count();
-
-        $readinessAvg = $latestReadinessByAthlete->isNotEmpty()
-            ? (int) round($latestReadinessByAthlete->avg('readiness_percentage'))
-            : 0;
-
-        $wellnessSummary = [
-            'tracked_athletes' => max($latestReadinessByAthlete->count(), $latestWorkloadByAthlete->count()),
-            'average_readiness' => $readinessAvg,
-            'low_readiness_count' => $lowReadinessCount,
-            'high_workload_count' => $highWorkloadCount,
-            'very_high_workload_count' => $veryHighWorkloadCount,
-            'last_readiness_date' => optional($latestReadinessByAthlete->first()?->recorded_on)->toDateString(),
-            'last_workload_date' => optional($latestWorkloadByAthlete->first()?->snapshot_date)->toDateString(),
-        ];
-
-        $wellnessTrend = collect();
-        if ($selectedDojoId) {
-            $wellnessTrend = collect(range(6, 0))
-                ->map(function (int $daysAgo) use ($selectedDojoId) {
-                    $date = now()->subDays($daysAgo)->toDateString();
-                    $avgReadiness = WellnessReadinessLog::query()
-                        ->where('tenant_id', $selectedDojoId)
-                        ->whereDate('recorded_on', $date)
-                        ->avg('readiness_percentage');
-
-                    $highRiskCount = WellnessWorkloadSnapshot::query()
-                        ->where('tenant_id', $selectedDojoId)
-                        ->whereDate('snapshot_date', $date)
-                        ->whereIn('risk_band', ['high', 'very_high'])
-                        ->count();
-
-                    return [
-                        'date' => $date,
-                        'label' => Carbon::parse($date)->format('d M'),
-                        'average_readiness' => $avgReadiness ? (int) round($avgReadiness) : 0,
-                        'high_risk_count' => $highRiskCount,
-                    ];
-                })
-                ->values();
-        }
-
-        $readinessAlerts = $latestReadinessByAthlete
-            ->filter(fn ($item) => (int) $item->readiness_percentage < 60)
-            ->map(function ($item) {
-                return [
-                    'athlete_name' => $item->athlete?->full_name ?? '-',
-                    'athlete_code' => $item->athlete?->athlete_code ?? '-',
-                    'type' => 'readiness',
-                    'label' => 'Readiness Rendah',
-                    'value' => (int) $item->readiness_percentage . '%',
-                    'priority' => (int) $item->readiness_percentage < 45 ? 2 : 1,
-                    'date' => optional($item->recorded_on)->toDateString(),
-                ];
-            });
-
-        $workloadAlerts = $latestWorkloadByAthlete
-            ->filter(fn ($item) => in_array($item->risk_band, ['high', 'very_high'], true))
-            ->map(function ($item) {
-                return [
-                    'athlete_name' => $item->athlete?->full_name ?? '-',
-                    'athlete_code' => $item->athlete?->athlete_code ?? '-',
-                    'type' => 'workload',
-                    'label' => strtoupper($item->risk_band) . ' ACWR',
-                    'value' => $item->acwr_ratio !== null ? number_format((float) $item->acwr_ratio, 2) : '-',
-                    'priority' => $item->risk_band === 'very_high' ? 3 : 2,
-                    'date' => optional($item->snapshot_date)->toDateString(),
-                ];
-            });
-
-        $wellnessAlerts = $readinessAlerts
-            ->merge($workloadAlerts)
-            ->sortByDesc('priority')
-            ->take(8)
-            ->values();
-
         return Inertia::render('Dashboard', [
             'stats'               => Inertia::defer(fn () => $stats),
             'trainingPrograms'    => Inertia::defer(fn () => $trainingPrograms),
             'nextTrainingReminder'=> Inertia::defer(fn () => $nextTrainingReminder),
             'attendanceSummary'   => Inertia::defer(fn () => $attendanceSummary),
             'recentAttendances'   => Inertia::defer(fn () => $recentAttendances),
-            'wellnessSummary'     => Inertia::defer(fn () => $wellnessSummary),
-            'wellnessAlerts'      => Inertia::defer(fn () => $wellnessAlerts),
-            'wellnessTrend'       => Inertia::defer(fn () => $wellnessTrend),
             'dojoName'            => Inertia::defer(fn () => $isAllDojos ? 'Semua Dojo' : ($dojo?->name ?? 'Dojo Utama')),
             'dojos'               => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId'      => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),

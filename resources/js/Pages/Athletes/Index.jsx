@@ -99,7 +99,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         return (
             <AdminLayout
                 user={auth?.user}
-                header={<h2 className="text-xl font-bold leading-tight text-neutral-800 ">Database Atlet Dojo</h2>}
+                header={<h2 className="text-xl font-bold leading-tight text-neutral-800 ">Database Atlet Club</h2>}
             >
                 <Head title="Database Atlet" />
                 <div className="py-6">
@@ -125,7 +125,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
     return (
         <AdminLayout
             user={auth?.user}
-            header={<h2 className="text-xl font-bold leading-tight text-neutral-800 ">Database Atlet Dojo</h2>}
+            header={<h2 className="text-xl font-bold leading-tight text-neutral-800 ">Database Atlet Club</h2>}
         >
             <Head title="Database Atlet" />
 
@@ -158,7 +158,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                         <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
                             <div className="flex items-center justify-between gap-4">
                                 <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
-                                    Daftar Atlet Dojo
+                                    Daftar Atlet Club
                                 </CardTitle>
                                 <Button
                                     onClick={() => setIsCreateOpen(true)}
@@ -396,7 +396,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                         inputId="athlete-create-dojo"
                                         options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
                                         value={data.dojo_id}
-                                        placeholder="Pilih Dojo"
+                                        placeholder="Pilih Club"
                                         onChange={(next) => setData('dojo_id', next)}
                                     />
                                     {errors.dojo_id && <p className="text-xs text-athlix-red">{errors.dojo_id}</p>}

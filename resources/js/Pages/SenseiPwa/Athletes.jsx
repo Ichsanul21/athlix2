@@ -66,7 +66,13 @@ export default function Athletes({ auth, dojo, athletes = [] }) {
                                             <p className="font-black truncate">{athlete.full_name}</p>
                                             <p className="text-xs text-neutral-500">{athlete.athlete_code} | Sabuk {athlete.belt}</p>
                                         </div>
-                                        <span className="inline-flex rounded-lg bg-neutral-100 px-2 py-1 text-[11px] font-black uppercase">
+                                        {/* DIFERENSIASI WARNA STATUS */}
+                                        <span className={`inline-flex shrink-0 rounded-lg px-2 py-1 text-[11px] font-black uppercase text-white ${
+                                            athlete.today_status === 'present' ? 'bg-green-500' :
+                                            athlete.today_status === 'sick' ? 'bg-orange-500' :
+                                            athlete.today_status === 'excused' ? 'bg-blue-500' :
+                                            'bg-neutral-400'
+                                        }`}>
                                             {statusLabel[athlete.today_status] || athlete.today_status}
                                         </span>
                                     </div>
@@ -109,4 +115,3 @@ export default function Athletes({ auth, dojo, athletes = [] }) {
         </PwaLayout>
     );
 }
-

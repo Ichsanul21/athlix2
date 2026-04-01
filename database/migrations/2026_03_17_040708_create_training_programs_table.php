@@ -19,7 +19,7 @@ return new class extends Migration
             $table->time('start_time');
             $table->time('end_time');
             $table->string('coach_name')->nullable();
-            $table->string('type')->default('teknik'); // fisik, teknik, kata, kumite
+            $table->string('type')->default('teknik');
             $table->string('day')->nullable(); // Senin, Selasa, etc.
             $table->timestamps();
         });

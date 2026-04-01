@@ -16,6 +16,7 @@ import {
     AlertCircle,
     ChevronRight,
     Tag,
+    MapPin,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '@/Components/Modal';
@@ -25,7 +26,7 @@ import InputError from '@/Components/InputError';
 import { Skeleton } from '@/Components/ui/skeleton';
 import DbSelect from '@/Components/DbSelect';
 
-export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [] }) {
+export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [], isAllDojos = false, isSuperAdmin = false }) {
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Drill Teknik', 'Kumite Drill', 'Kata Session', 'Sparring', 'Pendinginan', 'Evaluasi'];
@@ -37,19 +38,38 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     };
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState(null);
-    const [detailModal, setDetailModal] = useState(null); // program object for detail view
+    const [detailModal, setDetailModal] = useState(null);
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
+
+    const filterDojoOptions = useMemo(
+        () => [
+            { value: '', label: 'Semua Club' },
+            ...dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name })),
+        ],
+        [dojos]
+    );
+
     const dojoOptions = useMemo(
         () => dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name })),
         [dojos]
     );
 
     const coachOptions = useMemo(() => {
-        return senseis.map((s) => ({
+        const currentDojoName = dojos.find(d => String(d.id) === String(dojoId || selectedDojoId))?.name;
+
+        const baseOptions = senseis.map((s) => ({
             value: s.name,
             label: `${s.name} (${s.role.replace('_', ' ').toUpperCase()})`
         }));
-    }, [senseis]);
+
+        if (currentDojoName) {
+            return [
+                { value: currentDojoName, label: `${currentDojoName} (Dojo)` },
+                ...baseOptions
+            ];
+        }
+        return baseOptions;
+    }, [senseis, dojos, dojoId, selectedDojoId]);
 
     const { data, setData, post, patch, delete: destroy, processing, errors, reset, clearErrors } = useForm({
         title: '',
@@ -68,6 +88,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         setDojoId(selectedDojoId || '');
         setData('dojo_id', selectedDojoId || '');
     }, [selectedDojoId]);
+
+    const handleFilterDojoChange = (next) => {
+        const params = next ? { dojo_id: next } : {};
+        router.get(route('training-programs.index'), params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     const openModal = (program = null) => {
         clearErrors();
@@ -93,9 +121,22 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         } else {
             setEditingProgram(null);
             reset();
-            setData('agenda_items', []);
-            setData('dojo_id', dojoId || '');
-            setData('force_overlap', false);
+
+            const currentDojoName = dojos.find(d => String(d.id) === String(dojoId || selectedDojoId))?.name;
+
+            setData({
+                ...data,
+                title: '',
+                day: 'Senin',
+                start_time: '08:00',
+                end_time: '10:00',
+                coach_name: currentDojoName || '',
+                type: 'teknik',
+                description: '',
+                agenda_items: [],
+                dojo_id: dojoId || selectedDojoId || '',
+                force_overlap: false,
+            });
         }
         setIsModalOpen(true);
     };
@@ -107,6 +148,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
     const submit = (e) => {
         e.preventDefault();
+
+        if (!data.coach_name) {
+            const currentDojoName = dojos.find(d => String(d.id) === String(data.dojo_id))?.name;
+            if (currentDojoName) {
+                setData('coach_name', currentDojoName);
+            }
+        }
+
         if (editingProgram) {
             patch(route('training-programs.update', editingProgram.id), {
                 onSuccess: () => closeModal(),
@@ -175,7 +224,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         return (
             <AdminLayout
                 user={auth?.user}
-                header={<h2 className="text-xl font-bold tracking-tight uppercase">Jadwal Latihan Dojo</h2>}
+                header={<h2 className="text-xl font-bold tracking-tight uppercase">Jadwal Latihan Club</h2>}
             >
                 <Head title="Program Latihan" />
                 <div className="py-6 space-y-6">
@@ -195,7 +244,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     return (
         <AdminLayout
             user={auth?.user}
-            header={<h2 className="text-xl font-bold tracking-tight uppercase">Jadwal Latihan Dojo</h2>}
+            header={<h2 className="text-xl font-bold tracking-tight uppercase">Jadwal Latihan Club</h2>}
         >
             <Head title="Program Latihan" />
 
@@ -204,27 +253,40 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
                         <div>
-                            <p className="text-sm font-bold uppercase tracking-widest text-neutral-500">Program Mingguan</p>
+                            <p className="text-sm font-bold uppercase tracking-widest text-neutral-500">
+                                Program Mingguan
+                                {isAllDojos && (
+                                    <span className="text-xs font-normal normal-case tracking-normal text-neutral-400 ml-2">— Semua Club</span>
+                                )}
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
-                            {dojos.length > 0 && (
-                                <DbSelect
-                                    inputId="training-programs-dojo-filter"
-                                    className="min-w-[220px]"
-                                    options={dojoOptions}
-                                    value={dojoId || ''}
-                                    placeholder="Pilih Dojo"
-                                    onChange={(next) => {
-                                        setDojoId(next);
-                                        setData('dojo_id', next);
-                                        router.get(route('training-programs.index'), next ? { dojo_id: next } : {}, { preserveScroll: true });
-                                    }}
-                                />
+                            {isSuperAdmin && dojos.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                    <DbSelect
+                                        inputId="filter-dojo"
+                                        className="min-w-[180px]"
+                                        options={filterDojoOptions}
+                                        value={selectedDojoId ? String(selectedDojoId) : ''}
+                                        placeholder="Semua Club"
+                                        onChange={handleFilterDojoChange}
+                                    />
+                                    {selectedDojoId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleFilterDojoChange('')}
+                                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                            title="Tampilkan semua club"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
                             )}
                             <Button
                                 onClick={() => openModal()}
                                 className="h-10 px-6 rounded-xl font-black uppercase tracking-widest gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-athlix-red/20 transition-all active:scale-95"
-                                disabled={dojos.length > 0 && !dojoId}
+                                disabled={isSuperAdmin && dojos.length > 0 && !dojoId}
                             >
                                 <Plus size={16} />
                                 <span className="hidden sm:inline">Tambah Program</span>
@@ -245,63 +307,69 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                     {weeklySchedule[day] && weeklySchedule[day].length > 0 ? (
                                         weeklySchedule[day].map((p) => {
                                             return (
-                                            <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/40 transition-all duration-300 overflow-hidden relative card-hover`}>
-                                                <div className={`h-1 w-full ${typeColors[p.type] || 'bg-blue-500'} transition-all duration-300 group-hover:h-1.5`}></div>
+                                                <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/40 transition-all duration-300 overflow-hidden relative card-hover`}>
+                                                    <div className={`h-1 w-full ${typeColors[p.type] || 'bg-blue-500'} transition-all duration-300 group-hover:h-1.5`}></div>
 
-                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
+                                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                openModal(p);
+                                                            }}
+                                                            className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-athlix-red shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
+                                                        >
+                                                            <Pencil size={12} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                handleDelete(p.id);
+                                                            }}
+                                                            className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-red-600 shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    </div>
+
                                                     <button
                                                         type="button"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            openModal(p);
-                                                        }}
-                                                        className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-athlix-red shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
+                                                        onClick={() => setDetailModal(p)}
+                                                        className="w-full text-left"
                                                     >
-                                                        <Pencil size={12} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            handleDelete(p.id);
-                                                        }}
-                                                        className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-red-600 shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
-                                                    >
-                                                        <Trash2 size={12} />
-                                                    </button>
-                                                </div>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDetailModal(p)}
-                                                    className="w-full text-left"
-                                                >
-                                                    <CardContent className="p-3 sm:p-4 space-y-2.5">
-                                                        <div className="flex items-start justify-between gap-2 pr-10">
-                                                            <h4 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors">{p.title}</h4>
-                                                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shrink-0 ${typeColors[p.type] || 'bg-blue-500'}`}>
-                                                                {p.type}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
-                                                            <Clock size={11} />
-                                                            {p.time}
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-                                                            <User size={11} className="text-athlix-red" />
-                                                            <span className="truncate">{p.coach}</span>
-                                                        </div>
-                                                        {(p.agenda_items || []).length > 0 && (
-                                                            <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
-                                                                <Tag size={10} />
-                                                                {p.agenda_items.length} sesi agenda
-                                                                <ChevronRight size={10} />
+                                                        <CardContent className="p-3 sm:p-4 space-y-2.5">
+                                                            <div className="flex items-start justify-between gap-2 pr-10">
+                                                                <h4 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors">{p.title}</h4>
+                                                                <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shrink-0 ${typeColors[p.type] || 'bg-blue-500'}`}>
+                                                                    {p.type}
+                                                                </span>
                                                             </div>
-                                                        )}
-                                                    </CardContent>
-                                                </button>
-                                            </Card>
-                                        );
+                                                            <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
+                                                                <Clock size={11} />
+                                                                {p.time}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                                                                <User size={11} className="text-athlix-red" />
+                                                                <span className="truncate">{p.coach}</span>
+                                                            </div>
+                                                            {isAllDojos && p.dojo_name && (
+                                                                <div className="flex items-center gap-1.5 text-xs text-blue-500">
+                                                                    <MapPin size={11} />
+                                                                    <span className="truncate">{p.dojo_name}</span>
+                                                                </div>
+                                                            )}
+                                                            {(p.agenda_items || []).length > 0 && (
+                                                                <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+                                                                    <Tag size={10} />
+                                                                    {p.agenda_items.length} sesi agenda
+                                                                    <ChevronRight size={10} />
+                                                                </div>
+                                                            )}
+                                                        </CardContent>
+                                                    </button>
+                                                </Card>
+                                            );
                                         })
                                     ) : (
                                         <div className="p-4 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 text-xs text-neutral-400 italic text-center bg-neutral-50/50 dark:bg-neutral-900/30">
@@ -317,6 +385,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                 </div>
             </div>
 
+            {/* Modal Tambah / Edit */}
             <Modal show={isModalOpen} onClose={closeModal} maxWidth="2xl">
                 <div className="p-6 max-h-[85vh] overflow-y-auto">
                     <div className="flex items-center justify-between mb-6">
@@ -332,18 +401,19 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="col-span-1 sm:col-span-2">
                                 <InputLabel htmlFor="title" value="Template Program" />
-                                <DbSelect
-                                    inputId="title"
-                                    className="mt-1"
-                                    options={titleSelectOptions}
+                                <TextInput
+                                    id="title"
+                                    type="text"
+                                    className="mt-1 block w-full"
                                     value={data.title}
-                                    onChange={(next) => setData('title', next)}
-                                    placeholder="Pilih template program"
+                                    onChange={(e) => setData('title', e.target.value)}
+                                    placeholder="Masukkan nama program"
+                                    required
                                 />
-                                <InputError message={errors.title} className="mt-2" />
+
                             </div>
 
-                            {dojos.length > 0 && (
+                            {isSuperAdmin && dojos.length > 0 && (
                                 <div className="col-span-1 sm:col-span-2">
                                     <InputLabel htmlFor="dojo_id" value="Dojo" />
                                     <DbSelect
@@ -351,7 +421,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         className="mt-1"
                                         options={dojoOptions}
                                         value={data.dojo_id || ''}
-                                        placeholder="Pilih dojo"
+                                        placeholder="Pilih Club"
                                         onChange={(next) => setData('dojo_id', next)}
                                     />
                                     <InputError message={errors.dojo_id} className="mt-2" />
@@ -360,7 +430,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                             <div>
                                 <InputLabel htmlFor="day" value="Hari" />
-                                <DbSelect 
+                                <DbSelect
                                     className="mt-1"
                                     inputId="day"
                                     value={data.day}
@@ -373,15 +443,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
 
                             <div>
                                 <InputLabel htmlFor="type" value="Tipe Latihan" />
-                                <DbSelect 
+                                <DbSelect
                                     className="mt-1"
                                     inputId="type"
                                     value={data.type}
                                     options={[
-                                        { value: 'teknik', label: 'Teknik (Kihon)' },
-                                        { value: 'kata', label: 'Kata' },
-                                        { value: 'kumite', label: 'Kumite' },
                                         { value: 'fisik', label: 'Fisik' },
+                                        { value: 'teknik umum', label: 'Teknik Umum' },
+                                        { value: 'teknik khusus', label: 'Teknik Khusus' },
                                     ]}
                                     onChange={(value) => setData('type', value)}
                                     placeholder="Pilih Tipe Latihan"
@@ -402,7 +471,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                             </div>
 
                             <div className="col-span-1 sm:col-span-2">
-                                <InputLabel htmlFor="coach_name" value="Pelatih / Sensei" />
+                                <InputLabel htmlFor="coach_name" value="Pelatih" />
                                 <DbSelect
                                     inputId="coach_name"
                                     className="mt-1"
@@ -414,9 +483,10 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                 <InputError message={errors.coach_name} className="mt-2" />
                             </div>
 
+
                             <div className="col-span-1 sm:col-span-2">
                                 <InputLabel htmlFor="description" value="Keterangan Umum" />
-                                <textarea id="description" className="mt-1 block w-full border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900  focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm" rows="3" value={data.description} onChange={(e) => setData('description', e.target.value)}></textarea>
+                                <textarea id="description" className="mt-1 block w-full border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 focus:border-athlix-red focus:ring-athlix-red rounded-xl shadow-sm text-sm" rows="3" value={data.description} onChange={(e) => setData('description', e.target.value)}></textarea>
                                 <InputError message={errors.description} className="mt-2" />
                             </div>
                         </div>
@@ -480,8 +550,6 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         onClick={() => {
                                             clearErrors('confirm_overlap');
                                             setData('force_overlap', true);
-                                            // Optional: User has to click Save again, or we could trigger it automatically.
-                                            // Letting them click generic save is safer so they see the state changed.
                                         }}
                                         className="bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 text-white text-xs h-8"
                                     >
@@ -513,6 +581,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                     </form>
                 </div>
             </Modal>
+
             {/* Detail Program Modal */}
             <Modal show={!!detailModal} onClose={() => setDetailModal(null)} maxWidth="lg">
                 {detailModal && (
@@ -548,6 +617,15 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                 <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Pelatih</p>
                                 <p className="font-bold text-sm">{detailModal.coach || '-'}</p>
                             </div>
+                            {isAllDojos && detailModal.dojo_name && (
+                                <div className="col-span-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 p-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Club</p>
+                                    <p className="font-bold text-sm text-blue-600 dark:text-blue-300 flex items-center gap-1.5">
+                                        <MapPin size={13} />
+                                        {detailModal.dojo_name}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {detailModal.desc && (
