@@ -26,7 +26,7 @@ const MESSAGES = {
         'common.scan': 'Scan',
         'common.condition': 'Kondisi',
         'common.settings': 'Pengaturan',
-        'admin.db_athlete': 'Database Atlet',
+        'admin.db_athlete': 'Atlet',
         'admin.attendance': 'Absensi',
         'admin.payment': 'Pembayaran',
         'admin.physical_condition': 'Kondisi Fisik',
@@ -201,7 +201,7 @@ const PHRASE_TRANSLATIONS = {
     'Blokir Paksa Access SaaS Server': 'Force Block SaaS Server Access',
 
     // Modules
-    'Database Atlet': 'Athlete Database',
+    'Atlet': 'Athlete',
     'Database Atlet Dojo': 'Dojo Athlete Database',
     'Database Pelatih': 'Coach Database',
     'Absensi Atlet': 'Athlete Attendance',
@@ -242,7 +242,7 @@ const PHRASE_TRANSLATIONS = {
     'Ringkasan Absensi Hari Ini': 'Today Attendance Summary',
     'Latihan Hari Ini': 'Today Training',
     'Menu Latihan Hari Ini': "Today's Training Menu",
-    
+
     // Performance & Evaluation
     'Kondisi & Kemampuan': 'Condition & Ability',
     'Kondisi fisik saat ini': 'Current physical condition',
@@ -268,7 +268,7 @@ const PHRASE_TRANSLATIONS = {
     'Riwayat Pengajuan': 'Request History',
     'Belum Lunas': 'Unpaid',
     'Lunas': 'Paid',
-    
+
     // Actions & General
     'Instal Aplikasi': 'Install App',
     'Install Sekarang': 'Install Now',

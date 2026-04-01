@@ -307,240 +307,250 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                 </div>
             </div>
 
+            {/* ── Create Athlete Modal ── */}
             <Modal show={isCreateOpen} onClose={() => setIsCreateOpen(false)} maxWidth="2xl">
-                <div className="flex items-center justify-between p-4 mb-2 border-b border-neutral-100">
-                    <h3 className="text-lg font-black uppercase tracking-tight">Registrasi Atlet Baru</h3>
-                    <button type="button" onClick={() => setIsCreateOpen(false)} className="text-neutral-500 hover:text-neutral-700">
+                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-neutral-100 dark:border-neutral-800">
+                    <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">Registrasi Atlet Baru</h3>
+                    <button type="button" onClick={() => setIsCreateOpen(false)} className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
                         <X size={20} />
                     </button>
                 </div>
-                <div className="p-6 max-h-[85vh] overflow-y-auto w-full">
-                    <form onSubmit={handleCreateSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="col-span-2 space-y-1">
-                                <label className="text-sm font-medium">Full Name</label>
-                                <Input
-                                    value={data.full_name}
-                                    onChange={e => setData('full_name', e.target.value)}
-                                    placeholder="Enter full name"
-                                    required
-                                />
-                                {errors.full_name && <p className="text-xs text-athlix-red">{errors.full_name}</p>}
-                            </div>
 
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">No HP Atlet</label>
-                                <Input
-                                    value={data.phone_number}
-                                    onChange={e => setData('phone_number', e.target.value)}
-                                    placeholder="08xxxxxxxxxx"
-                                    required
-                                />
-                                {errors.phone_number && <p className="text-xs text-athlix-red">{errors.phone_number}</p>}
-                            </div>
+                <div className="p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
+                    <form onSubmit={handleCreateSubmit} className="space-y-4 sm:space-y-5">
 
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Athlete ID Code</label>
-                                <Input
-                                    value={data.athlete_code}
-                                    onChange={e => setData('athlete_code', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())}
-                                    placeholder="ATH0001"
-                                    disabled
-                                    className="bg-neutral-100 dark:bg-neutral-800 cursor-not-allowed"
-                                    required
-                                />
-                                <p className="text-xs text-neutral-500">Kode atlet otomatis, hanya huruf dan angka (tanpa simbol).</p>
-                                {errors.athlete_code && <p className="text-xs text-athlix-red">{errors.athlete_code}</p>}
-                            </div>
-
-                            <div className="col-span-2 mt-2 rounded-xl border border-dashed border-neutral-300 p-4 space-y-3">
-                                <p className="text-sm font-semibold">Data Orang Tua / Wali (Akun otomatis dibuat/ditautkan)</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-medium">Nama Orang Tua</label>
-                                        <Input
-                                            value={data.parent_name}
-                                            onChange={e => setData('parent_name', e.target.value)}
-                                            placeholder="Nama orang tua"
-                                            required
-                                        />
-                                        {errors.parent_name && <p className="text-xs text-athlix-red">{errors.parent_name}</p>}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-medium">No HP Orang Tua</label>
-                                        <Input
-                                            value={data.parent_phone_number}
-                                            onChange={e => setData('parent_phone_number', e.target.value)}
-                                            placeholder="08xxxxxxxxxx"
-                                            required
-                                        />
-                                        {errors.parent_phone_number && <p className="text-xs text-athlix-red">{errors.parent_phone_number}</p>}
-                                    </div>
-                                    <div className="space-y-1 sm:col-span-2">
-                                        <label className="text-sm font-medium">Email Orang Tua (Opsional)</label>
-                                        <Input
-                                            type="email"
-                                            value={data.parent_email}
-                                            onChange={e => setData('parent_email', e.target.value)}
-                                            placeholder="orangtua@example.com"
-                                        />
-                                        {errors.parent_email && <p className="text-xs text-athlix-red">{errors.parent_email}</p>}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {dojos.length > 0 && (
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium">Dojo</label>
-                                    <DbSelect
-                                        inputId="athlete-create-dojo"
-                                        options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
-                                        value={data.dojo_id}
-                                        placeholder="Pilih Club"
-                                        onChange={(next) => setData('dojo_id', next)}
+                        {/* Data Pribadi */}
+                        <div className="space-y-3 sm:space-y-4">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-400">Data Pribadi Atlet</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Nama Lengkap *</label>
+                                    <Input
+                                        value={data.full_name}
+                                        onChange={e => setData('full_name', e.target.value)}
+                                        placeholder="Masukkan nama lengkap"
+                                        required
                                     />
-                                    {errors.dojo_id && <p className="text-xs text-athlix-red">{errors.dojo_id}</p>}
+                                    {errors.full_name && <p className="text-xs text-athlix-red">{errors.full_name}</p>}
                                 </div>
-                            )}
 
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Belt Level</label>
-                                <DbSelect
-                                    inputId="athlete-create-belt"
-                                    options={belts.map((belt) => ({ value: String(belt.id), label: belt.name }))}
-                                    value={data.current_belt_id}
-                                    placeholder="Pilih Belt"
-                                    onChange={(next) => setData('current_belt_id', next)}
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Tempat Lahir</label>
-                                <Input
-                                    value={data.birth_place}
-                                    onChange={e => setData('birth_place', e.target.value)}
-                                    placeholder="Contoh: Samarinda"
-                                />
-                                {errors.birth_place && <p className="text-xs text-athlix-red">{errors.birth_place}</p>}
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Date of Birth</label>
-                                <Input
-                                    type="date"
-                                    value={data.dob}
-                                    onChange={e => setData('dob', e.target.value)}
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Gender</label>
-                                <DbSelect
-                                    inputId="athlete-gender"
-                                    value={data.gender}
-                                    options={[
-                                        { value: 'M', label: 'Male' },
-                                        { value: 'F', label: 'Female' }
-                                    ]}
-                                    onChange={(val) => setData('gender', val)}
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Height (cm)</label>
-                                <Input
-                                    type="number"
-                                    step="0.1"
-                                    value={data.latest_height}
-                                    onChange={e => setData('latest_height', e.target.value)}
-                                    placeholder="e.g. 170"
-                                />
-                                {errors.latest_height && <p className="text-xs text-athlix-red">{errors.latest_height}</p>}
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Weight (kg)</label>
-                                <Input
-                                    type="number"
-                                    step="0.1"
-                                    value={data.latest_weight}
-                                    onChange={e => setData('latest_weight', e.target.value)}
-                                    placeholder="e.g. 65.5"
-                                />
-                                {errors.latest_weight && <p className="text-xs text-athlix-red">{errors.latest_weight}</p>}
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Specialization</label>
-                                <DbSelect
-                                    inputId="athlete-specialization"
-                                    value={data.specialization}
-                                    options={[
-                                        { value: 'kata', label: 'Kata' },
-                                        { value: 'kumite', label: 'Kumite' },
-                                        { value: 'both', label: 'Both' }
-                                    ]}
-                                    onChange={(val) => setData('specialization', val)}
-                                />
-                            </div>
-
-                            <div className="col-span-2 space-y-1">
-                                <label className="text-sm font-medium">Keterangan Kelas</label>
-                                <Input
-                                    value={data.class_note}
-                                    onChange={e => setData('class_note', e.target.value)}
-                                    placeholder="Contoh: Senior -67kg"
-                                />
-                                {errors.class_note && <p className="text-xs text-athlix-red">{errors.class_note}</p>}
-                            </div>
-
-                            <div className="col-span-2 space-y-1">
-                                <label className="text-sm font-medium">Foto Atlet (Opsional)</label>
-                                <Input
-                                    type="file"
-                                    accept=".jpg,.jpeg,.png,.webp"
-                                    onChange={(event) => setData('photo', event.target.files?.[0] || null)}
-                                />
-                                {errors.photo && <p className="text-xs text-athlix-red">{errors.photo}</p>}
-                            </div>
-
-                            <div className="col-span-2 space-y-3 rounded-xl border border-dashed border-neutral-300 p-4">
-                                <p className="text-sm font-semibold">Dokumen Registrasi (minimal 1 wajib)</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KK</label>
-                                        <Input
-                                            type="file"
-                                            accept=".jpg,.jpeg,.png,.pdf"
-                                            onChange={(event) => setData('doc_kk', event.target.files?.[0] || null)}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Akte</label>
-                                        <Input
-                                            type="file"
-                                            accept=".jpg,.jpeg,.png,.pdf"
-                                            onChange={(event) => setData('doc_akte', event.target.files?.[0] || null)}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KTP</label>
-                                        <Input
-                                            type="file"
-                                            accept=".jpg,.jpeg,.png,.pdf"
-                                            onChange={(event) => setData('doc_ktp', event.target.files?.[0] || null)}
-                                        />
-                                    </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">No HP Atlet</label>
+                                    <Input
+                                        value={data.phone_number}
+                                        onChange={e => setData('phone_number', e.target.value)}
+                                        placeholder="08xxxxxxxxxx"
+                                        required
+                                    />
+                                    {errors.phone_number && <p className="text-xs text-athlix-red">{errors.phone_number}</p>}
                                 </div>
-                                {(errors.doc_kk || errors.doc_akte || errors.doc_ktp) && (
-                                    <p className="text-xs text-athlix-red">{errors.doc_kk || errors.doc_akte || errors.doc_ktp}</p>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kode Atlet</label>
+                                    <Input
+                                        value={data.athlete_code}
+                                        onChange={e => setData('athlete_code', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())}
+                                        placeholder="ATH0001"
+                                        disabled
+                                        className="bg-neutral-100 dark:bg-neutral-800 cursor-not-allowed"
+                                        required
+                                    />
+                                    <p className="text-[10px] text-neutral-400">Kode otomatis, hanya huruf & angka.</p>
+                                    {errors.athlete_code && <p className="text-xs text-athlix-red">{errors.athlete_code}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tanggal Lahir *</label>
+                                    <Input
+                                        type="date"
+                                        value={data.dob}
+                                        onChange={e => setData('dob', e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tempat Lahir</label>
+                                    <Input
+                                        value={data.birth_place}
+                                        onChange={e => setData('birth_place', e.target.value)}
+                                        placeholder="Contoh: Samarinda"
+                                    />
+                                    {errors.birth_place && <p className="text-xs text-athlix-red">{errors.birth_place}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Gender *</label>
+                                    <DbSelect
+                                        inputId="athlete-gender"
+                                        value={data.gender}
+                                        options={[
+                                            { value: 'M', label: 'Laki-laki' },
+                                            { value: 'F', label: 'Perempuan' }
+                                        ]}
+                                        onChange={(val) => setData('gender', val)}
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tinggi Badan (cm)</label>
+                                    <Input
+                                        type="number"
+                                        step="0.1"
+                                        value={data.latest_height}
+                                        onChange={e => setData('latest_height', e.target.value)}
+                                        placeholder="170"
+                                    />
+                                    {errors.latest_height && <p className="text-xs text-athlix-red">{errors.latest_height}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Berat Badan (kg)</label>
+                                    <Input
+                                        type="number"
+                                        step="0.1"
+                                        value={data.latest_weight}
+                                        onChange={e => setData('latest_weight', e.target.value)}
+                                        placeholder="65.5"
+                                    />
+                                    {errors.latest_weight && <p className="text-xs text-athlix-red">{errors.latest_weight}</p>}
+                                </div>
+
+                                {dojos.length > 0 && (
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Dojo *</label>
+                                        <DbSelect
+                                            inputId="athlete-create-dojo"
+                                            options={dojos.map((dojo) => ({ value: String(dojo.id), label: dojo.name }))}
+                                            value={data.dojo_id}
+                                            placeholder="Pilih Dojo"
+                                            onChange={(next) => setData('dojo_id', next)}
+                                        />
+                                        {errors.dojo_id && <p className="text-xs text-athlix-red">{errors.dojo_id}</p>}
+                                    </div>
                                 )}
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Belt Level</label>
+                                    <DbSelect
+                                        inputId="athlete-create-belt"
+                                        options={belts.map((belt) => ({ value: String(belt.id), label: belt.name }))}
+                                        value={data.current_belt_id}
+                                        placeholder="Pilih Belt"
+                                        onChange={(next) => setData('current_belt_id', next)}
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Spesialisasi</label>
+                                    <DbSelect
+                                        inputId="athlete-specialization"
+                                        value={data.specialization}
+                                        options={[
+                                            { value: 'kata', label: 'Kata' },
+                                            { value: 'kumite', label: 'Kumite' },
+                                            { value: 'both', label: 'Kata & Kumite' }
+                                        ]}
+                                        onChange={(val) => setData('specialization', val)}
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Keterangan Kelas</label>
+                                    <Input
+                                        value={data.class_note}
+                                        onChange={e => setData('class_note', e.target.value)}
+                                        placeholder="Contoh: Senior -67kg"
+                                    />
+                                    {errors.class_note && <p className="text-xs text-athlix-red">{errors.class_note}</p>}
+                                </div>
+
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Atlet (Opsional)</label>
+                                    <Input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.webp"
+                                        onChange={(event) => setData('photo', event.target.files?.[0] || null)}
+                                    />
+                                    {errors.photo && <p className="text-xs text-athlix-red">{errors.photo}</p>}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="pt-4">
-                            <Button type="submit" className="w-full h-12 text-lg" disabled={processing}>
+                        {/* Data Orang Tua */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-400">Data Orang Tua / Wali</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Nama Orang Tua *</label>
+                                    <Input
+                                        value={data.parent_name}
+                                        onChange={e => setData('parent_name', e.target.value)}
+                                        placeholder="Nama orang tua"
+                                        required
+                                    />
+                                    {errors.parent_name && <p className="text-xs text-athlix-red">{errors.parent_name}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">No HP Orang Tua *</label>
+                                    <Input
+                                        value={data.parent_phone_number}
+                                        onChange={e => setData('parent_phone_number', e.target.value)}
+                                        placeholder="08xxxxxxxxxx"
+                                        required
+                                    />
+                                    {errors.parent_phone_number && <p className="text-xs text-athlix-red">{errors.parent_phone_number}</p>}
+                                </div>
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Email Orang Tua (Opsional)</label>
+                                    <Input
+                                        type="email"
+                                        value={data.parent_email}
+                                        onChange={e => setData('parent_email', e.target.value)}
+                                        placeholder="orangtua@example.com"
+                                    />
+                                    {errors.parent_email && <p className="text-xs text-athlix-red">{errors.parent_email}</p>}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Dokumen Registrasi */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-400">Dokumen Registrasi <span className="text-athlix-red normal-case tracking-normal">(Minimal 1 wajib)</span></p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KK</label>
+                                    <Input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.pdf"
+                                        onChange={(event) => setData('doc_kk', event.target.files?.[0] || null)}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Akte</label>
+                                    <Input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.pdf"
+                                        onChange={(event) => setData('doc_akte', event.target.files?.[0] || null)}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KTP</label>
+                                    <Input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.pdf"
+                                        onChange={(event) => setData('doc_ktp', event.target.files?.[0] || null)}
+                                    />
+                                </div>
+                            </div>
+                            {(errors.doc_kk || errors.doc_akte || errors.doc_ktp) && (
+                                <p className="text-xs text-athlix-red">{errors.doc_kk || errors.doc_akte || errors.doc_ktp}</p>
+                            )}
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                            <Button type="submit" className="w-full h-12 text-base font-bold" disabled={processing}>
                                 {processing && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                                 Daftarkan Atlet
                             </Button>
@@ -551,5 +561,3 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         </AdminLayout>
     );
 }
-
-

@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { useLanguage } from '@/Components/LanguageProvider';
 import LanguageSwitch from '@/Components/LanguageSwitch';
-import { 
-    LayoutDashboard, 
-    Users, 
-    CalendarCheck, 
-    CreditCard, 
+import {
+    LayoutDashboard,
+    Users,
+    CalendarCheck,
+    CreditCard,
     LogOut,
     Menu,
     X,
@@ -94,9 +94,9 @@ export default function AdminLayout({ user, header, children }) {
             <GlobalFlashModal />
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
-                <div 
-                    className="fixed inset-0 z-40 lg:hidden bg-athlix-black/60 backdrop-blur-sm animate-fade-in" 
-                    onClick={() => setSidebarOpen(false)} 
+                <div
+                    className="fixed inset-0 z-40 lg:hidden bg-athlix-black/60 backdrop-blur-sm animate-fade-in"
+                    onClick={() => setSidebarOpen(false)}
                 />
             )}
 
@@ -118,9 +118,9 @@ export default function AdminLayout({ user, header, children }) {
                         <X size={20} />
                     </button>
                 </div>
-                
+
                 {/* Navigation */}
-                <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)]">
+                <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-11rem)]">
                     {navigation.map((item, idx) => {
                         const isActive = route().current(item.current);
                         return (
@@ -128,8 +128,8 @@ export default function AdminLayout({ user, header, children }) {
                                 key={item.name}
                                 href={item.href}
                                 className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden fill-both ${
-                                    isActive 
-                                    ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20' 
+                                    isActive
+                                    ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
                                     : 'text-neutral-600  hover:bg-neutral-100 hover:text-athlix-black'
                                 }`}
                                 style={{ animationDelay: `${idx * 40}ms` }}
@@ -145,28 +145,34 @@ export default function AdminLayout({ user, header, children }) {
                 </nav>
 
                 {/* Bottom Actions */}
-                <div className="absolute bottom-0 w-full p-3 border-t border-neutral-200/80 bg-white space-y-1">
-                    {aiNavigation.map((item) => {
-                        const isActive = route().current(item.current);
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ${
-                                    isActive
-                                        ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
-                                        : 'text-neutral-600 hover:bg-neutral-100 hover:text-athlix-black'
-                                }`}
-                            >
-                                <item.icon className="w-5 h-5 mr-3" />
-                                {item.name}
-                            </Link>
-                        );
-                    })}
-                    <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 hover:text-athlix-red transition-all duration-300">
-                        <LogOut className="w-5 h-5 mr-3" />
-                        {t('common.sign_out', 'Sign Out')}
-                    </Link>
+                <div className="absolute bottom-0 w-full bg-white border-t border-neutral-200/80">
+                    <div className="lg:hidden flex justify-center pt-3 pb-1">
+                        <LanguageSwitch />
+                    </div>
+
+                    <div className="p-3 pt-1 lg:pt-3 space-y-1">
+                        {aiNavigation.map((item) => {
+                            const isActive = route().current(item.current);
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ${
+                                        isActive
+                                            ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
+                                            : 'text-neutral-600 hover:bg-neutral-100 hover:text-athlix-black'
+                                    }`}
+                                >
+                                    <item.icon className="w-5 h-5 mr-3" />
+                                    {item.name}
+                                </Link>
+                            );
+                        })}
+                        <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 hover:text-athlix-red transition-all duration-300">
+                            <LogOut className="w-5 h-5 mr-3" />
+                            {t('common.sign_out', 'Sign Out')}
+                        </Link>
+                    </div>
                 </div>
             </aside>
 
@@ -175,22 +181,24 @@ export default function AdminLayout({ user, header, children }) {
                 {/* Header */}
                 <header className="sticky top-0 z-30 flex items-center justify-between min-h-16 py-2 px-3 sm:px-6 gap-3 glass-strong border-gradient">
                     <div className="flex items-center min-w-0 flex-1">
-                        <button 
-                            className="mr-4 lg:hidden text-neutral-500 hover:text-athlix-black p-2 rounded-xl hover:bg-neutral-100 transition-all duration-300 active:scale-95" 
+                        <button
+                            className="mr-4 lg:hidden text-neutral-500 hover:text-athlix-black p-2 rounded-xl hover:bg-neutral-100 transition-all duration-300 active:scale-95"
                             onClick={() => setSidebarOpen(true)}
                         >
                             <Menu size={22} />
                         </button>
                         {header && (
-                            <div className="font-semibold tracking-tight animate-fade-in min-w-0">
+                            <div className="font-semibold tracking-tight animate-fade-in min-w-0 text-sm sm:text-base line-clamp-2">
                                 {header}
                             </div>
                         )}
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                        <LanguageSwitch />
+                        <div className="hidden lg:flex">
+                            <LanguageSwitch />
+                        </div>
 
-                        <div className="text-sm font-medium text-neutral-700  hidden sm:block">
+                        <div className="text-sm font-medium text-neutral-700 hidden sm:block">
                             {user?.name || 'Sensei'}
                         </div>
                         <div className="h-9 w-9 rounded-xl bg-athlix-red text-white flex items-center justify-center font-bold text-sm shadow-md shadow-athlix-red/20 transition-transform duration-300 hover:scale-105 overflow-hidden">
@@ -211,4 +219,3 @@ export default function AdminLayout({ user, header, children }) {
         </div>
     );
 }
-

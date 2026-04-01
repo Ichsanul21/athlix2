@@ -1,6 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { 
-    Home, 
+import {
+    Home,
     Calendar,
     ScanLine,
     Activity,
@@ -289,7 +289,7 @@ export default function PwaLayout({ user, header, children }) {
                 }} />
             )}
             <GlobalFlashModal />
-            
+
             {/* Install Banner */}
             {showInstallBanner && (
                 <div className="fixed top-2 left-2 right-2 z-[100] p-3 sm:p-4 bg-gradient-to-r from-athlix-red to-red-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xl shadow-athlix-red/30 rounded-2xl animate-slide-up">
@@ -303,7 +303,7 @@ export default function PwaLayout({ user, header, children }) {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                        <button 
+                        <button
                             onClick={handleInstallClick}
                             className="bg-white text-athlix-red px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
                         >
@@ -425,17 +425,17 @@ export default function PwaLayout({ user, header, children }) {
                     {tabs.map((tab) => {
                         const isMainActive = route().current(tab.route);
                         const isActive = tab.subRoutes ? (route().current(tab.route) || route().current(tab.subRoutes)) : isMainActive;
-                        
+
                         if (tab.isPrimary) {
                             return (
-                                <Link 
-                                    key={tab.name} 
+                                <Link
+                                    key={tab.name}
                                     href={route(tab.route)}
                                     className="flex flex-col items-center justify-center relative -mt-8 shrink-0"
                                 >
                                     <div className={`w-[56px] h-[56px] rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-500 border-4 border-neutral-100 ${
-                                        isMainActive 
-                                        ? 'bg-athlix-red text-white scale-110 shadow-athlix-red/40 animate-pulse-glow' 
+                                        isMainActive
+                                        ? 'bg-athlix-red text-white scale-110 shadow-athlix-red/40 animate-pulse-glow'
                                         : 'bg-white text-athlix-red hover:scale-105 active:scale-95'
                                     }`}>
                                         <tab.icon size={22} strokeWidth={2.5} />
@@ -446,12 +446,12 @@ export default function PwaLayout({ user, header, children }) {
                         }
 
                         return (
-                            <Link 
+                            <Link
                                 key={tab.name}
                                 href={route(tab.route)}
                                 className={`group flex-1 min-w-0 flex flex-col items-center justify-center h-14 rounded-xl transition-all duration-300 relative ${
-                                    isActive 
-                                    ? 'text-white' 
+                                    isActive
+                                    ? 'text-white'
                                     : 'text-neutral-500 hover:text-neutral-300'
                                 }`}
                             >

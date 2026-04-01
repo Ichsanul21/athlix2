@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Building2, Users, Shield } from 'lucide-react';
 
 const ROLE_LABELS = {
-    sensei: { label: 'Sensei', color: 'bg-athlix-red/10 text-athlix-red' },
+    sensei: { label: 'Pelatih', color: 'bg-athlix-red/10 text-athlix-red' },
     head_coach: { label: 'Head Coach', color: 'bg-blue-100 text-blue-700' },
     assistant: { label: 'Asisten', color: 'bg-purple-100 text-purple-700' },
 };
@@ -115,30 +115,29 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
         });
     };
 
-    // Group by role for summary stats
     const totalSensei = senseis.filter(s => s.role === 'sensei').length;
     const totalCoach = senseis.filter(s => s.role === 'head_coach').length;
     const totalAssistant = senseis.filter(s => s.role === 'assistant').length;
 
     return (
         <AdminLayout user={auth?.user} header={
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-                <div>
-                    <h2 className="text-2xl font-black tracking-tight">Database Pelatih</h2>
-                    <p className="text-sm text-neutral-500 mt-0.5">
-                        {isAllDojos ? 'Semua Dojo' : (dojo?.name || 'Dojo')}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight truncate">Database Pelatih</h2>
+                    <p className="text-sm text-neutral-500 mt-0.5 truncate">
+                        {isAllDojos ? 'Semua Club' : (dojo?.name || 'Club')}
                     </p>
                 </div>
                 {dojos.length > 0 && (
                     <DbSelect
                         inputId="dojo-sensei-dojo-filter"
-                        className="min-w-[200px]"
+                        className="w-full sm:min-w-[200px] sm:w-auto"
                         options={[
-                            { value: '', label: '🌐 Semua Dojo' },
+                            { value: '', label: '🌐 Semua Club' },
                             ...dojos.map((item) => ({ value: String(item.id), label: item.name }))
                         ]}
                         value={dojoId || ''}
-                        placeholder="Pilih Dojo"
+                        placeholder="Pilih Club"
                         onChange={(next) => {
                             setDojoId(next);
                             form.setData('dojo_id', next);
@@ -149,34 +148,48 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
             </div>
         }>
             <Head title="Database Pelatih" />
-            <div className="space-y-6 py-4">
+            <div className="space-y-4 sm:space-y-6 py-4">
 
                 {/* Summary stats */}
-                <div className="grid grid-cols-3 gap-4">
-                    <Card className="border-neutral-200/80">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-athlix-red/10"><Shield size={18} className="text-athlix-red" /></div>
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Sensei</p>
-                                <p className="text-2xl font-black">{totalSensei}</p>
+                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                    <Card className="border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <CardContent className="p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            {/* Title: Mobile di atas, Desktop di kanan */}
+                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest text-neutral-500 order-1 sm:order-2 sm:ml-auto">Pelatih</p>
+
+                            {/* Icon & Jumlah: Mobile di bawah, Desktop di kiri */}
+                            <div className="flex items-center gap-3 order-2 sm:order-1 sm:mr-auto">
+                                <div className="p-2 sm:p-3 rounded-xl bg-athlix-red/10 shrink-0">
+                                    <Shield size={20} className="text-athlix-red sm:hidden" />
+                                    <Shield size={24} className="text-athlix-red hidden sm:block" />
+                                </div>
+                                <p className="text-2xl sm:text-3xl font-black leading-tight text-neutral-900">{totalSensei}</p>
                             </div>
                         </CardContent>
                     </Card>
-                    <Card className="border-neutral-200/80">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-blue-100"><Users size={18} className="text-blue-600" /></div>
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Head Coach</p>
-                                <p className="text-2xl font-black">{totalCoach}</p>
+                    <Card className="border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <CardContent className="p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest text-neutral-500 order-1 sm:order-2 sm:ml-auto">Head Coach</p>
+
+                            <div className="flex items-center gap-3 order-2 sm:order-1 sm:mr-auto">
+                                <div className="p-2 sm:p-3 rounded-xl bg-blue-100 shrink-0">
+                                    <Users size={20} className="text-blue-600 sm:hidden" />
+                                    <Users size={24} className="text-blue-600 hidden sm:block" />
+                                </div>
+                                <p className="text-2xl sm:text-3xl font-black leading-tight text-neutral-900">{totalCoach}</p>
                             </div>
                         </CardContent>
                     </Card>
-                    <Card className="border-neutral-200/80">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-purple-100"><Users size={18} className="text-purple-600" /></div>
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Asisten</p>
-                                <p className="text-2xl font-black">{totalAssistant}</p>
+                    <Card className="border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <CardContent className="p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest text-neutral-500 order-1 sm:order-2 sm:ml-auto">Asisten</p>
+
+                            <div className="flex items-center gap-3 order-2 sm:order-1 sm:mr-auto">
+                                <div className="p-2 sm:p-3 rounded-xl bg-purple-100 shrink-0">
+                                    <Users size={20} className="text-purple-600 sm:hidden" />
+                                    <Users size={24} className="text-purple-600 hidden sm:block" />
+                                </div>
+                                <p className="text-2xl sm:text-3xl font-black leading-tight text-neutral-900">{totalAssistant}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -184,14 +197,14 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
 
                 {/* Sensei Table */}
                 <Card className="border-neutral-200/80">
-                    <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
-                        <div className="flex items-center justify-between gap-4">
-                            <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
-                                Daftar Pelatih {isAllDojos ? '— Semua Dojo' : `— ${dojo?.name || ''}`}
+                    <CardHeader className="pb-3 px-4 sm:px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <CardTitle className="text-sm sm:text-base font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 dark:text-neutral-300 leading-snug">
+                                Daftar Pelatih {isAllDojos ? '— Semua Club' : `— ${dojo?.name || ''}`}
                             </CardTitle>
                             <Button
                                 onClick={() => openAddModal()}
-                                className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
+                                className="flex items-center justify-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0 w-full sm:w-auto"
                             >
                                 <Plus size={14} /> Tambah Pelatih
                             </Button>
@@ -207,8 +220,9 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                 {senseis.map((sensei) => {
                                     const roleInfo = ROLE_LABELS[sensei.role] || { label: sensei.role, color: 'bg-neutral-100 text-neutral-600' };
                                     return (
-                                        <div key={sensei.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
-                                            <div className="flex items-center gap-3 min-w-0">
+                                        <div key={sensei.id} className="px-4 py-3 sm:px-6 sm:py-3.5 flex flex-col gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
+                                            {/* Info row */}
+                                            <div className="flex items-start gap-3 min-w-0">
                                                 <div className="w-10 h-10 rounded-xl bg-neutral-100 overflow-hidden flex items-center justify-center text-sm font-black shrink-0">
                                                     {sensei.profile_photo_path ? (
                                                         <img src={resolveMediaUrl(sensei.profile_photo_path)} alt={sensei.name} className="w-full h-full object-cover" />
@@ -216,15 +230,15 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                                         sensei.name?.charAt(0)
                                                     )}
                                                 </div>
-                                                <div className="min-w-0">
+                                                <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <p className="font-bold truncate">{sensei.name}</p>
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${roleInfo.color}`}>
+                                                        <p className="font-bold text-sm sm:text-base truncate">{sensei.name}</p>
+                                                        <span className={`text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0 ${roleInfo.color}`}>
                                                             {roleInfo.label}
                                                         </span>
                                                     </div>
-                                                    <p className="text-xs text-neutral-500 break-all">{sensei.email}</p>
-                                                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                                    <p className="text-xs text-neutral-500 truncate mt-0.5">{sensei.email}</p>
+                                                    <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
                                                         {sensei.phone_number && (
                                                             <p className="text-xs text-neutral-400">{sensei.phone_number}</p>
                                                         )}
@@ -234,12 +248,13 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                                             </span>
                                                         )}
                                                         <p className="text-xs text-neutral-400">
-                                                            {sensei.athletes?.length || 0} atlet ditugaskan
+                                                            {sensei.athletes?.length || 0} atlet
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 shrink-0 pl-13 sm:pl-0">
+                                            {/* Action buttons */}
+                                            <div className="flex items-center gap-2 pl-[52px] sm:pl-[52px] flex-wrap">
                                                 <button
                                                     className="text-xs font-bold text-athlix-red border border-athlix-red/30 rounded-lg px-3 py-1.5 hover:bg-athlix-red hover:text-white transition-colors"
                                                     onClick={() => openAssignModal(sensei)}
@@ -270,21 +285,21 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
 
             {/* Add/Edit Modal */}
             <Modal show={isAddModalOpen} onClose={closeAddModal} maxWidth="lg">
-                <div className="p-6 space-y-5">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-black uppercase tracking-tight">
+                        <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">
                             {editingId ? 'Edit Pelatih' : 'Tambah Pelatih'}
                         </h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {dojos.length > 0 && (
                             <div className="sm:col-span-2">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Dojo</label>
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Club</label>
                                 <DbSelect
                                     inputId="add-sensei-dojo-select"
                                     options={dojos.map((item) => ({ value: String(item.id), label: item.name }))}
                                     value={form.data.dojo_id || ''}
-                                    placeholder="Pilih dojo"
+                                    placeholder="Pilih Club"
                                     onChange={(next) => form.setData('dojo_id', next)}
                                 />
                                 {form.errors.dojo_id && <p className="text-xs text-red-500 mt-1">{form.errors.dojo_id}</p>}
@@ -322,12 +337,12 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                             {form.errors.profile_photo && <p className="text-xs text-red-500 mt-1">{form.errors.profile_photo}</p>}
                         </div>
                     </div>
-                    <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
-                        <Button type="button" variant="outline" onClick={closeAddModal}>Batal</Button>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-neutral-100">
+                        <Button type="button" variant="outline" onClick={closeAddModal} className="w-full sm:w-auto">Batal</Button>
                         <Button
                             onClick={submit}
                             disabled={form.processing}
-                            className="bg-athlix-red hover:bg-red-700 text-white"
+                            className="bg-athlix-red hover:bg-red-700 text-white w-full sm:w-auto"
                         >
                             {form.processing ? 'Menyimpan...' : (editingId ? 'Simpan Perubahan' : 'Tambah Pelatih')}
                         </Button>
@@ -337,9 +352,9 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
 
             {/* Assign Athletes Modal */}
             <Modal show={assignModal.open} onClose={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })} maxWidth="lg">
-                <div className="p-6 space-y-4">
+                <div className="p-4 sm:p-6 space-y-4">
                     <div>
-                        <h3 className="text-lg font-black uppercase tracking-tight">Kelola Atlet</h3>
+                        <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">Kelola Atlet</h3>
                         <p className="text-sm text-neutral-500 mt-0.5">{assignModal.sensei?.name}</p>
                     </div>
                     <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">
@@ -352,19 +367,19 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                         type="checkbox"
                                         checked={checked}
                                         onChange={() => toggleAthlete(athleteId)}
-                                        className="accent-athlix-red"
+                                        className="accent-athlix-red shrink-0"
                                     />
-                                    <div>
-                                        <p className="text-sm font-semibold">{athlete.full_name}</p>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold truncate">{athlete.full_name}</p>
                                         <p className="text-xs text-neutral-500">{athlete.athlete_code}</p>
                                     </div>
                                 </label>
                             );
                         })}
                     </div>
-                    <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
-                        <Button variant="outline" onClick={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })}>Batal</Button>
-                        <Button onClick={saveAssignments} className="bg-athlix-red hover:bg-red-700 text-white">Simpan Penugasan</Button>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-neutral-100">
+                        <Button variant="outline" onClick={() => setAssignModal({ open: false, sensei: null, athleteIds: [] })} className="w-full sm:w-auto">Batal</Button>
+                        <Button onClick={saveAssignments} className="bg-athlix-red hover:bg-red-700 text-white w-full sm:w-auto">Simpan Penugasan</Button>
                     </div>
                 </div>
             </Modal>
