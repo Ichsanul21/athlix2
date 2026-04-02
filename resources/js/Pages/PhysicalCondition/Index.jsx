@@ -2,7 +2,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { useEffect, useState } from 'react';
-import { Ruler, Weight, Activity, Search, ChevronRight, Zap, TrendingUp } from 'lucide-react';
+import { Ruler, Weight, Activity, Search, ChevronRight, Zap, TrendingUp, Info } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Skeleton } from '@/Components/ui/skeleton';
@@ -54,7 +54,7 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
         );
     }
 
-    const filteredAthletes = athletes.filter(a => 
+    const filteredAthletes = athletes.filter(a =>
         a.full_name.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -109,8 +109,8 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                 <CardHeader className="p-4 border-b border-neutral-100 dark:border-neutral-800">
                                     <div className="relative">
                                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-                                        <Input 
-                                            placeholder="Cari Atlet..." 
+                                        <Input
+                                            placeholder="Cari Atlet..."
                                             className="pl-10 h-9 border-none bg-neutral-50 dark:bg-neutral-900"
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
@@ -123,8 +123,8 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                             key={a.id}
                                             onClick={() => setSelectedAthleteId(a.id)}
                                             className={`w-full flex items-center justify-between p-4 transition-all duration-300 text-left border-b border-neutral-50 dark:border-neutral-800/50 animate-fade-in-up fill-both ${
-                                                selectedAthleteId === a.id 
-                                                ? 'bg-athlix-red/5 dark:bg-athlix-red/10' 
+                                                selectedAthleteId === a.id
+                                                ? 'bg-athlix-red/5 dark:bg-athlix-red/10'
                                                 : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/50'
                                             }`}
                                             style={{ animationDelay: `${idx * 30}ms` }}
@@ -174,27 +174,53 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                                 Analisis Tren Fisik
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="h-[250px] sm:h-[300px] min-h-[220px] min-w-0">
-                                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                                                <LineChart data={chartData}>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
-                                                    <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
-                                                    <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                                                    <Tooltip 
-                                                        contentStyle={{ backgroundColor: '#171717', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
-                                                    />
-                                                    <Line type="monotone" dataKey="weight" stroke="#E61E32" strokeWidth={3} dot={{ fill: '#E61E32', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
-                                                    <Line type="monotone" dataKey="bmi" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
-                                                </LineChart>
-                                            </ResponsiveContainer>
-                                            <div className="flex justify-center gap-6 mt-4 text-xs font-bold uppercase text-neutral-500">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-[3px] bg-athlix-red rounded-full"></div> BB (kg)
+                                        <CardContent className="min-h-[300px] flex flex-col justify-between">
+                                            {chartData.length > 0 ? (
+                                                <>
+                                                    <div className="h-[250px] sm:h-[280px] min-w-0">
+                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
+                                                            <LineChart data={chartData}>
+                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
+                                                                <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
+                                                                <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                                                                <Tooltip
+                                                                    contentStyle={{ backgroundColor: '#171717', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
+                                                                />
+                                                                <Line type="monotone" dataKey="weight" stroke="#E61E32" strokeWidth={3} dot={{ fill: '#E61E32', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
+                                                                <Line type="monotone" dataKey="bmi" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
+                                                            </LineChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                    <div className="flex justify-center gap-6 pt-4 text-xs font-bold uppercase text-neutral-500">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-[3px] bg-athlix-red rounded-full"></div> BB (kg)
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-[3px] bg-blue-500 rounded-full"></div> IMT
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 space-y-4">
+                                                    <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                                                        <TrendingUp size={28} className="text-neutral-300 dark:text-neutral-600" />
+                                                    </div>
+                                                    <div className="space-y-1 max-w-sm">
+                                                        <h4 className="text-sm font-bold text-neutral-700 dark:text-neutral-300">Belum Ada Riwayat Pengukuran</h4>
+                                                        <p className="text-xs text-neutral-500 leading-relaxed">
+                                                            Tren fisik akan ditampilkan setelah Anda melakukan input data tinggi dan berat badan secara berkala melalui fitur <strong>Rapor Kemampuan Atlet</strong>.
+                                                        </p>
+                                                    </div>
+                                                    {selectedAthlete.latest_metrics?.weight && selectedAthlete.latest_metrics?.height && (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                                            <Info size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                                                            <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-tight">
+                                                                Data TB & BB saat ini merupakan <strong>baseline awal</strong> dari form pendaftaran.
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-[3px] bg-blue-500 rounded-full"></div> IMT
-                                                </div>
-                                            </div>
+                                            )}
                                         </CardContent>
                                     </Card>
 
@@ -242,6 +268,3 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
         </AdminLayout>
     );
 }
-
-
-

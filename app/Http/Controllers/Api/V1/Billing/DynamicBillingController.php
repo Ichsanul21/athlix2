@@ -53,10 +53,12 @@ class DynamicBillingController extends Controller
             abort(422, 'Tenant context is required.');
         }
 
+        // PERBAIKAN: Sort by created_at DESC, bukan effective_from
+        // Karena effective_from bisa null (otomatis dari now()) dan null
+        // selalu di urutan terbawah pada DESC.
         $items = BillingDefault::query()
             ->where('tenant_id', $tenantId)
-            ->orderByDesc('effective_from')
-            ->orderByDesc('id')
+            ->orderByDesc('created_at')
             ->get();
 
         return response()->json(['items' => $items]);
@@ -82,14 +84,27 @@ class DynamicBillingController extends Controller
             abort(422, 'Tenant context is required.');
         }
 
+        // PERBAIKAN: Nonaktifkan default sebelumnya dan set effective_to = now()
+        $now = now();
+        BillingDefault::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->update([
+                'is_active' => false,
+                'effective_to' => $now,
+            ]);
+
         $item = BillingDefault::query()->create([
             'tenant_id' => $tenantId,
             'belt_id' => $validated['belt_id'] ?? null,
             'class_note' => $validated['class_note'] ?? null,
             'monthly_fee' => round((float) $validated['monthly_fee'], 2),
-            'effective_from' => $validated['effective_from'] ?? null,
-            'effective_to' => $validated['effective_to'] ?? null,
-            'is_active' => (bool) ($validated['is_active'] ?? true),
+            // PERBAIKAN: Jika effective_from tidak dikirim, otomatis pakai now()
+            'effective_from' => !empty($validated['effective_from'])
+                ? Carbon::parse($validated['effective_from'])
+                : $now,
+            'effective_to' => null,
+            'is_active' => true,
         ]);
 
         return response()->json([

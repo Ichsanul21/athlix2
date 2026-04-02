@@ -392,7 +392,7 @@ export default function PwaLayout({ user, header, children }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <LanguageSwitch compact />
+                    {/* <LanguageSwitch compact /> */}
                     <button
                         onClick={handleNotificationButtonClick}
                         className="text-neutral-400 p-2 rounded-xl border border-neutral-200/80 transition-all duration-300 hover:bg-neutral-100 active:scale-95 relative"

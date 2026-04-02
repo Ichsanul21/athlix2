@@ -19,7 +19,8 @@ import {
     Images,
     HandCoins,
     ShieldCheck,
-    Smartphone
+    Smartphone,
+    ClipboardList
 } from 'lucide-react';
 import GlobalFlashModal from '@/Components/GlobalFlashModal';
 
@@ -49,6 +50,7 @@ export default function AdminLayout({ user, header, children }) {
         ...(role === 'dojo_admin' || role === 'super_admin' || role === 'head_coach'
             ? [
                   { name: t('admin.db_coach', 'Database Pelatih'), href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' },
+                  { name: t('admin.report_category', 'Kategori Test'), href: route('report-categories.index'), icon: ClipboardList, current: 'report-categories.*' },
                   { name: t('admin.system_settings', 'Pengaturan Dojo'), href: route('dojo-admin.settings.index'), icon: ShieldCheck, current: 'dojo-admin.settings.*' }
               ]
             : []),

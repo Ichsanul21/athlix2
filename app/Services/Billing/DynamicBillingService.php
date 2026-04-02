@@ -21,7 +21,9 @@ class DynamicBillingService
         ?Carbon $periodStart = null,
         ?Carbon $dueDate = null,
         ?int $initiatedBy = null,
-        bool $mirrorLegacyFinanceRecord = true
+        bool $mirrorLegacyFinanceRecord = true,
+        ?float $manualMonthlyFee = null,
+        ?string $manualClassNote = null
     ): InvoiceRun {
         $periodStart = ($periodStart?->copy() ?? now())->startOfMonth();
         $periodEnd = $periodStart->copy()->endOfMonth();
@@ -35,7 +37,9 @@ class DynamicBillingService
             $dueDate,
             $periodKey,
             $initiatedBy,
-            $mirrorLegacyFinanceRecord
+            $mirrorLegacyFinanceRecord,
+            $manualMonthlyFee,
+            $manualClassNote
         ) {
             $run = InvoiceRun::query()->updateOrCreate(
                 [
@@ -61,12 +65,16 @@ class DynamicBillingService
             $overrides = $this->activeOverrides($tenantId, $periodStart)
                 ->groupBy('athlete_id');
 
+            /** @var Athlete $athlete */
             foreach ($athletes as $athlete) {
-                $resolved = $this->resolveAmountForAthlete($athlete, $defaults, $overrides->get($athlete->id, collect()));
-                $this->upsertInvoiceForAthlete($run, $athlete, $periodStart, $periodEnd, $dueDate, $resolved['base'], $resolved['final']);
+                // Determine base amount: use manual if provided or resolve from defaults
+                $baseAmount = $manualMonthlyFee ?? $this->resolveDefaultFee($athlete, $defaults);
+                
+                $resolved = $this->resolveAmountForAthlete($athlete, (float) $baseAmount, $overrides->get($athlete->id, collect()));
+                $this->upsertInvoiceForAthlete($run, $athlete, $periodStart, $periodEnd, $dueDate, (float) $resolved['base'], (float) $resolved['final']);
 
                 if ($mirrorLegacyFinanceRecord) {
-                    $this->upsertLegacyFinanceRecord($athlete, $periodStart, $dueDate, $resolved['final']);
+                    $this->upsertLegacyFinanceRecord($athlete, $periodStart, $dueDate, (float) $resolved['final']);
                 }
             }
 
@@ -108,29 +116,28 @@ class DynamicBillingService
             ->get();
     }
 
-    private function resolveAmountForAthlete(Athlete $athlete, Collection $defaults, Collection $overrides): array
+    private function resolveAmountForAthlete(Athlete $athlete, float $baseAmount, Collection $overrides): array
     {
-        $defaultFee = $this->resolveDefaultFee($athlete, $defaults);
         $override = $overrides->first();
 
         if (! $override) {
             return [
-                'base' => $defaultFee,
-                'final' => $defaultFee,
+                'base' => $baseAmount,
+                'final' => $baseAmount,
             ];
         }
 
-        $finalAmount = $defaultFee;
+        $finalAmount = $baseAmount;
         if ($override->override_mode === 'fixed') {
             $finalAmount = $override->override_value;
         } elseif ($override->override_mode === 'discount_amount') {
-            $finalAmount = max($defaultFee - $override->override_value, 0);
+            $finalAmount = max($baseAmount - $override->override_value, 0);
         } elseif ($override->override_mode === 'discount_percent') {
-            $finalAmount = max($defaultFee - ($defaultFee * ($override->override_value / 100)), 0);
+            $finalAmount = max($baseAmount - ($baseAmount * ($override->override_value / 100)), 0);
         }
 
         return [
-            'base' => round($defaultFee, 2),
+            'base' => round($baseAmount, 2),
             'final' => round($finalAmount, 2),
         ];
     }
@@ -192,13 +199,13 @@ class DynamicBillingService
         $invoice = BillingInvoice::query()->updateOrCreate(
             [
                 'tenant_id' => $run->tenant_id,
+                'invoice_no' => $invoiceNo,
+            ],
+            [
                 'athlete_id' => $athlete->id,
                 'period_start' => $periodStart->toDateString(),
                 'period_end' => $periodEnd->toDateString(),
-            ],
-            [
                 'invoice_run_id' => $run->id,
-                'invoice_no' => $invoiceNo,
                 'due_date' => $dueDate->toDateString(),
                 'subtotal' => $baseAmount,
                 'discount_total' => max(round($baseAmount - $finalAmount, 2), 0),

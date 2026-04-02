@@ -29,7 +29,7 @@ export default function Index({ auth, billing }) {
     return (
         <PwaLayout user={auth?.user} header="Billing">
             <Head title="Billing" />
-            
+
             <div className="space-y-6 pb-24">
 
                 {/* Outstanding Balance Card */}
@@ -60,14 +60,14 @@ export default function Index({ auth, billing }) {
                 {/* Invoice History */}
                 <div className="animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
                     <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-4 px-1">Riwayat Pembayaran</h3>
-                    
+
                     <div className="space-y-3">
                         {billing?.invoices?.map((invoice, idx) => (
                             <Card key={invoice.id || idx} className="border-neutral-200/80 dark:border-neutral-800 card-hover animate-fade-in-up fill-both" style={{ animationDelay: `${150 + idx * 60}ms` }}>
                                 <CardContent className="p-4 flex items-center gap-4">
                                     <div className={`p-2.5 rounded-xl flex-shrink-0 ${
-                                        invoice.status === 'paid' 
-                                        ? 'bg-green-500/10 text-green-500' 
+                                        invoice.status === 'paid'
+                                        ? 'bg-green-500/10 text-green-500'
                                         : 'bg-athlix-red/10 text-athlix-red'
                                     }`}>
                                         {invoice.status === 'paid' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}

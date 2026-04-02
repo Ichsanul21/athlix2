@@ -7,11 +7,66 @@ import { Skeleton } from '@/Components/ui/skeleton';
 import { Search, Plus, ChevronRight, Loader2, X, Pencil, Trash2 } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 import Modal from '@/Components/Modal';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export default function Index({ auth, athletes, flash, filters, belts, suggestedAthleteCode, dojos = [] }) {
     const [search, setSearch] = useState(filters?.search || '');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [provinces, setProvinces] = useState([]);
+    const [regencies, setRegencies] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [villages, setVillages] = useState([]);
+
+    const [loadingProv, setLoadingProv] = useState(false);
+    const [loadingReg, setLoadingReg] = useState(false);
+    const [loadingDist, setLoadingDist] = useState(false);
+    const [loadingVill, setLoadingVill] = useState(false);
+    const [guardianPhoneInfo, setGuardianPhoneInfo] = useState(null);
+    const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+
+    useEffect(() => {
+        if (isCreateOpen && provinces.length === 0) {
+            setLoadingProv(true);
+            fetch(route('api.regions.provinces'))
+                .then(res => res.json())
+                .then(data => setProvinces(data || []))
+                .catch(() => { })
+                .finally(() => setLoadingProv(false));
+        }
+    }, [isCreateOpen]);
+
+    const fetchRegencies = useCallback(async (provinceCode) => {
+        if (!provinceCode) { setRegencies([]); return; }
+        setLoadingReg(true);
+        try {
+            const res = await fetch(route('api.regions.regencies', provinceCode));
+            const data = await res.json();
+            setRegencies(data || []);
+        } catch { setRegencies([]); }
+        setLoadingReg(false);
+    }, []);
+
+    const fetchDistricts = useCallback(async (regencyCode) => {
+        if (!regencyCode) { setDistricts([]); return; }
+        setLoadingDist(true);
+        try {
+            const res = await fetch(route('api.regions.districts', regencyCode));
+            const data = await res.json();
+            setDistricts(data || []);
+        } catch { setDistricts([]); }
+        setLoadingDist(false);
+    }, []);
+
+    const fetchVillages = useCallback(async (districtCode) => {
+        if (!districtCode) { setVillages([]); return; }
+        setLoadingVill(true);
+        try {
+            const res = await fetch(route('api.regions.villages', districtCode));
+            const data = await res.json();
+            setVillages(data || []);
+        } catch { setVillages([]); }
+        setLoadingVill(false);
+    }, []);
 
     const initialBeltId = belts?.[0]?.id ?? '';
     const initialDojoId = dojos?.[0]?.id ?? '';
@@ -36,7 +91,50 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         doc_kk: null,
         doc_akte: null,
         doc_ktp: null,
+        province_code: '',
+        province_name: '',
+        regency_code: '',
+        regency_name: '',
+        district_code: '',
+        district_name: '',
+        village_code: '',
+        village_name: '',
+        address_detail: '',
     });
+
+    useEffect(() => {
+        if (!isCreateOpen) {
+            setGuardianPhoneInfo(null);
+            setIsCheckingPhone(false);
+        }
+    }, [isCreateOpen]);
+
+    useEffect(() => {
+        const checkPhone = async () => {
+            const phone = data.parent_phone_number;
+            if (phone?.length >= 10) {
+                setIsCheckingPhone(true);
+                try {
+                    const response = await fetch(route('athletes.check-guardian-phone', { phone }));
+                    const result = await response.json();
+                    setGuardianPhoneInfo(result.found ? result : null);
+                } catch (e) { } finally { setIsCheckingPhone(false); }
+            } else {
+                setGuardianPhoneInfo(null);
+            }
+        };
+
+        const timeout = setTimeout(checkPhone, 600);
+        return () => clearTimeout(timeout);
+    }, [data.parent_phone_number]);
+
+    // Auto-fill nama dan email jika nomor HP orang tua ditemukan
+    useEffect(() => {
+        if (guardianPhoneInfo?.found) {
+            setData('parent_name', guardianPhoneInfo.name || '');
+            setData('parent_email', guardianPhoneInfo.email || '');
+        }
+    }, [guardianPhoneInfo, setData]);
 
     useEffect(() => {
         if (belts?.length > 0 && !data.current_belt_id) setData('current_belt_id', belts[0].id);
@@ -132,8 +230,6 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-
-
                     {/* Search & Filter bar */}
                     <div className="flex items-center gap-2 animate-fade-in-up">
                         <div className="relative flex-1 sm:max-w-xl">
@@ -172,6 +268,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-neutral-500 uppercase bg-neutral-50/80 dark:bg-neutral-900/80 border-b border-neutral-200/80 dark:border-neutral-800 tracking-widest">
                                     <tr>
+                                        <th className="px-4 py-4">Foto</th>
                                         <th className="px-6 py-4">Nama Atlet</th>
                                         <th className="px-6 py-4">Nomor Tanding</th>
                                         <th className="px-6 py-4">Keterangan Kelas</th>
@@ -183,28 +280,28 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                 <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                                     {filteredAthletes.map((athlete, idx) => (
                                         <tr key={athlete.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-all duration-300 animate-fade-in-up fill-both" style={{ animationDelay: `${150 + idx * 40}ms` }}>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    {athlete.photo_url ? (
-                                                        <img
-                                                            src={athlete.photo_url}
-                                                            alt={athlete.full_name}
-                                                            className="w-10 h-10 rounded-xl object-cover border border-athlix-red/20"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 dark:from-athlix-red/30 dark:to-athlix-red/10 border border-athlix-red/10 flex items-center justify-center text-sm font-bold text-athlix-red transition-transform duration-300 hover:scale-110">
-                                                            {athlete.full_name?.charAt(0)}
-                                                        </div>
-                                                    )}
-                                                    <div className="font-bold text-neutral-900  truncate">
-                                                        {athlete.full_name}
+                                            <td className="px-4 py-4">
+                                                {athlete.photo_url ? (
+                                                    <img
+                                                        src={athlete.photo_url}
+                                                        alt={athlete.full_name}
+                                                        className="w-10 h-10 rounded-xl object-cover border border-athlix-red/20"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 dark:from-athlix-red/30 dark:to-athlix-red/10 border border-athlix-red/10 flex items-center justify-center text-sm font-bold text-athlix-red">
+                                                        {athlete.full_name?.charAt(0)}
                                                     </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-neutral-900 truncate">
+                                                    {athlete.full_name}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-neutral-500 ">
+                                            <td className="px-6 py-4 text-neutral-500">
                                                 {athlete.category || 'Belum Ditentukan'}
                                             </td>
-                                            <td className="px-6 py-4 text-neutral-500 ">
+                                            <td className="px-6 py-4 text-neutral-500">
                                                 {athlete.class_note || '-'}
                                             </td>
                                             <td className="px-6 py-4 text-neutral-500">
@@ -241,7 +338,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                     ))}
                                     {filteredAthletes.length === 0 && (
                                         <tr>
-                                            <td colSpan="6" className="px-6 py-10 text-center text-sm text-neutral-400">
+                                            <td colSpan="7" className="px-6 py-10 text-center text-sm text-neutral-400">
                                                 Data atlet tidak ditemukan.
                                             </td>
                                         </tr>
@@ -290,7 +387,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                     </div>
                                     <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
                                         <div className="text-xs text-neutral-500 leading-relaxed">
-                                            Tanggal Lahir: <span className="font-bold text-neutral-900 ">{formatDate(athlete.dob)}</span>
+                                            Tanggal Lahir: <span className="font-bold text-neutral-900">{formatDate(athlete.dob)}</span>
                                         </div>
                                         <Link href={route('athletes.show', athlete.id)}>
                                             <Button variant="outline" size="sm" className="h-8 text-xs font-bold">Lihat Rapor</Button>
@@ -477,6 +574,106 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                             </div>
                         </div>
 
+                        <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-400">Informasi Alamat Tinggal</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Provinsi *</label>
+                                    <DbSelect
+                                        inputId="athlete-province"
+                                        value={data.province_code}
+                                        isDisabled={loadingProv}
+                                        options={provinces.map(p => ({ value: p.code, label: p.name }))}
+                                        onChange={(code, option) => {
+                                            setData(data => ({
+                                                ...data,
+                                                province_code: code,
+                                                province_name: option ? option.label : '',
+                                                regency_code: '', regency_name: '',
+                                                district_code: '', district_name: '',
+                                                village_code: '', village_name: ''
+                                            }));
+                                            fetchRegencies(code);
+                                        }}
+                                        placeholder={loadingProv ? "Memuat..." : "Pilih Provinsi"}
+                                    />
+                                    {errors.province_code && <p className="text-xs text-athlix-red">{errors.province_code}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kota / Kabupaten *</label>
+                                    <DbSelect
+                                        inputId="athlete-regency"
+                                        value={data.regency_code}
+                                        isDisabled={!data.province_code || loadingReg}
+                                        options={regencies.map(r => ({ value: r.code, label: r.name }))}
+                                        onChange={(code, option) => {
+                                            setData(data => ({
+                                                ...data,
+                                                regency_code: code,
+                                                regency_name: option ? option.label : '',
+                                                district_code: '', district_name: '',
+                                                village_code: '', village_name: ''
+                                            }));
+                                            fetchDistricts(code);
+                                        }}
+                                        placeholder={loadingReg ? "Memuat..." : "Pilih Kota/Kab"}
+                                    />
+                                    {errors.regency_code && <p className="text-xs text-athlix-red">{errors.regency_code}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kecamatan *</label>
+                                    <DbSelect
+                                        inputId="athlete-district"
+                                        value={data.district_code}
+                                        isDisabled={!data.regency_code || loadingDist}
+                                        options={districts.map(d => ({ value: d.code, label: d.name }))}
+                                        onChange={(code, option) => {
+                                            setData(data => ({
+                                                ...data,
+                                                district_code: code,
+                                                district_name: option ? option.label : '',
+                                                village_code: '', village_name: ''
+                                            }));
+                                            fetchVillages(code);
+                                        }}
+                                        placeholder={loadingDist ? "Memuat..." : "Pilih Kecamatan"}
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kelurahan / Desa *</label>
+                                    <DbSelect
+                                        inputId="athlete-village"
+                                        value={data.village_code}
+                                        isDisabled={!data.district_code || loadingVill}
+                                        options={villages.map(v => ({ value: v.code, label: v.name }))}
+                                        onChange={(code, option) => {
+                                            setData(data => ({
+                                                ...data,
+                                                village_code: code,
+                                                village_name: option ? option.label : ''
+                                            }));
+                                        }}
+                                        placeholder={loadingVill ? "Memuat..." : "Pilih Kelurahan"}
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Detail Alamat Lengkap *</label>
+                                    <textarea
+                                        required
+                                        value={data.address_detail}
+                                        onChange={e => setData('address_detail', e.target.value)}
+                                        className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:ring-2 focus:ring-athlix-red/30 focus:border-athlix-red/50 min-h-[80px] text-neutral-900 dark:text-neutral-100"
+                                        placeholder="Nama jalan, nomor gedung, dsb..."
+                                    />
+                                    {errors.address_detail && <p className="text-xs text-athlix-red">{errors.address_detail}</p>}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Data Orang Tua */}
                         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
                             <p className="text-xs font-black uppercase tracking-widest text-neutral-400">Data Orang Tua / Wali</p>
@@ -500,9 +697,29 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                         required
                                     />
                                     {errors.parent_phone_number && <p className="text-xs text-athlix-red">{errors.parent_phone_number}</p>}
+
+                                    {isCheckingPhone && <p className="text-[10px] text-neutral-400 mt-1 animate-pulse italic">Mengecek data nomor HP...</p>}
+
+                                    {guardianPhoneInfo && (
+                                        <div className="mt-1.5 p-2.5 bg-athlix-red/5 border border-athlix-red/10 rounded-xl text-xs space-y-1 animate-in fade-in slide-in-from-top-1">
+                                            <p className="font-bold text-athlix-red flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                                                Data Nomor HP Ditemukan
+                                            </p>
+                                            <div className="text-neutral-700 space-y-0.5">
+                                                <p>Terdaftar atas nama: <span className="font-bold text-neutral-900">{guardianPhoneInfo.name}</span></p>
+                                                <p>Role Akun: <span className="font-bold text-neutral-900">{guardianPhoneInfo.role_label}</span></p>
+                                                {guardianPhoneInfo.children?.length > 0 && (
+                                                    <p>Atlet ditautkan: <span className="font-bold text-neutral-900">{guardianPhoneInfo.children.join(', ')}</span></p>
+                                                )}
+                                            </div>
+                                            <p className="mt-1 text-[10px] text-neutral-500 leading-tight">
+                                                * Jika ini adalah orang tua yang sama, lanjutkan pendaftaran. Nama & Email telah diisi otomatis, sistem akan menautkan atlet baru ke akun yang sudah ada.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="sm:col-span-2 space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Email Orang Tua (Opsional)</label>
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Email Orang Tua</label>
                                     <Input
                                         type="email"
                                         value={data.parent_email}

@@ -34,6 +34,7 @@ export default function DbSelect({
             borderRadius: 12,
             borderColor: state.isFocused ? '#E61E32' : '#D4D4D8',
             boxShadow: state.isFocused ? '0 0 0 2px rgba(230, 30, 50, 0.18)' : 'none',
+            outline: 'none',
             '&:hover': {
                 borderColor: state.isFocused ? '#E61E32' : '#A1A1AA',
             },
@@ -65,6 +66,11 @@ export default function DbSelect({
             ...base,
             color: '#737373',
         }),
+        input: (base) => ({
+            ...base,
+            outline: 'none',
+            boxShadow: 'none',
+        }),
     };
 
     return (
@@ -80,6 +86,7 @@ export default function DbSelect({
                 }}
                 isDisabled={isDisabled}
                 isClearable={isClearable}
+                isSearchable={false}  // ← tambahkan ini
                 placeholder={placeholder}
                 noOptionsMessage={noOptionsMessage}
                 getOptionValue={(option) => String(getOptionValue(option))}
@@ -90,4 +97,3 @@ export default function DbSelect({
         </div>
     );
 }
-

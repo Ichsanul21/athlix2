@@ -152,6 +152,8 @@ class AttendanceController extends Controller
             'athlete_code' => 'required|string',
             'mood_rating' => 'required|integer|min:1|max:10',
             'load_rating' => 'required|integer|min:1|max:10',
+            'pre_mood_rating' => 'nullable|integer|min:1|max:10',
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
@@ -183,11 +185,13 @@ class AttendanceController extends Controller
         }
 
         $attendance->update([
-            'post_training_mood_rating' => (int) $validated['mood_rating'],
-            'post_training_load_rating' => (int) $validated['load_rating'],
+            'post_training_mood_rating'  => (int) $validated['mood_rating'],
+            'post_training_load_rating'  => (int) $validated['load_rating'],
+            'check_in_mood'             => isset($validated['pre_mood_rating']) ? 'Mood ' . $validated['pre_mood_rating'] . '/10' : $attendance->check_in_mood,
+            'check_in_feedback'         => $validated['notes'] ?? $attendance->check_in_feedback,
             'post_training_submitted_at' => now(),
-            'athlete_mood' => 'Mood ' . (int) $validated['mood_rating'] . '/10',
-            'athlete_feedback' => 'Penilaian beban latihan ' . (int) $validated['load_rating'] . '/10',
+            'athlete_mood'               => 'Mood ' . (int) $validated['mood_rating'] . '/10',
+            'athlete_feedback'           => 'Penilaian beban latihan ' . (int) $validated['load_rating'] . '/10',
         ]);
 
         return back()->with('success', 'Feedback pasca latihan berhasil dikirim.');

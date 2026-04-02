@@ -7,8 +7,8 @@ import { Loader2, ChevronDown, CheckCircle } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 
 const PLAN_PRICING = {
-    Basic:   300000,
-    Pro:     600000,
+    Basic: 300000,
+    Pro: 600000,
     Advance: 1200000,
 };
 
@@ -20,7 +20,7 @@ export default function RegistrationModal({ show, onClose }) {
     const [regencies, setRegencies] = useState([]);
     const [districts, setDistricts] = useState([]);
     const [villages, setVillages] = useState([]);
-    
+
     const [loadingProv, setLoadingProv] = useState(false);
     const [loadingReg, setLoadingReg] = useState(false);
     const [loadingDist, setLoadingDist] = useState(false);
@@ -53,7 +53,7 @@ export default function RegistrationModal({ show, onClose }) {
             fetch(route('api.regions.provinces'))
                 .then(res => res.json())
                 .then(data => setProvinces(data || []))
-                .catch(() => {})
+                .catch(() => { })
                 .finally(() => setLoadingProv(false));
         }
     }, [show]);
@@ -130,20 +130,20 @@ export default function RegistrationModal({ show, onClose }) {
                 <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Daftar Free Trial 14 Hari</h2>
                 <p className="text-sm text-slate-500 mt-1">Lengkapi data Dojo Anda. Bebas biaya tanpa kartu kredit.</p>
             </div>
-            
+
             <form onSubmit={submit} className="p-6 sm:p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Info Dojo & PIC */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b pb-2">Data Registrasi</h3>
-                        
+
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Nama Dojo / Sasana *</label>
-                            <Input 
-                                required 
-                                value={data.dojo_name} 
-                                onChange={e => setData('dojo_name', e.target.value)} 
-                                placeholder="Contoh: Garuda Karate Club" 
+                            <Input
+                                required
+                                value={data.dojo_name}
+                                onChange={e => setData('dojo_name', e.target.value)}
+                                placeholder="Contoh: Garuda Karate Club"
                                 className="h-11 bg-white text-neutral-900"
                             />
                             {errors.dojo_name && <p className="text-red-500 text-xs mt-1">{errors.dojo_name}</p>}
@@ -151,11 +151,11 @@ export default function RegistrationModal({ show, onClose }) {
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Nama Penanggung Jawab (PIC) *</label>
-                            <Input 
-                                required 
-                                value={data.pic_name} 
-                                onChange={e => setData('pic_name', e.target.value)} 
-                                placeholder="Nama Lengkap" 
+                            <Input
+                                required
+                                value={data.pic_name}
+                                onChange={e => setData('pic_name', e.target.value)}
+                                placeholder="Nama Lengkap"
                                 className="h-11 bg-white text-neutral-900"
                             />
                             {errors.pic_name && <p className="text-red-500 text-xs mt-1">{errors.pic_name}</p>}
@@ -163,12 +163,12 @@ export default function RegistrationModal({ show, onClose }) {
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Email Valid *</label>
-                            <Input 
-                                required 
+                            <Input
+                                required
                                 type="email"
-                                value={data.pic_email} 
-                                onChange={e => setData('pic_email', e.target.value)} 
-                                placeholder="alamat@email.com" 
+                                value={data.pic_email}
+                                onChange={e => setData('pic_email', e.target.value)}
+                                placeholder="alamat@email.com"
                                 className="h-11 bg-white text-neutral-900"
                             />
                             {errors.pic_email && <p className="text-red-500 text-xs mt-1">{errors.pic_email}</p>}
@@ -176,11 +176,11 @@ export default function RegistrationModal({ show, onClose }) {
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">No. WhatsApp *</label>
-                            <Input 
-                                required 
-                                value={data.pic_phone} 
-                                onChange={e => setData('pic_phone', e.target.value)} 
-                                placeholder="081234567890" 
+                            <Input
+                                required
+                                value={data.pic_phone}
+                                onChange={e => setData('pic_phone', e.target.value)}
+                                placeholder="081234567890"
                                 className="h-11 bg-white text-neutral-900"
                             />
                             {errors.pic_phone && <p className="text-red-500 text-xs mt-1">{errors.pic_phone}</p>}
@@ -228,7 +228,7 @@ export default function RegistrationModal({ show, onClose }) {
                     {/* Regional Selectors */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b pb-2">Informasi Lokasi</h3>
-                        
+
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Provinsi *</label>
                             <DbSelect

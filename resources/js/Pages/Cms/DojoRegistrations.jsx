@@ -3,26 +3,127 @@ import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import Modal from '@/Components/Modal';
-import { Users, CheckCircle, XCircle, Trash2, Phone, Mail, Eye } from 'lucide-react';
-import React, { useState } from 'react';
+import { Users, CheckCircle, XCircle, Trash2, Phone, Mail, Eye, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+
+const ICON_MAP = {
+    danger: Trash2,
+    warning: XCircle,
+    success: ShieldCheck,
+};
+
+const STYLE_MAP = {
+    danger: {
+        iconBg: 'bg-red-100 text-red-600',
+        confirmBtn: 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20',
+        title: 'text-red-900',
+        border: 'border-red-200',
+    },
+    warning: {
+        iconBg: 'bg-amber-100 text-amber-600',
+        confirmBtn: 'bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20',
+        title: 'text-amber-900',
+        border: 'border-amber-200',
+    },
+    success: {
+        iconBg: 'bg-green-100 text-green-600',
+        confirmBtn: 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20',
+        title: 'text-green-900',
+        border: 'border-green-200',
+    },
+};
+
+function ConfirmModal({ data, onClose }) {
+    if (!data.isOpen) return null;
+
+    const style = STYLE_MAP[data.variant] || STYLE_MAP.danger;
+    const Icon = ICON_MAP[data.variant] || Info;
+
+    return (
+        <Modal show={data.isOpen} onClose={onClose} maxWidth="md">
+            <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+                <div className={`p-3.5 rounded-2xl ${style.iconBg} mb-5`}>
+                    <Icon size={28} strokeWidth={2} />
+                </div>
+
+                <h3 className={`text-lg sm:text-xl font-black ${style.title} mb-2`}>
+                    {data.title}
+                </h3>
+
+                <p className="text-sm text-neutral-600 leading-relaxed max-w-sm mb-8">
+                    {data.message}
+                </p>
+
+                <div className={`w-full flex flex-col sm:flex-row gap-3 ${style.border} border-t pt-5`}>
+                    <Button
+                        variant="outline"
+                        className="w-full sm:w-1/2 h-11 border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 font-semibold"
+                        onClick={onClose}
+                    >
+                        Batal
+                    </Button>
+                    <Button
+                        className={`w-full sm:w-1/2 h-11 font-bold`}
+                        onClick={() => {
+                            if (data.onConfirm) data.onConfirm();
+                            onClose();
+                        }}
+                    >
+                        {data.confirmText}
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+    );
+}
 
 export default function DojoRegistrations({ auth, registrations = [] }) {
     const [selectedRegistration, setSelectedRegistration] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'danger',
+        confirmText: 'Ya, Lanjutkan',
+        onConfirm: null,
+    });
+
+    const openConfirm = useCallback((config) => {
+        setConfirmModal({ isOpen: true, ...config });
+    }, []);
+
+    const closeConfirm = useCallback(() => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false, onConfirm: null }));
+    }, []);
+
     const handleApprove = (id) => {
-        if (confirm('Apakah Anda yakin ingin menyetujui pendaftaran ini? Akun admin akan otomatis dibuat.')) {
-            router.post(route('cms.dojo-registrations.approve', id), {}, {
-                onSuccess: () => setIsDetailsModalOpen(false)
-            });
-        }
+        openConfirm({
+            title: 'Setujui Pendaftaran?',
+            message: 'Akun admin dojo akan otomatis dibuat dengan username berupa email PIC dan password default. Billing paket akan langsung aktif.',
+            variant: 'success',
+            confirmText: 'Ya, Setujui',
+            onConfirm: () => {
+                router.post(route('cms.dojo-registrations.approve', id), {}, {
+                    onSuccess: () => setIsDetailsModalOpen(false),
+                });
+            },
+        });
     };
 
     const handleReject = (id) => {
-        if (confirm('Apakah Anda yakin ingin menolak pendaftaran ini?')) {
-            router.post(route('cms.dojo-registrations.reject', id), {}, {
-                onSuccess: () => setIsDetailsModalOpen(false)
-            });
-        }
+        openConfirm({
+            title: 'Tolak Pendaftaran?',
+            message: 'Pendaftaran dojo ini akan ditolak dan PIC akan diberitahu. Tindakan ini tidak dapat dibatalkan.',
+            variant: 'warning',
+            confirmText: 'Ya, Tolak',
+            onConfirm: () => {
+                router.post(route('cms.dojo-registrations.reject', id), {}, {
+                    onSuccess: () => setIsDetailsModalOpen(false),
+                });
+            },
+        });
     };
 
     const openDetails = (registration) => {
@@ -31,9 +132,15 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
     };
 
     const handleDelete = (id) => {
-        if (confirm('Apakah Anda yakin ingin menghapus data ini secara permanen?')) {
-            router.delete(route('cms.dojo-registrations.destroy', id));
-        }
+        openConfirm({
+            title: 'Hapus Data?',
+            message: 'Data pendaftaran ini akan dihapus secara permanen dan tidak dapat dikembalikan.',
+            variant: 'danger',
+            confirmText: 'Ya, Hapus',
+            onConfirm: () => {
+                router.delete(route('cms.dojo-registrations.destroy', id));
+            },
+        });
     };
 
     const statusBadge = (status) => {
@@ -135,7 +242,9 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                     </CardContent>
                 </Card>
             </div>
-            
+
+            <ConfirmModal data={confirmModal} onClose={closeConfirm} />
+
             <Modal show={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} maxWidth="2xl">
                 {selectedRegistration && (
                     <div className="flex flex-col h-full max-h-[90vh]">
@@ -146,10 +255,9 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                             </div>
                             <div>{statusBadge(selectedRegistration.status)}</div>
                         </div>
-                        
+
                         <div className="p-6 overflow-y-auto flex-1 bg-neutral-50/50">
                             <div className="space-y-8">
-                                {/* Dojo Info */}
                                 <div>
                                     <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Informasi Sasana</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -167,8 +275,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                         </div>
                                     </div>
                                 </div>
-                                
-                                {/* PIC Info */}
+
                                 <div>
                                     <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Informasi PIC</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -186,8 +293,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                         </div>
                                     </div>
                                 </div>
-                                
-                                {/* SaaS Info */}
+
                                 <div>
                                     <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Subscription</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-red-50 p-4 rounded-xl border border-red-100">
@@ -202,15 +308,15 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="p-4 border-t border-neutral-100 bg-white sticky bottom-0 z-10 flex gap-3 justify-end items-center">
                             <Button variant="ghost" onClick={() => setIsDetailsModalOpen(false)} className="text-neutral-500 hover:text-neutral-700">Tutup</Button>
                             {selectedRegistration.status === 'pending' && (
-                                <div className="flex gap-2 ml-auto">
-                                    <Button variant="outline" className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => handleReject(selectedRegistration.id)}>
+                                <div className="flex flex-col-reverse sm:flex-row gap-2 ml-auto w-full sm:w-auto">
+                                    <Button variant="outline" className="w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => handleReject(selectedRegistration.id)}>
                                         <XCircle size={16} className="mr-1.5" /> Tolak Request
                                     </Button>
-                                    <Button className="bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20 font-bold px-6" onClick={() => handleApprove(selectedRegistration.id)}>
+                                    <Button className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20 font-bold px-6" onClick={() => handleApprove(selectedRegistration.id)}>
                                         <CheckCircle size={16} className="mr-1.5" /> Setujui Pendaftaran
                                     </Button>
                                 </div>

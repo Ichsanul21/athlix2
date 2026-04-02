@@ -86,17 +86,16 @@ class FinanceController extends Controller
         $billingDefaults = collect();
         $billingOverrides = collect();
         $overrideRequests = collect();
-        // Sensei dan SuperAdmin bisa override langsung tanpa approval
-        $canManageDynamicBilling = (bool) ($user?->isSuperAdmin() || $user?->isDojoAdmin() || $user?->isSensei());
-        $canRequestDynamicBilling = false; // Tidak ada lagi alur pengajuan/approval
-        $canDirectSenseiNominal   = false; // Dihapus — sensei sudah masuk canManage
+        $canManageDynamicBilling  = (bool) ($user?->isSuperAdmin() || $user?->isDojoAdmin() || $user?->isSensei());
+        $canRequestDynamicBilling = false;
+        $canDirectSenseiNominal   = false;
 
         if ($tenantId > 0) {
+            // PERBAIKAN: Sort by created_at DESC agar data yang baru saja ditambahkan selalu di atas (index 0 = aktif)
             $billingDefaults = BillingDefault::query()
                 ->where('tenant_id', $tenantId)
                 ->with('belt:id,name')
-                ->latest('effective_from')
-                ->latest('id')
+                ->latest('created_at')
                 ->get();
 
             $billingOverrides = AthleteBillingOverride::query()
@@ -108,13 +107,11 @@ class FinanceController extends Controller
                 ->latest('id')
                 ->limit(40)
                 ->get();
-            // Tidak ada lagi override requests / approval queue
         } elseif ($isAllDojos) {
-            // Mode semua dojo: tampilkan billing defaults & overrides dari semua dojo
+            // PERBAIKAN: Sort by created_at DESC (sama seperti di atas)
             $billingDefaults = BillingDefault::query()
                 ->with(['belt:id,name', 'tenant:id,name'])
-                ->latest('effective_from')
-                ->latest('id')
+                ->latest('created_at')
                 ->get();
 
             $billingOverrides = AthleteBillingOverride::query()
@@ -127,6 +124,12 @@ class FinanceController extends Controller
                 ->limit(100)
                 ->get();
         }
+
+        $periodKey  = now()->format('Y-m');
+        $isMonthlyGenerated = \App\Models\InvoiceRun::query()
+            ->where('tenant_id', $tenantId)
+            ->where('period_key', $periodKey)
+            ->exists();
 
         return Inertia::render('Finance/Index', [
             'records'               => Inertia::defer(fn () => $records),
@@ -142,6 +145,7 @@ class FinanceController extends Controller
             'dojos'         => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId'=> Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
             'isAllDojos'    => Inertia::defer(fn () => $isAllDojos),
+            'isMonthlyGenerated' => Inertia::defer(fn () => $isMonthlyGenerated),
         ]);
     }
 
@@ -182,7 +186,7 @@ class FinanceController extends Controller
 
         $finance->update(['amount' => $newAmount]);
 
-        return back()->with('success', 'Nominal tagihan berhasil diperbarui.');
+        return back();
     }
 
     public function generateMonthly(DynamicBillingService $billingService)
@@ -204,16 +208,48 @@ class FinanceController extends Controller
             return back()->with('error', 'Tenant dojo tidak ditemukan untuk generate tagihan.');
         }
 
+        $monthStart = now()->startOfMonth();
+        $monthEnd   = now()->endOfMonth();
+        $monthName  = now()->translatedFormat('F Y');
+        $periodKey  = now()->format('Y-m');
+
+        $monthlyFee = request('monthly_fee');
+        $classNote  = request('class_note');
+
+        if (!$monthlyFee) {
+            // PERBAIKAN: Ambil default yang paling baru ditambahkan (created_at DESC)
+            $activeDefault = BillingDefault::where('tenant_id', $tenantId)
+                ->latest('created_at')
+                ->first();
+
+            if (!$activeDefault) {
+                return back()->with('error', 'Tidak ada aturan default bulanan yang aktif. Silakan atur nominal default terlebih dahulu.');
+            }
+
+            $monthlyFee = $activeDefault->monthly_fee;
+            $classNote  = $classNote ?? $activeDefault->class_note;
+        }
+
+        $alreadyExists = \App\Models\InvoiceRun::query()
+            ->where('tenant_id', $tenantId)
+            ->where('period_key', $periodKey)
+            ->exists();
+
+        if ($alreadyExists) {
+            return back()->with('error', "Tagihan untuk bulan {$monthName} sudah pernah diterbitkan (Run ID: {$periodKey}). Tidak dapat menduplikasi tagihan.");
+        }
+
         $run = $billingService->generateMonthlyInvoices(
             $tenantId,
-            now()->startOfMonth(),
-            now()->endOfMonth(),
+            $monthStart,
+            $monthEnd,
             auth()->id(),
-            true
+            true,
+            $monthlyFee,
+            $classNote
         );
 
         $invoiceCount = $run->invoices()->count();
-        $monthName = now()->translatedFormat('F Y');
 
         return back()->with('success', "Berhasil menerbitkan {$invoiceCount} tagihan iuran bulan {$monthName}.");
     }

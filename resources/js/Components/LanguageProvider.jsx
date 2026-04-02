@@ -35,6 +35,7 @@ const MESSAGES = {
         'admin.ai_assistant': 'Gemini AI Assistant',
         'admin.athlete_notification': 'Notifikasi Atlet',
         'admin.db_coach': 'Database Pelatih',
+        'admin.report_category': 'Kategori Test',
         'admin.cms_articles': 'CMS Artikel',
         'admin.cms_gallery': 'CMS Galeri',
         'admin.cms_pricelist': 'CMS Pricelist',
@@ -88,6 +89,7 @@ const MESSAGES = {
         'admin.ai_assistant': 'Gemini AI Assistant',
         'admin.athlete_notification': 'Athlete Notifications',
         'admin.db_coach': 'Coach Database',
+        'admin.report_category': 'Test Categories',
         'admin.cms_articles': 'CMS Articles',
         'admin.cms_gallery': 'CMS Gallery',
         'admin.cms_pricelist': 'CMS Pricelist',
@@ -216,6 +218,17 @@ const PHRASE_TRANSLATIONS = {
     'Nama Lengkap': 'Full Name',
     'Cari Atlet...': 'Search Athlete...',
     'Data atlet tidak ditemukan.': 'Athlete data not found.',
+
+    // Test Category
+    'Kategori Test': 'Test Categories',
+    'Kategori Test Rapor': 'Report Test Categories',
+    'Manajemen': 'Management',
+    'Kategori Test Baru': 'New Test Category',
+    'Tambah Kategori Baru': 'Add New Category',
+    'Nama Kategori': 'Category Name',
+    'Struktur Test': 'Test Structure',
+    'Belum ada kategori test.': 'No test categories yet.',
+    'Tambahkan kategori pertama menggunakan form di atas.': 'Add the first category using the form above.',
 
     // Attendance & Operations
     'Tidak Ada Latihan Hari Ini': 'No Training Today',
@@ -405,6 +418,7 @@ const WORD_TRANSLATIONS = {
     push: 'push',
     native: 'native',
     tombol: 'button',
+    kategori: 'category',
 };
 
 const ORIGINAL_TEXT_CACHE = new WeakMap();

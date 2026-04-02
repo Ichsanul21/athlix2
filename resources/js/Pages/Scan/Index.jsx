@@ -190,6 +190,7 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
             mood_rating: Number(postMoodRating),
             load_rating: Number(fatigueRating),
             pre_mood_rating: Number(preMoodRating),
+            notes: rpeNote,
         }, {
             preserveScroll: true,
             onSuccess: () => {

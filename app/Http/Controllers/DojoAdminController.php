@@ -17,7 +17,7 @@ class DojoAdminController extends Controller
     {
         $user = auth()->user();
         $dojoId = $user?->dojo_id;
-        
+
         if (! $dojoId) {
             return back()->with('error', 'Akun Anda belum terhubung dengan dojo.');
         }
@@ -33,19 +33,27 @@ class DojoAdminController extends Controller
         $dojoId = $user?->dojo_id;
 
         if (! $dojoId) {
-            return back()->with('error', 'Akun Anda belum terhubung dengan dojo.');
+            return back()->with('error', 'Akun Anda belum terhubung dengan club.');
         }
 
         $dojo = Dojo::find($dojoId);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'address_detail' => ['nullable', 'string'],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'accent_color' => ['nullable', 'string', 'max:50'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'province_code' => ['nullable', 'string', 'max:20'],
+            'province_name' => ['nullable', 'string', 'max:100'],
+            'regency_code' => ['nullable', 'string', 'max:20'],
+            'regency_name' => ['nullable', 'string', 'max:100'],
+            'district_code' => ['nullable', 'string', 'max:20'],
+            'district_name' => ['nullable', 'string', 'max:100'],
+            'village_code' => ['nullable', 'string', 'max:20'],
+            'village_name' => ['nullable', 'string', 'max:100'],
+            'address_detail' => ['nullable', 'string'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -59,7 +67,7 @@ class DojoAdminController extends Controller
 
         $dojo->update($validated);
 
-        return back()->with('success', 'Pengaturan dojo berhasil disimpan.');
+        return back()->with('success', 'Pengaturan club berhasil disimpan.');
     }
 
     public function senseiIndex()

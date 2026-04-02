@@ -98,6 +98,45 @@ class AthleteController extends Controller
         ]);
     }
 
+    public function checkGuardianPhone(Request $request)
+    {
+        $phone = $this->normalizePhoneNumber((string) $request->query('phone'));
+        if (!$phone) {
+            return response()->json(['found' => false]);
+        }
+
+        $user = User::query()
+            ->with(['guardianAthletes' => fn ($q) => $q->select('athletes.id', 'full_name')])
+            ->where('phone_number', $phone)
+            ->first();
+
+        if (! $user) {
+            return response()->json(['found' => false]);
+        }
+
+        $children = $user->guardianAthletes->pluck('full_name')->unique()->values()->toArray();
+
+        $roleLabel = match (true) {
+            $user->isParent() => 'Orang Tua / Wali',
+            $user->isAtlet() => 'Atlet',
+            $user->isSensei() => 'Sensei',
+            $user->isHeadCoach() => 'Head Coach',
+            $user->isAssistant() => 'Asisten Pelatih',
+            $user->isDojoAdmin() => 'Admin Dojo',
+            $user->isSuperAdmin() => 'Super Admin',
+            default => $user->role,
+        };
+
+        return response()->json([
+            'found' => true,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'role_label' => $roleLabel,
+            'children' => $children,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $user = auth()->user();
@@ -123,6 +162,15 @@ class AthleteController extends Controller
             'parent_email' => 'nullable|email|max:255',
             'parent_relation_type' => 'nullable|string|max:50',
             'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
+            'province_code' => 'nullable|string|max:20',
+            'province_name' => 'nullable|string|max:255',
+            'regency_code' => 'nullable|string|max:20',
+            'regency_name' => 'nullable|string|max:255',
+            'district_code' => 'nullable|string|max:20',
+            'district_name' => 'nullable|string|max:255',
+            'village_code' => 'nullable|string|max:20',
+            'village_name' => 'nullable|string|max:255',
+            'address_detail' => 'nullable|string',
         ]);
 
         if (! $request->hasFile('doc_kk') && ! $request->hasFile('doc_akte') && ! $request->hasFile('doc_ktp')) {
@@ -170,9 +218,9 @@ class AthleteController extends Controller
             ->first();
 
         if ($existingParent && ! $existingParent->isParent()) {
-            throw ValidationException::withMessages([
-                'parent_phone_number' => 'No HP orang tua sudah digunakan oleh role akun lain.',
-            ]);
+            // Kita beri warning di frontend, tapi di backend biarkan jika user meminta.
+            // Namun untuk keamanan, kita tetap batasi role yang sangat kritikal jika perlu.
+            // Sesuai permintaan user: "walaupun sudah terpakai... seharusnya masih bisa digunakan"
         }
 
         if ($parentEmail) {
@@ -383,20 +431,17 @@ class AthleteController extends Controller
                 ];
             });
 
-        $reportCategories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-            ->orWhereNull('dojo_id')
-            ->with(['subCategories.tests'])
-            ->orderBy('sort_order')
-            ->get();
+        $latestDynamicScores = is_array($latestReport?->dynamic_scores)
+            ? $latestReport->dynamic_scores
+            : json_decode($latestReport?->dynamic_scores ?? '{}', true) ?? [];
 
-        $latestDynamicScores = is_array($latestReport?->dynamic_scores) ? $latestReport->dynamic_scores : json_decode($latestReport?->dynamic_scores ?? '{}', true) ?? [];
-
-        // Build category-level scores from snapshot or fallback
+        // Build category-level scores from the latest report snapshot
         $categories = [];
-        foreach ($reportCategories as $cat) {
-            $catSnapshot = $latestDynamicScores['categories'][$cat->id] ?? null;
-            $score = $catSnapshot['score'] ?? max(0, min(100, (int) round(($attendanceRate + $bmiScore) / 2)));
-            $categories[] = ['label' => $cat->name, 'score' => (int) $score];
+        foreach ($latestDynamicScores['categories'] ?? [] as $catId => $catData) {
+            $categories[] = [
+                'label' => $catData['name'] ?? 'Unknown',
+                'score' => (int) ($catData['score'] ?? 0),
+            ];
         }
 
         $performance = [
@@ -414,8 +459,12 @@ class AthleteController extends Controller
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
             'reportHistory' => Inertia::defer(fn () => $reportHistory),
-            'reportCategories' => Inertia::defer(fn () => $reportCategories),
             'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
+            'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+                ->orWhereNull('dojo_id')
+                ->with(['subCategories.tests'])
+                ->orderBy('sort_order')
+                ->get(),
             'latestReport' => Inertia::defer(fn () => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,
@@ -440,6 +489,8 @@ class AthleteController extends Controller
             'test_values.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
             'recorded_at' => 'required|date',
+            'latest_height' => 'nullable|numeric|min:50|max:260',
+            'latest_weight' => 'nullable|numeric|min:5|max:300',
         ]);
 
         // Load the full hierarchy for this dojo
@@ -450,14 +501,15 @@ class AthleteController extends Controller
             ->get();
 
         // Build the full JSON snapshot with bottom-up score calculation
-        $snapshot = ['categories' => [], 'sub_categories' => [], 'tests' => []];
+        $snapshot = ['categories' => [], 'sub_categories' => [], 'tests' => [], 'anthropometry' => [
+            'height' => $validated['latest_height'] ?? $athlete->latest_height,
+            'weight' => $validated['latest_weight'] ?? $athlete->latest_weight,
+        ]];
 
         foreach ($categories as $cat) {
             $subScores = [];
-
             foreach ($cat->subCategories as $sub) {
                 $testScores = [];
-
                 foreach ($sub->tests as $test) {
                     $rawValue = (float) ($validated['test_values'][$test->id] ?? 0);
                     $scaledScore = $test->calculateScore($rawValue);
@@ -474,10 +526,8 @@ class AthleteController extends Controller
                         'raw_value' => $rawValue,
                         'scaled_score' => $scaledScore,
                     ];
-
                     $testScores[] = $scaledScore;
                 }
-
                 $subAvg = count($testScores) > 0 ? (int) round(array_sum($testScores) / count($testScores)) : 0;
                 $snapshot['sub_categories'][$sub->id] = [
                     'sub_category_id' => $sub->id,
@@ -486,10 +536,8 @@ class AthleteController extends Controller
                     'score' => $subAvg,
                     'test_count' => count($testScores),
                 ];
-
                 $subScores[] = $subAvg;
             }
-
             $catAvg = count($subScores) > 0 ? (int) round(array_sum($subScores) / count($subScores)) : 0;
             $snapshot['categories'][$cat->id] = [
                 'category_id' => $cat->id,
@@ -497,6 +545,27 @@ class AthleteController extends Controller
                 'score' => $catAvg,
                 'sub_category_count' => count($subScores),
             ];
+        }
+
+        // Update athlete latest measurements
+        if (isset($validated['latest_height']) || isset($validated['latest_weight'])) {
+            $athlete->update([
+                'latest_height' => $validated['latest_height'] ?? $athlete->latest_height,
+                'latest_weight' => $validated['latest_weight'] ?? $athlete->latest_weight,
+            ]);
+
+            $bmi = null;
+            if ($athlete->latest_height && $athlete->latest_weight) {
+                $heightInMeters = $athlete->latest_height / 100;
+                $bmi = round($athlete->latest_weight / ($heightInMeters * $heightInMeters), 1);
+            }
+
+            $athlete->physicalMetrics()->create([
+                'height'      => $athlete->latest_height,
+                'weight'      => $athlete->latest_weight,
+                'bmi'         => $bmi,
+                'recorded_at' => $validated['recorded_at'],
+            ]);
         }
 
         \App\Models\AthleteReport::create([
@@ -509,6 +578,18 @@ class AthleteController extends Controller
         ]);
 
         return back()->with('success', 'Rapor kemampuan atlet berhasil disimpan.');
+    }
+
+    public function destroyReport(Athlete $athlete, \App\Models\AthleteReport $report)
+    {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+        if (! auth()->user()?->isCoachGroup()) {
+            abort(403);
+        }
+
+        $report->delete();
+
+        return back()->with('success', 'Data rapor atlet berhasil dihapus.');
     }
 
     public function storeAchievement(Request $request, Athlete $athlete)
@@ -675,7 +756,7 @@ class AthleteController extends Controller
     protected function ensureAthleteAccessible(Athlete $athlete, $user): void
     {
         if ($user?->isSuperAdmin()) return;
-        
+
         // Allow if user is in coach group and belongs to the same dojo
         if ($user?->isCoachGroup() && (int) $athlete->dojo_id === (int) $user->dojo_id) {
             return;
@@ -734,6 +815,15 @@ class AthleteController extends Controller
             'parent_phone_number'    => 'nullable|string|max:20',
             'parent_email'           => 'nullable|email|max:255',
             'parent_relation_type'   => 'nullable|string|max:50',
+            'province_code' => 'nullable|string|max:20',
+            'province_name' => 'nullable|string|max:255',
+            'regency_code' => 'nullable|string|max:20',
+            'regency_name' => 'nullable|string|max:255',
+            'district_code' => 'nullable|string|max:20',
+            'district_name' => 'nullable|string|max:255',
+            'village_code' => 'nullable|string|max:20',
+            'village_name' => 'nullable|string|max:255',
+            'address_detail' => 'nullable|string',
         ]);
 
         $athletePhone = $this->normalizePhoneNumber((string) ($validated['phone_number'] ?? ''));

@@ -29,9 +29,30 @@ class PhysicalConditionController extends Controller
                 ->get()
                 ->map(function($athlete) {
                     $athlete->age = Carbon::parse($athlete->dob)->age;
-                    // Latest is still needed for quick display
-                    $athlete->latest_metrics = $athlete->physicalMetrics->last();
-                    $athlete->bmi_detail = $this->resolveBmiDetail($athlete->latest_metrics?->bmi);
+
+                    $latestMetric = $athlete->physicalMetrics->last();
+
+                    if (!$latestMetric) {
+                        $height = (float) ($athlete->latest_height ?? 0);
+                        $weight = (float) ($athlete->latest_weight ?? 0);
+                        $bmi = null;
+
+                        if ($height > 0 && $weight > 0) {
+                            $heightInMeters = $height / 100;
+                            $bmi = round($weight / ($heightInMeters * $heightInMeters), 1);
+                        }
+
+                        $latestMetric = (object) [
+                            'height' => $height ?: null,
+                            'weight' => $weight ?: null,
+                            'bmi' => $bmi,
+                            'recorded_at' => $athlete->created_at,
+                        ];
+                    }
+
+                    $athlete->latest_metrics = $latestMetric;
+                    $athlete->bmi_detail = $this->resolveBmiDetail($latestMetric->bmi);
+
                     return $athlete;
                 })),
             'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),

@@ -3,8 +3,12 @@ import { Head, Link } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { User, Award, ShieldCheck, LogOut, ChevronRight, Settings } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
+import { useLanguage } from '@/Components/LanguageProvider';
+import LanguageSwitch from '@/Components/LanguageSwitch';
 
 export default function Index({ auth, athlete }) {
+    const { t } = useLanguage();
+
     if (!athlete) {
         return (
             <PwaLayout user={auth?.user} header="Profile">
@@ -73,16 +77,19 @@ export default function Index({ auth, athlete }) {
 
                 {/* Menu Items */}
                 <div className="space-y-2 animate-fade-in-up fill-both" style={{ animationDelay: '160ms' }}>
-                    <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3 px-1">Menu Akun</h3>
-                    
+                    <div className="flex items-center justify-between mb-3 px-1">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500">Menu Akun</h3>
+                        <LanguageSwitch compact />
+                    </div>
+
                     {[
                         { href: route('profile.info'), icon: User, label: 'Informasi Pribadi', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' },
                         { href: route('profile.achievements'), icon: Award, label: 'Riwayat Prestasi', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' },
                         { href: route('profile.settings'), icon: Settings, label: 'Pengaturan Aplikasi', color: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500' },
                     ].map((item, idx) => (
-                        <Link 
+                        <Link
                             key={item.label}
-                            href={item.href} 
+                            href={item.href}
                             className="w-full flex items-center justify-between p-4 bg-white dark:bg-neutral-900 rounded-2xl shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-all duration-300 active:scale-[0.98] animate-fade-in-up fill-both"
                             style={{ animationDelay: `${200 + idx * 50}ms` }}
                         >
@@ -97,10 +104,10 @@ export default function Index({ auth, athlete }) {
                     ))}
 
                     <div className="pt-4">
-                        <Link 
-                            href={route('logout')} 
-                            method="post" 
-                            as="button" 
+                        <Link
+                            href={route('logout')}
+                            method="post"
+                            as="button"
                             className="w-full flex items-center justify-center gap-3 p-4 bg-neutral-100 dark:bg-neutral-800 text-neutral-500 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-athlix-red/10 hover:text-athlix-red transition-all duration-300 active:scale-[0.98] animate-fade-in-up fill-both"
                             style={{ animationDelay: '400ms' }}
                         >
@@ -113,4 +120,3 @@ export default function Index({ auth, athlete }) {
         </PwaLayout>
     );
 }
-

@@ -6,7 +6,7 @@ import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
-import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, Settings, Plus, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, AlertTriangle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -26,30 +26,26 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
+    const [provinces, setProvinces] = useState([]);
+    const [regencies, setRegencies] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [villages, setVillages] = useState([]);
+
+    const [loadingProv, setLoadingProv] = useState(false);
+    const [loadingReg, setLoadingReg] = useState(false);
+    const [loadingDist, setLoadingDist] = useState(false);
+    const [loadingVill, setLoadingVill] = useState(false);
+
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-    const [editingCategory, setEditingCategory] = useState(null);
-    const [catFormProcessing, setCatFormProcessing] = useState(false);
-    const [catForm, setCatForm] = useState({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100 });
     const [reportError, setReportError] = useState('');
     const [portalRoot, setPortalRoot] = useState(null);
 
-    // ── Universal modal states ──
     const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', variant: 'danger' });
-    const [promptModal, setPromptModal] = useState({ open: false, title: '', message: '', defaultValue: '' });
     const [alertModal, setAlertModal] = useState({ open: false, title: '', message: '' });
-    const [testFormModal, setTestFormModal] = useState({ open: false, mode: 'add', title: 'Tambah Test Baru' });
-    const [testForm, setTestForm] = useState({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100, max_duration_seconds: '' });
-    const [promptInputValue, setPromptInputValue] = useState('');
 
     const confirmResolveRef = useRef(null);
-    const promptResolveRef = useRef(null);
     const alertResolveRef = useRef(null);
-    const testFormResolveRef = useRef(null);
-    const promptInputRef = useRef(null);
-    const testFormNameRef = useRef(null);
 
-    // Mount portal root to document.body
     useEffect(() => {
         const el = document.createElement('div');
         el.id = 'universal-modal-portal';
@@ -58,7 +54,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         return () => { document.body.removeChild(el); };
     }, []);
 
-    const anyUniversalOpen = confirmModal.open || promptModal.open || alertModal.open || testFormModal.open;
+    const anyUniversalOpen = confirmModal.open || alertModal.open;
 
     useEffect(() => {
         if (anyUniversalOpen) {
@@ -75,52 +71,12 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         });
     }, []);
 
-    const showPrompt = useCallback((title, message, defaultValue = '') => {
-        return new Promise((resolve) => {
-            promptResolveRef.current = resolve;
-            setPromptInputValue(defaultValue);
-            setPromptModal({ open: true, title, message, defaultValue });
-        });
-    }, []);
-
     const showAlert = useCallback((title, message) => {
         return new Promise((resolve) => {
             alertResolveRef.current = resolve;
             setAlertModal({ open: true, title, message });
         });
     }, []);
-
-    const showTestForm = useCallback((existingTest = null, title = null) => {
-        return new Promise((resolve) => {
-            testFormResolveRef.current = resolve;
-            if (existingTest) {
-                setTestForm({
-                    name: existingTest.name || '',
-                    unit: existingTest.unit || 'repetition',
-                    min_threshold: Number(existingTest.min_threshold) || 0,
-                    max_threshold: Number(existingTest.max_threshold) || 100,
-                    max_duration_seconds: existingTest.max_duration_seconds || '',
-                });
-                setTestFormModal({ open: true, mode: 'edit', title: title || 'Edit Test' });
-            } else {
-                setTestForm({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100, max_duration_seconds: '' });
-                setTestFormModal({ open: true, mode: 'add', title: title || 'Tambah Test Baru' });
-            }
-        });
-    }, []);
-
-    // Auto-focus inputs
-    useEffect(() => {
-        if (promptModal.open) {
-            setTimeout(() => promptInputRef.current?.focus(), 200);
-        }
-    }, [promptModal.open]);
-
-    useEffect(() => {
-        if (testFormModal.open) {
-            setTimeout(() => testFormNameRef.current?.focus(), 200);
-        }
-    }, [testFormModal.open]);
 
     const handleConfirmYes = () => {
         setConfirmModal((p) => ({ ...p, open: false }));
@@ -132,75 +88,13 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         confirmResolveRef.current?.(false);
         confirmResolveRef.current = null;
     };
-    const handlePromptOk = () => {
-        setPromptModal((p) => ({ ...p, open: false }));
-        promptResolveRef.current?.(promptInputValue);
-        promptResolveRef.current = null;
-    };
-    const handlePromptCancel = () => {
-        setPromptModal((p) => ({ ...p, open: false }));
-        promptResolveRef.current?.(null);
-        promptResolveRef.current = null;
-    };
     const handleAlertOk = () => {
         setAlertModal((p) => ({ ...p, open: false }));
         alertResolveRef.current?.(true);
         alertResolveRef.current = null;
     };
-    const handleTestFormSave = () => {
-        if (!testForm.name.trim()) {
-            testFormNameRef.current?.focus();
-            return;
-        }
-        setTestFormModal({ open: false, mode: 'add', title: '' });
-        testFormResolveRef.current?.({ ...testForm });
-        testFormResolveRef.current = null;
-    };
-    const handleTestFormCancel = () => {
-        setTestFormModal({ open: false, mode: 'add', title: '' });
-        testFormResolveRef.current?.(null);
-        testFormResolveRef.current = null;
-    };
 
     const isSensei = auth?.user?.role === 'sensei' || auth?.user?.role === 'head_coach' || auth?.user?.role === 'assistant' || auth?.user?.role === 'super_admin' || auth?.user?.role === 'dojo_admin';
-
-    const resetCatForm = () => setCatForm({ name: '', unit: 'repetition', min_threshold: 0, max_threshold: 100 });
-
-    const openAddCategory = () => {
-        setEditingCategory(null);
-        resetCatForm();
-        setCategoryModalOpen(true);
-    };
-
-    const openEditCategory = (cat) => {
-        setEditingCategory(cat);
-        setCatForm({ name: cat.name, unit: cat.unit, min_threshold: Number(cat.min_threshold), max_threshold: Number(cat.max_threshold) });
-        setCategoryModalOpen(true);
-    };
-
-    const submitCategory = (e) => {
-        e.preventDefault();
-        setCatFormProcessing(true);
-        if (editingCategory) {
-            router.patch(route('report-categories.update', editingCategory.id), catForm, {
-                preserveScroll: true,
-                onSuccess: () => { setCategoryModalOpen(false); resetCatForm(); },
-                onFinish: () => setCatFormProcessing(false),
-            });
-        } else {
-            router.post(route('report-categories.store'), { ...catForm, dojo_id: athlete.dojo_id }, {
-                preserveScroll: true,
-                onSuccess: () => { setCategoryModalOpen(false); resetCatForm(); },
-                onFinish: () => setCatFormProcessing(false),
-            });
-        }
-    };
-
-    const deleteCategory = async (catId) => {
-        const ok = await showConfirm('Hapus Kategori Test', 'Hapus kategori test ini? Data skor lama yang terkait akan tetap tersimpan.');
-        if (!ok) return;
-        router.delete(route('report-categories.destroy', catId), { preserveScroll: true });
-    };
 
     const [selectedReportId, setSelectedReportId] = useState(reportHistory?.[0]?.id ?? latestReport?.id ?? '');
 
@@ -258,6 +152,54 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         }
     }, []);
 
+    const fetchRegencies = useCallback(async (provinceCode) => {
+        if (!provinceCode) { setRegencies([]); return; }
+        setLoadingReg(true);
+        try {
+            const res = await fetch(route('api.regions.regencies', provinceCode));
+            const data = await res.json();
+            setRegencies(data || []);
+        } catch { setRegencies([]); }
+        setLoadingReg(false);
+    }, []);
+
+    const fetchDistricts = useCallback(async (regencyCode) => {
+        if (!regencyCode) { setDistricts([]); return; }
+        setLoadingDist(true);
+        try {
+            const res = await fetch(route('api.regions.districts', regencyCode));
+            const data = await res.json();
+            setDistricts(data || []);
+        } catch { setDistricts([]); }
+        setLoadingDist(false);
+    }, []);
+
+    const fetchVillages = useCallback(async (districtCode) => {
+        if (!districtCode) { setVillages([]); return; }
+        setLoadingVill(true);
+        try {
+            const res = await fetch(route('api.regions.villages', districtCode));
+            const data = await res.json();
+            setVillages(data || []);
+        } catch { setVillages([]); }
+        setLoadingVill(false);
+    }, []);
+
+    useEffect(() => {
+        if (editModalOpen && provinces.length === 0) {
+            setLoadingProv(true);
+            fetch(route('api.regions.provinces'))
+                .then(res => res.json())
+                .then(data => setProvinces(data || []))
+                .catch(() => { })
+                .finally(() => setLoadingProv(false));
+
+            if (athlete?.province_code) fetchRegencies(athlete.province_code);
+            if (athlete?.regency_code) fetchDistricts(athlete.regency_code);
+            if (athlete?.district_code) fetchVillages(athlete.district_code);
+        }
+    }, [editModalOpen, athlete]);
+
     const primaryGuardian = athlete?.primary_guardian;
     const editForm = useForm({
         full_name: athlete?.full_name || '',
@@ -278,6 +220,15 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         parent_phone_number: primaryGuardian?.phone_number || '',
         parent_email: primaryGuardian?.email || '',
         parent_relation_type: primaryGuardian?.pivot?.relation_type || 'parent',
+        province_code: athlete?.province_code || '',
+        province_name: athlete?.province_name || '',
+        regency_code: athlete?.regency_code || '',
+        regency_name: athlete?.regency_name || '',
+        district_code: athlete?.district_code || '',
+        district_name: athlete?.district_name || '',
+        village_code: athlete?.village_code || '',
+        village_name: athlete?.village_name || '',
+        address_detail: athlete?.address_detail || '',
     });
 
     useEffect(() => {
@@ -301,6 +252,15 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 parent_phone_number: primaryGuardian?.phone_number || '',
                 parent_email: primaryGuardian?.email || '',
                 parent_relation_type: primaryGuardian?.pivot?.relation_type || 'parent',
+                province_code: athlete.province_code || '',
+                province_name: athlete.province_name || '',
+                regency_code: athlete.regency_code || '',
+                regency_name: athlete.regency_name || '',
+                district_code: athlete.district_code || '',
+                district_name: athlete.district_name || '',
+                village_code: athlete.village_code || '',
+                village_name: athlete.village_name || '',
+                address_detail: athlete.address_detail || '',
             });
         }
     }, [editModalOpen, athlete]);
@@ -367,6 +327,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         test_values: buildTestValues(),
         notes: '',
         recorded_at: new Date().toISOString().slice(0, 10),
+        latest_height: athlete?.latest_height || '',
+        latest_weight: athlete?.latest_weight || '',
     });
 
     const resetReportForm = () => {
@@ -377,6 +339,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             test_values: buildTestValues(),
             notes: '',
             recorded_at: new Date().toISOString().slice(0, 10),
+            latest_height: athlete?.latest_height || '',
+            latest_weight: athlete?.latest_weight || '',
         });
     };
 
@@ -405,6 +369,21 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 setReportError(errorMessages || 'Terjadi kesalahan validasi. Periksa kembali isian form Anda.');
             },
         });
+    };
+
+    const handleDeleteReport = async () => {
+        if (!selectedReportId) return;
+        const confirmed = await showConfirm('Hapus Rapor', 'Yakin ingin menghapus data rapor ini? Data yang sudah dihapus tidak dapat dikembalikan.');
+
+        if (confirmed) {
+            router.delete(route('athletes.reports.destroy', { athlete: athlete.id, report: selectedReportId }), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showAlert('Berhasil', 'Rapor berhasil dihapus.');
+                    setSelectedReportId('');
+                }
+            });
+        }
     };
 
     const submitAchievement = (event) => {
@@ -450,11 +429,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const overlayCls = "fixed inset-0 bg-black/60 backdrop-blur-sm";
     const modalCenterCls = "fixed inset-0 z-[99999] flex items-center justify-center p-4";
 
-    const testInputCls = "w-full rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-4 py-2.5 text-sm font-medium text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-athlix-red/30 focus:border-athlix-red transition-colors";
-
     const universalModals = portalRoot ? createPortal(
         <>
-            {/* Confirm */}
             {confirmModal.open && (
                 <div className={modalCenterCls} style={{ position: 'fixed' }}>
                     <div className={overlayCls} onClick={handleConfirmNo} />
@@ -476,33 +452,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 </div>
             )}
 
-            {/* Prompt */}
-            {promptModal.open && (
-                <div className={modalCenterCls} style={{ position: 'fixed' }}>
-                    <div className={overlayCls} onClick={handlePromptCancel} />
-                    <div className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 w-full max-w-sm p-6 space-y-4 z-[99999]" style={{ animation: 'fadeInScale 150ms ease-out' }}>
-                        <div className="space-y-1">
-                            <h3 className="text-base font-black text-neutral-900 dark:text-neutral-100 leading-tight">{promptModal.title}</h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{promptModal.message}</p>
-                        </div>
-                        <input
-                            ref={promptInputRef}
-                            type="text"
-                            className={testInputCls}
-                            value={promptInputValue}
-                            onChange={(e) => setPromptInputValue(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePromptOk(); } if (e.key === 'Escape') handlePromptCancel(); }}
-                            placeholder="Ketik di sini..."
-                        />
-                        <div className="flex justify-end gap-2 pt-1">
-                            <Button type="button" variant="outline" className="font-semibold" onClick={handlePromptCancel}>Batal</Button>
-                            <Button type="button" className="font-semibold" onClick={handlePromptOk}>OK</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Alert */}
             {alertModal.open && (
                 <div className={modalCenterCls} style={{ position: 'fixed' }}>
                     <div className={overlayCls} onClick={handleAlertOk} />
@@ -518,69 +467,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </div>
                         <div className="flex justify-end gap-2 pt-1">
                             <Button type="button" className="font-semibold" onClick={handleAlertOk}>Mengerti</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Test Form (Add / Edit) */}
-            {testFormModal.open && (
-                <div className={modalCenterCls} style={{ position: 'fixed' }}>
-                    <div className={overlayCls} onClick={handleTestFormCancel} />
-                    <div className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 w-full max-w-md z-[99999] max-h-[90vh] flex flex-col" style={{ animation: 'fadeInScale 150ms ease-out' }}>
-                        <div className="flex items-center justify-between p-5 pb-0">
-                            <h3 className="text-base font-black text-neutral-900 dark:text-neutral-100">{testFormModal.title}</h3>
-                            <button type="button" onClick={handleTestFormCancel} className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"><X size={18} /></button>
-                        </div>
-                        <div className="p-5 space-y-4 overflow-y-auto flex-1">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Nama Test *</label>
-                                <input
-                                    ref={testFormNameRef}
-                                    type="text"
-                                    className={testInputCls}
-                                    value={testForm.name}
-                                    onChange={(e) => setTestForm((p) => ({ ...p, name: e.target.value }))}
-                                    placeholder="Contoh: Push-up, Sprint 30m"
-                                    onKeyDown={(e) => { if (e.key === 'Escape') handleTestFormCancel(); }}
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Tipe Pengukuran</label>
-                                <select className={testInputCls} value={testForm.unit} onChange={(e) => setTestForm((p) => ({ ...p, unit: e.target.value }))}>
-                                    <option value="repetition">Repetisi (kali)</option>
-                                    <option value="duration">Durasi (detik)</option>
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Min Threshold</label>
-                                    <input type="number" step="0.1" className={testInputCls} value={testForm.min_threshold} onChange={(e) => setTestForm((p) => ({ ...p, min_threshold: parseFloat(e.target.value) || 0 }))} />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Max Threshold</label>
-                                    <input type="number" step="0.1" className={testInputCls} value={testForm.max_threshold} onChange={(e) => setTestForm((p) => ({ ...p, max_threshold: parseFloat(e.target.value) || 0 }))} />
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Max Durasi (detik, kosongkan = tidak ada)</label>
-                                <input type="number" step="1" className={testInputCls} value={testForm.max_duration_seconds} onChange={(e) => setTestForm((p) => ({ ...p, max_duration_seconds: e.target.value }))} placeholder="Contoh: 60" />
-                            </div>
-                            <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 p-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1">Info Threshold</p>
-                                <p className="text-xs text-neutral-500 leading-relaxed">
-                                    {Number(testForm.max_threshold) >= Number(testForm.min_threshold)
-                                        ? `Skor 0 = nilai ≤ ${testForm.min_threshold}, Skor 100 = nilai ≥ ${testForm.max_threshold}. Nilai di antaranya dihitung proporsional.`
-                                        : `Mode "lebih rendah lebih baik". Skor 0 = nilai ≥ ${testForm.min_threshold}, Skor 100 = nilai ≤ ${testForm.max_threshold}. Contoh: lari 100m, waktu tempuh.`
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 p-5 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                            <Button type="button" variant="outline" className="font-semibold" onClick={handleTestFormCancel}>Batal</Button>
-                            <Button type="button" className="font-semibold" onClick={handleTestFormSave}>
-                                {testFormModal.mode === 'add' ? 'Tambah Test' : 'Simpan Perubahan'}
-                            </Button>
                         </div>
                     </div>
                 </div>
@@ -625,6 +511,18 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         {athlete.phone_number && (
                                             <p className="text-xs text-neutral-400 flex items-center gap-1"><Phone size={11} /> {athlete.phone_number}</p>
                                         )}
+                                        <div className="pt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                            <p className="font-bold flex items-center gap-1.5 uppercase tracking-widest text-[10px] text-neutral-400 mb-0.5 mt-2">Alamat Tinggal</p>
+                                            <p className="leading-relaxed">
+                                                {athlete.address_detail ? (
+                                                    <>
+                                                        {athlete.address_detail}, {athlete.village_name}, Kec. {athlete.district_name}, {athlete.regency_name}, {athlete.province_name}
+                                                    </>
+                                                ) : (
+                                                    <span className="italic">Alamat belum diatur</span>
+                                                )}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                                 {isSensei && (
@@ -677,8 +575,17 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <CardContent className="space-y-3 pt-4">
                             {reportOptions.length > 0 ? (
                                 <>
-                                    <DbSelect inputId="report-history-select" options={reportOptions} value={String(selectedReportId || '')} onChange={(next) => setSelectedReportId(next)} placeholder="Pilih data rapor" />
-                                    <div className="rounded-xl border border-neutral-200 p-3 text-xs text-neutral-600">
+                                    <div className="flex gap-2">
+                                        <div className="flex-1">
+                                            <DbSelect inputId="report-history-select" options={reportOptions} value={String(selectedReportId || '')} onChange={(next) => setSelectedReportId(next)} placeholder="Pilih data rapor" />
+                                        </div>
+                                        {isSensei && selectedReportId && (
+                                            <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={handleDeleteReport}>
+                                                <Trash2 size={14} />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 text-xs text-neutral-600">
                                         Catatan rapor: {activeReport?.notes || 'Belum ada catatan.'}
                                     </div>
                                 </>
@@ -736,13 +643,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                     </div>
 
                     <Card className="border-neutral-200/80 dark:border-neutral-800">
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader>
                             <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
-                            {isSensei && (
-                                <Button type="button" variant="outline" size="sm" className="gap-1.5 font-bold text-xs" onClick={openAddCategory}>
-                                    <Settings size={13} /> Kelola Kategori Test
-                                </Button>
-                            )}
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {categorySeries.map((item) => {
@@ -774,27 +676,16 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                             <div className={`h-full rounded-full transition-all duration-500 ${item.score >= 80 ? 'bg-emerald-500' : item.score >= 50 ? 'bg-amber-500' : 'bg-athlix-red'}`} style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
                                         </div>
                                         {catMeta && (
-                                            <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                                            <div className="text-[10px] text-neutral-400">
                                                 <span>Threshold: {catMeta.min_threshold} → {catMeta.max_threshold} {unitLabel}</span>
-                                                {isSensei && (
-                                                    <div className="flex items-center gap-1">
-                                                        <button type="button" onClick={() => openEditCategory(catMeta)} className="p-0.5 hover:text-athlix-red transition-colors"><Pencil size={10} /></button>
-                                                        <button type="button" onClick={() => deleteCategory(catMeta.id)} className="p-0.5 hover:text-red-600 transition-colors"><Trash2 size={10} /></button>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
                                     </div>
                                 );
                             })}
                             {categorySeries.length === 0 && (
-                                <div className="text-center py-8 space-y-3">
-                                    <p className="text-sm text-neutral-400">Belum ada kategori test. Sensei perlu mengkonfigurasi label test terlebih dahulu.</p>
-                                    {isSensei && (
-                                        <Button type="button" variant="outline" className="gap-1.5" onClick={openAddCategory}>
-                                            <Plus size={14} /> Tambah Kategori Test
-                                        </Button>
-                                    )}
+                                <div className="text-center py-8">
+                                    <p className="text-sm text-neutral-400">Belum ada kategori test. Konfigurasi melalui menu <strong>"Kategori Test"</strong> di sidebar.</p>
                                 </div>
                             )}
                         </CardContent>
@@ -897,14 +788,102 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </div>
 
                         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
-                            <p className="text-sm font-semibold">Perbarui Dokumen (opsional)</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                {[{ key: 'doc_kk', label: 'KK' }, { key: 'doc_akte', label: 'Akte' }, { key: 'doc_ktp', label: 'KTP' }].map(doc => (
-                                    <div key={doc.key} className="space-y-1">
-                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">{doc.label}</label>
-                                        <Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => editForm.setData(doc.key, e.target.files?.[0] || null)} />
-                                    </div>
-                                ))}
+                            <p className="text-sm font-semibold">Alamat Tinggal</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Provinsi *</label>
+                                    <DbSelect
+                                        inputId="edit-province"
+                                        value={editForm.data.province_code}
+                                        isDisabled={loadingProv}
+                                        options={provinces.map(p => ({ value: p.code, label: p.name }))}
+                                        onChange={(code, option) => {
+                                            editForm.setData(data => ({
+                                                ...data,
+                                                province_code: code,
+                                                province_name: option ? option.label : '',
+                                                regency_code: '', regency_name: '',
+                                                district_code: '', district_name: '',
+                                                village_code: '', village_name: ''
+                                            }));
+                                            fetchRegencies(code);
+                                        }}
+                                        placeholder={loadingProv ? "Memuat..." : "Pilih Provinsi"}
+                                    />
+                                    {editForm.errors.province_code && <p className="text-xs text-athlix-red">{editForm.errors.province_code}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kota / Kabupaten *</label>
+                                    <DbSelect
+                                        inputId="edit-regency"
+                                        value={editForm.data.regency_code}
+                                        isDisabled={!editForm.data.province_code || loadingReg}
+                                        options={regencies.map(r => ({ value: r.code, label: r.name }))}
+                                        onChange={(code, option) => {
+                                            editForm.setData(data => ({
+                                                ...data,
+                                                regency_code: code,
+                                                regency_name: option ? option.label : '',
+                                                district_code: '', district_name: '',
+                                                village_code: '', village_name: ''
+                                            }));
+                                            fetchDistricts(code);
+                                        }}
+                                        placeholder={loadingReg ? "Memuat..." : "Pilih Kota/Kab"}
+                                    />
+                                    {editForm.errors.regency_code && <p className="text-xs text-athlix-red">{editForm.errors.regency_code}</p>}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kecamatan *</label>
+                                    <DbSelect
+                                        inputId="edit-district"
+                                        value={editForm.data.district_code}
+                                        isDisabled={!editForm.data.regency_code || loadingDist}
+                                        options={districts.map(d => ({ value: d.code, label: d.name }))}
+                                        onChange={(code, option) => {
+                                            editForm.setData(data => ({
+                                                ...data,
+                                                district_code: code,
+                                                district_name: option ? option.label : '',
+                                                village_code: '', village_name: ''
+                                            }));
+                                            fetchVillages(code);
+                                        }}
+                                        placeholder={loadingDist ? "Memuat..." : "Pilih Kecamatan"}
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Kelurahan / Desa *</label>
+                                    <DbSelect
+                                        inputId="edit-village"
+                                        value={editForm.data.village_code}
+                                        isDisabled={!editForm.data.district_code || loadingVill}
+                                        options={villages.map(v => ({ value: v.code, label: v.name }))}
+                                        onChange={(code, option) => {
+                                            editForm.setData(data => ({
+                                                ...data,
+                                                village_code: code,
+                                                village_name: option ? option.label : ''
+                                            }));
+                                        }}
+                                        placeholder={loadingVill ? "Memuat..." : "Pilih Kelurahan"}
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Detail Alamat Lengkap *</label>
+                                    <textarea
+                                        required
+                                        value={editForm.data.address_detail}
+                                        onChange={e => editForm.setData('address_detail', e.target.value)}
+                                        className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:ring-2 focus:ring-athlix-red/30 focus:border-athlix-red/50 min-h-[80px] text-neutral-900 dark:text-neutral-100"
+                                        placeholder="Nama jalan, nomor gedung, dsb..."
+                                    />
+                                    {editForm.errors.address_detail && <p className="text-xs text-athlix-red">{editForm.errors.address_detail}</p>}
+                                </div>
                             </div>
                         </div>
 
@@ -923,6 +902,18 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Email Orang Tua</label>
                                     <Input type="email" value={editForm.data.parent_email} onChange={e => editForm.setData('parent_email', e.target.value)} placeholder="email@example.com" />
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
+                            <p className="text-sm font-semibold">Perbarui Dokumen (opsional)</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[{ key: 'doc_kk', label: 'KK' }, { key: 'doc_akte', label: 'Akte' }, { key: 'doc_ktp', label: 'KTP' }].map(doc => (
+                                    <div key={doc.key} className="space-y-1">
+                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">{doc.label}</label>
+                                        <Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => editForm.setData(doc.key, e.target.files?.[0] || null)} />
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -1041,11 +1032,21 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Kondisi Fisik (%)
                             <input type="number" min="0" max="100" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.condition_percentage} onChange={(e) => reportForm.setData('condition_percentage', e.target.value)} required />
                             {reportForm.errors.condition_percentage && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.condition_percentage}</p>}
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tinggi (cm)
+                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_height} onChange={(e) => reportForm.setData('latest_height', e.target.value)} />
+                            {reportForm.errors.latest_height && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.latest_height}</p>}
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Berat (kg)
+                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_weight} onChange={(e) => reportForm.setData('latest_weight', e.target.value)} />
+                            {reportForm.errors.latest_weight && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.latest_weight}</p>}
                         </label>
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tanggal Penilaian
@@ -1091,140 +1092,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <Button type="submit" disabled={achievementForm.processing} className="w-full sm:w-auto">{achievementForm.processing ? 'Menyimpan...' : 'Simpan Prestasi'}</Button>
                     </div>
                 </form>
-            </Modal>
-
-            {/* ── 3-Level Hierarchy Management Modal ── */}
-            <Modal show={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} maxWidth="3xl">
-                <div className="flex items-center justify-between p-4 border-b border-neutral-100 dark:border-neutral-800">
-                    <div className="min-w-0">
-                        <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">Kelola Struktur Test Rapor</h3>
-                        <p className="text-xs text-neutral-500 mt-0.5">Kategori › Sub-Kategori › Test. Threshold dan tipe pengukuran ada di level test.</p>
-                    </div>
-                    <button type="button" onClick={() => setCategoryModalOpen(false)} className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors shrink-0 ml-3">
-                        <X size={20} />
-                    </button>
-                </div>
-                <div className="p-4 sm:p-6 space-y-5 max-h-[calc(85vh-73px)] overflow-y-auto">
-                    <form onSubmit={submitCategory} className="flex items-end gap-2">
-                        <div className="flex-1 space-y-1 min-w-0">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Tambah Kategori Baru</label>
-                            <Input value={catForm.name} onChange={(e) => setCatForm({ ...catForm, name: e.target.value })} placeholder="Contoh: Power, Strength, Speed..." required />
-                        </div>
-                        <Button type="submit" disabled={catFormProcessing} className="shrink-0">
-                            {catFormProcessing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        </Button>
-                    </form>
-
-                    {reportCategories.length > 0 && (
-                        <div className="space-y-3">
-                            {reportCategories.map((cat) => (
-                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-2.5">
-                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200 truncate">{cat.name}</span>
-                                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                                            <button type="button" onClick={async () => {
-                                                const name = await showPrompt('Tambah Sub-Kategori', 'Nama sub-kategori baru:', '');
-                                                if (name) router.post(route('report-sub-categories.store'), { report_category_id: cat.id, name }, { preserveScroll: true });
-                                            }} className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-emerald-600 transition-colors" title="Tambah Sub-Kategori">
-                                                <Plus size={13} />
-                                            </button>
-                                            <button type="button" onClick={async () => {
-                                                const name = await showPrompt('Ubah Kategori', 'Ubah nama kategori:', cat.name);
-                                                if (name && name !== cat.name) router.patch(route('report-categories.update', cat.id), { name }, { preserveScroll: true });
-                                            }} className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-blue-600 transition-colors">
-                                                <Pencil size={12} />
-                                            </button>
-                                            <button type="button" onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {(cat.sub_categories || []).map((sub) => (
-                                            <div key={sub.id} className="px-3 sm:px-4 py-2 space-y-1.5">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 truncate">↳ {sub.name}</span>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <button type="button" onClick={async () => {
-                                                            const result = await showTestForm(null, 'Tambah Test Baru');
-                                                            if (!result) return;
-                                                            router.post(route('report-tests.store'), {
-                                                                report_sub_category_id: sub.id,
-                                                                name: result.name,
-                                                                unit: result.unit,
-                                                                min_threshold: parseFloat(result.min_threshold) || 0,
-                                                                max_threshold: parseFloat(result.max_threshold) || 100,
-                                                                max_duration_seconds: result.max_duration_seconds ? parseInt(result.max_duration_seconds) : null,
-                                                            }, { preserveScroll: true });
-                                                        }} className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-emerald-600 transition-colors" title="Tambah Test">
-                                                            <Plus size={11} />
-                                                        </button>
-                                                        <button type="button" onClick={async () => {
-                                                            const name = await showPrompt('Ubah Sub-Kategori', 'Ubah nama sub-kategori:', sub.name);
-                                                            if (name && name !== sub.name) router.patch(route('report-sub-categories.update', sub.id), { name }, { preserveScroll: true });
-                                                        }} className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-blue-600 transition-colors">
-                                                            <Pencil size={10} />
-                                                        </button>
-                                                        <button type="button" onClick={async () => {
-                                                            const ok = await showConfirm('Hapus Sub-Kategori', `Hapus sub-kategori "${sub.name}" beserta semua testnya?`);
-                                                            if (!ok) return;
-                                                            router.delete(route('report-sub-categories.destroy', sub.id), { preserveScroll: true });
-                                                        }} className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
-                                                            <Trash2 size={10} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {(sub.tests || []).map((test) => (
-                                                    <div key={test.id} className="flex items-center justify-between rounded-md bg-neutral-50/70 dark:bg-neutral-900/30 px-2.5 sm:px-3 py-1.5 text-[11px] gap-2">
-                                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                                            <span className="font-bold text-neutral-600 dark:text-neutral-300 truncate">{test.name}</span>
-                                                            <span className="shrink-0 bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 font-bold uppercase text-[9px]">
-                                                                {test.unit === 'duration' ? 'DUR' : 'REP'}
-                                                            </span>
-                                                            <span className="text-neutral-400 shrink-0 hidden sm:inline">{test.min_threshold}→{test.max_threshold}</span>
-                                                            {test.max_duration_seconds ? <span className="text-neutral-400 shrink-0 hidden sm:inline">({test.max_duration_seconds}s)</span> : null}
-                                                        </div>
-                                                        <div className="flex items-center gap-0.5 shrink-0">
-                                                            <button type="button" onClick={async () => {
-                                                                const result = await showTestForm(test, 'Edit Test');
-                                                                if (!result) return;
-                                                                router.patch(route('report-tests.update', test.id), {
-                                                                    name: result.name,
-                                                                    unit: result.unit,
-                                                                    min_threshold: parseFloat(result.min_threshold) || 0,
-                                                                    max_threshold: parseFloat(result.max_threshold) || 100,
-                                                                    max_duration_seconds: result.max_duration_seconds ? parseInt(result.max_duration_seconds) : null,
-                                                                }, { preserveScroll: true });
-                                                            }} className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-blue-600 transition-colors">
-                                                                <Pencil size={10} />
-                                                            </button>
-                                                            <button type="button" onClick={async () => {
-                                                                const ok = await showConfirm('Hapus Test', `Hapus test "${test.name}"?`);
-                                                                if (!ok) return;
-                                                                router.delete(route('report-tests.destroy', test.id), { preserveScroll: true });
-                                                            }} className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-600 transition-colors">
-                                                                <Trash2 size={10} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-
-                                                {(sub.tests || []).length === 0 && (
-                                                    <p className="text-[10px] text-neutral-400 italic pl-3">Belum ada test. Klik + untuk menambah.</p>
-                                                )}
-                                            </div>
-                                        ))}
-                                        {(cat.sub_categories || []).length === 0 && (
-                                            <p className="text-xs text-neutral-400 italic px-3 sm:px-4 py-3">Belum ada sub-kategori. Klik + pada header untuk menambah.</p>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
             </Modal>
         </AdminLayout>
     );

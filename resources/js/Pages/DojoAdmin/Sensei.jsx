@@ -256,7 +256,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                                             {/* Action buttons */}
                                             <div className="flex items-center gap-2 pl-[52px] sm:pl-[52px] flex-wrap">
                                                 <button
-                                                    className="text-xs font-bold text-athlix-red border border-athlix-red/30 rounded-lg px-3 py-1.5 hover:bg-athlix-red hover:text-white transition-colors"
+                                                    className="text-xs font-bold text-athlix-red border border-athlix-red/30 rounded-lg px-3 py-1.5 hover:bg-athlix-red hover:!text-white transition-colors"
                                                     onClick={() => openAssignModal(sensei)}
                                                 >
                                                     Kelola Atlet

@@ -162,12 +162,28 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
                                             </span>
                                         </div>
 
-                                        {/* BARIS 2: Waktu & Mood */}
-                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600 pl-12">
-                                            <p>IN: {attendance.check_in_at ? new Date(attendance.check_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
-                                            <p>OUT: {attendance.check_out_at ? new Date(attendance.check_out_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
-                                            {attendance.check_in_mood && <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Check-in: {attendance.check_in_mood}</span>}
-                                            {attendance.athlete_mood && <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300">Mood: {attendance.athlete_mood}</span>}
+                                        {/* BARIS 2: Waktu, Mood & Notes */}
+                                        <div className="pl-12 space-y-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                <p><span className="font-bold text-neutral-800 dark:text-neutral-200">IN:</span> {attendance.check_in_at ? new Date(attendance.check_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                                                <p><span className="font-bold text-neutral-800 dark:text-neutral-200">OUT:</span> {attendance.check_out_at ? new Date(attendance.check_out_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium ${attendance.check_in_mood ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'}`}>
+                                                    Mood In: {attendance.check_in_mood || '-'}
+                                                </span>
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium ${attendance.post_training_mood_rating ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'}`}>
+                                                    Mood Out: {attendance.post_training_mood_rating ? `${attendance.post_training_mood_rating}/10` : '-'}
+                                                </span>
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium ${attendance.post_training_load_rating ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'}`}>
+                                                    Lelah: {attendance.post_training_load_rating ? `${attendance.post_training_load_rating}/10` : '-'}
+                                                </span>
+                                            </div>
+
+                                            <p className="italic">
+                                                Notes: {attendance.check_in_feedback || "tidak ada notes"}
+                                            </p>
                                         </div>
 
                                         {/* BARIS 3: Tombol Feedback */}

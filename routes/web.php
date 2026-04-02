@@ -20,6 +20,7 @@ use App\Http\Controllers\SuperAdminSystemSettingController;
 use App\Http\Controllers\PasswordChangeController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\TrainingProgramController;
+use App\Http\Controllers\TestCategoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing.index');
@@ -37,7 +38,6 @@ Route::prefix('/api/regions')->group(function () {
 });
 
 Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->group(function () {
-    // Force password change — accessible to all authenticated roles
     Route::get('/change-password', [PasswordChangeController::class, 'show'])->name('password.change');
     Route::post('/change-password', [PasswordChangeController::class, 'update'])->name('password.change.update');
 
@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::patch('/attendance/{attendance}/sensei-feedback', [AttendanceController::class, 'senseiFeedback'])->name('attendance.sensei-feedback');
 
         Route::get('/athletes', [AthleteController::class, 'index'])->name('athletes.index');
+        Route::get('/athletes/check-guardian-phone', [AthleteController::class, 'checkGuardianPhone'])->name('athletes.check-guardian-phone');
         Route::post('/athletes', [AthleteController::class, 'store'])->name('athletes.store');
         Route::get('/athletes/{athlete}', [AthleteController::class, 'show'])->name('athletes.show');
         Route::post('/athletes/{athlete}', [AthleteController::class, 'update'])->name('athletes.update');
@@ -58,15 +59,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/athletes/{athlete}/achievements', [AthleteController::class, 'storeAchievement'])->name('athletes.achievements.store');
         Route::delete('/athletes/{athlete}/achievements/{achievement}', [AthleteController::class, 'destroyAchievement'])->name('athletes.achievements.destroy');
         Route::post('/athletes/{athlete}/reports', [AthleteController::class, 'storeReport'])->name('athletes.reports.store');
-        Route::post('/report-categories', [AthleteController::class, 'storeReportCategory'])->name('report-categories.store');
-        Route::patch('/report-categories/{reportCategory}', [AthleteController::class, 'updateReportCategory'])->name('report-categories.update');
-        Route::delete('/report-categories/{reportCategory}', [AthleteController::class, 'destroyReportCategory'])->name('report-categories.destroy');
-        Route::post('/report-sub-categories', [AthleteController::class, 'storeReportSubCategory'])->name('report-sub-categories.store');
-        Route::patch('/report-sub-categories/{reportSubCategory}', [AthleteController::class, 'updateReportSubCategory'])->name('report-sub-categories.update');
-        Route::delete('/report-sub-categories/{reportSubCategory}', [AthleteController::class, 'destroyReportSubCategory'])->name('report-sub-categories.destroy');
-        Route::post('/report-tests', [AthleteController::class, 'storeReportTest'])->name('report-tests.store');
-        Route::patch('/report-tests/{reportTest}', [AthleteController::class, 'updateReportTest'])->name('report-tests.update');
-        Route::delete('/report-tests/{reportTest}', [AthleteController::class, 'destroyReportTest'])->name('report-tests.destroy');
+        Route::delete('/athletes/{athlete}/reports/{report}', [AthleteController::class, 'destroyReport'])->name('athletes.reports.destroy');
 
         Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
         Route::post('/finance/generate', [FinanceController::class, 'generateMonthly'])->name('finance.generate');
@@ -137,7 +130,6 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::patch('/super-admin/dojos/{dojo}', [DojoController::class, 'update'])->name('super-admin.dojos.update');
         Route::delete('/super-admin/dojos/{dojo}', [DojoController::class, 'destroy'])->name('super-admin.dojos.destroy');
 
-
         Route::get('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'index'])->name('super-admin.system-settings.index');
         Route::patch('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'update'])->name('super-admin.system-settings.update');
     });
@@ -150,6 +142,18 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::patch('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'updateSensei'])->name('dojo-admin.sensei.update');
         Route::delete('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'destroySensei'])->name('dojo-admin.sensei.destroy');
         Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
+
+        // ── Test Category Management ──
+        Route::get('/report-categories', [TestCategoryController::class, 'index'])->name('report-categories.index');
+        Route::post('/report-categories', [TestCategoryController::class, 'storeCategory'])->name('report-categories.store');
+        Route::patch('/report-categories/{reportCategory}', [TestCategoryController::class, 'updateCategory'])->name('report-categories.update');
+        Route::delete('/report-categories/{reportCategory}', [TestCategoryController::class, 'destroyCategory'])->name('report-categories.destroy');
+        Route::post('/report-sub-categories', [TestCategoryController::class, 'storeSubCategory'])->name('report-sub-categories.store');
+        Route::patch('/report-sub-categories/{reportSubCategory}', [TestCategoryController::class, 'updateSubCategory'])->name('report-sub-categories.update');
+        Route::delete('/report-sub-categories/{reportSubCategory}', [TestCategoryController::class, 'destroySubCategory'])->name('report-sub-categories.destroy');
+        Route::post('/report-tests', [TestCategoryController::class, 'storeTest'])->name('report-tests.store');
+        Route::patch('/report-tests/{reportTest}', [TestCategoryController::class, 'updateTest'])->name('report-tests.update');
+        Route::delete('/report-tests/{reportTest}', [TestCategoryController::class, 'destroyTest'])->name('report-tests.destroy');
     });
 
     Route::middleware('role:super_admin,sensei,head_coach,assistant,atlet')->group(function () {
@@ -196,4 +200,4 @@ Route::middleware(['auth', 'tenant.access'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
