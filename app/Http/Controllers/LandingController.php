@@ -61,6 +61,11 @@ class LandingController extends Controller
                         'locale',
                     ])
                 : collect()),
+            'priceLists' => Inertia::defer(fn () => $tablesReady && Schema::hasTable('landing_price_lists')
+                ? \App\Models\LandingPriceList::query()
+                    ->orderBy('sort_order')
+                    ->get()
+                : collect()),
         ]);
     }
 
@@ -85,7 +90,15 @@ class LandingController extends Controller
             'pic_phone' => 'required|string|max:255',
         ]);
 
-        \App\Models\DojoRegistration::create(array_merge($validated, ['status' => 'pending']));
+        \App\Models\DojoRegistration::create(array_merge($request->only([
+            'dojo_name', 'country', 'province_code', 'province_name', 'regency_code', 
+            'regency_name', 'district_code', 'district_name', 'village_code', 
+            'village_name', 'address_detail', 'timezone', 'saas_plan_name', 
+            'pic_name', 'pic_email', 'pic_phone'
+        ]), [
+            'status' => 'pending',
+            'nominal' => \App\Models\LandingPriceList::where('title', $request->saas_plan_name)->first()?->price ?? 0,
+        ]));
 
         return back()->with('success', 'Pendaftaran dojo telah diterima. Kami akan segera menghubungi Anda.');
     }

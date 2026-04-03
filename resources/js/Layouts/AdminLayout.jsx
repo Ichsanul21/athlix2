@@ -59,13 +59,13 @@ export default function AdminLayout({ user, header, children }) {
                   { name: t('admin.cms_articles', 'CMS Artikel'), href: route('cms.articles.index'), icon: Newspaper, current: 'cms.articles.*' },
                   { name: t('admin.cms_gallery', 'CMS Galeri'), href: route('cms.galleries.index'), icon: Images, current: 'cms.galleries.*' },
                   { name: t('admin.cms_pricelist', 'CMS Pricelist'), href: route('cms.pricelists.index'), icon: HandCoins, current: 'cms.pricelists.*' },
-                  { name: t('admin.cms_dojo_registrations', 'Pendaftaran Dojo'), href: route('cms.dojo-registrations.index'), icon: Users, current: 'cms.dojo-registrations.*' },
+                  { name: t('admin.cms_dojo_registrations', 'Pendaftaran Club'), href: route('cms.dojo-registrations.index'), icon: Users, current: 'cms.dojo-registrations.*' },
               ]
             : []),
         ...(role === 'super_admin'
             ? [
                   { name: t('admin.master_account', 'Master Akun'), href: route('super-admin.users.index'), icon: ShieldCheck, current: 'super-admin.users.*' },
-                  { name: t('admin.master_dojo', 'Master Dojo'), href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
+                  { name: t('admin.master_dojo', 'Master Club'), href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
                   { name: t('admin.system_settings', 'System Settings'), href: route('super-admin.system-settings.index'), icon: ShieldCheck, current: 'super-admin.system-settings.*' },
               ]
             : []),

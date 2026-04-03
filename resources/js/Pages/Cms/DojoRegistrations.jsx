@@ -12,6 +12,9 @@ const ICON_MAP = {
     success: ShieldCheck,
 };
 
+const formatCurrency = (amount) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+
 const STYLE_MAP = {
     danger: {
         iconBg: 'bg-red-100 text-red-600',
@@ -101,7 +104,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
     const handleApprove = (id) => {
         openConfirm({
             title: 'Setujui Pendaftaran?',
-            message: 'Akun admin dojo akan otomatis dibuat dengan username berupa email PIC dan password default. Billing paket akan langsung aktif.',
+            message: 'Akun admin club akan otomatis dibuat dengan username berupa email PIC dan password default. Billing paket akan langsung aktif.',
             variant: 'success',
             confirmText: 'Ya, Setujui',
             onConfirm: () => {
@@ -115,7 +118,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
     const handleReject = (id) => {
         openConfirm({
             title: 'Tolak Pendaftaran?',
-            message: 'Pendaftaran dojo ini akan ditolak dan PIC akan diberitahu. Tindakan ini tidak dapat dibatalkan.',
+            message: 'Pendaftaran club ini akan ditolak dan PIC akan diberitahu. Tindakan ini tidak dapat dibatalkan.',
             variant: 'warning',
             confirmText: 'Ya, Tolak',
             onConfirm: () => {
@@ -158,8 +161,8 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
     };
 
     return (
-        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Pendaftaran Dojo</h2>}>
-            <Head title="Pendaftaran Dojo" />
+        <AdminLayout user={auth?.user} header={<h2 className="text-xl font-bold tracking-tight uppercase">Pendaftaran Club</h2>}>
+            <Head title="Pendaftaran Club" />
             <div className="space-y-6 py-4">
                 <Card className="border-neutral-200/80 dark:border-neutral-800 bg-gradient-to-r from-blue-500/10 to-transparent">
                     <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
@@ -167,7 +170,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                             <div className="p-3 rounded-2xl bg-blue-500/15 text-blue-600"><Users size={22} /></div>
                             <div>
                                 <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Free Trial</p>
-                                <h3 className="text-lg font-black">Pendaftaran Dojo Baru</h3>
+                                <h3 className="text-lg font-black">Pendaftaran Club Baru</h3>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -184,14 +187,14 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                         {registrations.length === 0 ? (
                             <div className="p-8 text-center text-neutral-500">
                                 <Users size={48} className="mx-auto mb-4 opacity-20" />
-                                <p>Belum ada pendaftaran dojo baru.</p>
+                                <p>Belum ada pendaftaran club baru.</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
                                     <thead className="text-xs text-neutral-600 uppercase bg-neutral-100/50 border-b">
                                         <tr>
-                                            <th className="px-6 py-4 font-bold">INFO DOJO</th>
+                                            <th className="px-6 py-4 font-bold">INFO CLUB</th>
                                             <th className="px-6 py-4 font-bold">INFO PIC</th>
                                             <th className="px-6 py-4 font-bold">LOKASI & PLAN</th>
                                             <th className="px-6 py-4 font-bold">STATUS</th>
@@ -218,7 +221,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <p className="font-medium text-neutral-800">{item.province_name}, {item.regency_name}</p>
-                                                    <p className="text-xs font-bold text-athlix-red mt-1">Paket: {item.saas_plan_name}</p>
+                                                    <p className="text-xs font-bold text-athlix-red mt-1">Paket: {item.saas_plan_name} ({formatCurrency(item.nominal || 0)})</p>
                                                 </td>
                                                 <td className="px-6 py-4 text-xs font-medium">
                                                     {statusBadge(item.status)}
@@ -262,7 +265,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                     <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Informasi Sasana</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Nama Dojo</p>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Nama Club</p>
                                             <p className="font-bold text-neutral-900 text-base">{selectedRegistration.dojo_name}</p>
                                         </div>
                                         <div>
@@ -301,9 +304,13 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                             <p className="text-xs font-semibold text-red-700 mb-1">Pilihan Paket Awal</p>
                                             <p className="font-black text-red-900 text-lg uppercase tracking-wider">{selectedRegistration.saas_plan_name}</p>
                                         </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-red-700 mb-1">Nominal Paket</p>
+                                            <p className="font-black text-red-900 text-lg">{formatCurrency(selectedRegistration.nominal || 0)}</p>
+                                        </div>
                                     </div>
                                     <p className="text-xs text-neutral-500 mt-2 bg-neutral-100 p-2 rounded-lg italic font-medium">
-                                        Persetujuan registrasi ini akan secara otomatis membuat entry Dojo dan akun Admin (username = alamat email PIC, password = password@123), dan langsung mengaktifkan billing sesuai nominal paket "{selectedRegistration.saas_plan_name}".
+                                        Persetujuan registrasi ini akan secara otomatis membuat entry Club dan akun Admin (username = alamat email PIC, password = password@123), dan langsung mengaktifkan billing sesuai nominal paket "{selectedRegistration.saas_plan_name}" ({formatCurrency(selectedRegistration.nominal || 0)}).
                                     </p>
                                 </div>
                             </div>

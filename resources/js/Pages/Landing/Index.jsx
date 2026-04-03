@@ -49,10 +49,11 @@ const formatDate = (value) => {
     return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(date);
 };
 
-export default function Index({ articles = [], galleries = [], localeAlternates = [] }) {
+export default function Index({ articles = [], galleries = [], priceLists = [], localeAlternates = [] }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState(null);
     const [sessionExpired, setSessionExpired] = useState(false);
 
     useEffect(() => {
@@ -97,6 +98,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
 
                         <div className="hidden items-center gap-8 text-sm font-semibold tracking-widest text-slate-300 md:flex">
                             <a href="#fitur" className="transition-colors hover:text-red-500">FITUR</a>
+                            <a href="#pricing" className="transition-colors hover:text-red-500">HARGA</a>
                             <a href="#sistem" className="transition-colors hover:text-red-500">SISTEM</a>
                             <a href="#artikel" className="transition-colors hover:text-red-500">ARTIKEL</a>
                             <a href="#galeri" className="transition-colors hover:text-red-500">GALERI</a>
@@ -114,6 +116,7 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                     {mobileMenuOpen && (
                         <div className="absolute left-0 top-full flex w-full animate-fade-in flex-col gap-4 border-b border-slate-800 bg-slate-900 px-6 py-4 shadow-xl md:hidden">
                             <a href="#fitur" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>FITUR</a>
+                            <a href="#pricing" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>HARGA</a>
                             <a href="#sistem" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>SISTEM</a>
                             <a href="#artikel" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>ARTIKEL</a>
                             <a href="#galeri" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>GALERI</a>
@@ -308,6 +311,114 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                     </div>
                 </section>
 
+                                <section id="pricing" className="relative overflow-hidden bg-slate-950 py-24">
+                    <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[500px] w-full max-w-5xl rounded-full bg-red-600/5 blur-[120px] -z-10" />
+                    <div className="container mx-auto px-6 lg:px-12">
+                        <div className="mx-auto mb-16 max-w-2xl text-center">
+                            <h2 className="mb-3 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-widest text-red-500">
+                                <span className="h-px w-8 bg-red-500" /> Paket Harga <span className="h-px w-8 bg-red-500" />
+                            </h2>
+                            <h3 className="text-3xl font-black uppercase tracking-tight md:text-5xl">Investasi Untuk<br />Pertumbuhan Club</h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                            {priceLists.map((plan) => {
+                                const fmtCurrency = (val) =>
+                                    new Intl.NumberFormat('id-ID', {
+                                        style: 'currency',
+                                        currency: 'IDR',
+                                        maximumFractionDigits: 0,
+                                    }).format(val);
+
+                                const hasDiscount = plan.original_price > 0 && plan.original_price > plan.price;
+                                const discountPct = hasDiscount
+                                    ? Math.round((1 - plan.price / plan.original_price) * 100)
+                                    : 0;
+
+                                return (
+                                    <div
+                                        key={plan.id}
+                                        className={`relative flex flex-col rounded-3xl border p-8 transition-all duration-500 hover:-translate-y-2 ${
+                                            plan.is_featured
+                                                ? 'border-red-500 bg-slate-900/50 shadow-[0_20px_50px_rgba(220,38,38,0.15)] ring-1 ring-red-500/50'
+                                                : 'border-slate-800 bg-slate-950'
+                                        }`}
+                                    >
+                                        {plan.is_featured && (
+                                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-4 py-1 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20">
+                                                Paling Populer
+                                            </div>
+                                        )}
+
+                                        <div className="mb-8">
+                                            <h4 className="text-xl font-black uppercase tracking-tight text-white">{plan.title}</h4>
+
+                                            <div className="mt-4 flex flex-col gap-2">
+                                                {/* Harga coret di atas — besar & mencolok */}
+                                                {hasDiscount && (
+                                                    <div className="flex items-center gap-2">
+                                                        {/* <span className="text-[10px] font-bold uppercase tracking-widest text-red-400/80">Harga Normal</span> */}
+                                                        <span className="text-xl font-extrabold text-slate-500 line-through decoration-red-500 decoration-[3px]">
+                                                            {fmtCurrency(plan.original_price)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Harga aktual */}
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-4xl font-black text-white">
+                                                        {fmtCurrency(plan.price)}
+                                                    </span>
+                                                    <span className="text-sm font-medium text-slate-500">/bulan</span>
+                                                </div>
+
+                                                {/* Badge hemat */}
+                                                {hasDiscount && (
+                                                    <span className="mt-1 inline-flex w-max items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                                        </svg>
+                                                        Hemat {discountPct}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="mb-10 flex-1 space-y-4">
+                                            {plan.description && plan.description.split(',').map((feature, i) => (
+                                                <div key={i} className="flex items-start gap-3">
+                                                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+                                                    <span className="text-sm font-medium text-slate-300">{feature.trim()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setSelectedPlan(plan.title);
+                                                setShowRegistrationModal(true);
+                                            }}
+                                            className={`w-full rounded-xl py-4 text-sm font-black uppercase tracking-widest transition-all ${
+                                                plan.is_featured
+                                                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 hover:bg-red-700'
+                                                    : 'border border-slate-700 bg-slate-800 text-white hover:border-slate-500 hover:bg-slate-700'
+                                            }`}
+                                        >
+                                            Pilih Paket {plan.title}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-16 text-center">
+                            <p className="text-sm font-medium text-slate-500 italic">
+                                Semua paket termasuk gratis trial 14 hari tanpa kartu kredit.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="artikel" className="bg-slate-900 py-24">
                     <div className="container mx-auto space-y-12 px-6 lg:px-12">
                         <div className="text-center">
@@ -455,7 +566,12 @@ export default function Index({ articles = [], galleries = [], localeAlternates 
                 </div>
             )}
 
-            <RegistrationModal show={showRegistrationModal} onClose={() => setShowRegistrationModal(false)} />
+            <RegistrationModal
+                show={showRegistrationModal}
+                onClose={() => setShowRegistrationModal(false)}
+                priceLists={priceLists}
+                initialPlan={selectedPlan}
+            />
         </>
     );
 }

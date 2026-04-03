@@ -10,7 +10,7 @@ import Modal from '@/Components/Modal';
 export default function PriceLists({ auth, priceLists = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const form = useForm({ title: '', description: '', price: '', currency: 'IDR', sort_order: 0, is_featured: false });
+    const form = useForm({ title: '', description: '', price: '', original_price: '', currency: 'IDR', sort_order: 0, is_featured: false });
 
     const submit = () => {
         if (editingId) {
@@ -38,6 +38,7 @@ export default function PriceLists({ auth, priceLists = [] }) {
                 title: item.title || '',
                 description: item.description || '',
                 price: item.price || '',
+                original_price: item.original_price || '',
                 currency: item.currency || 'IDR',
                 sort_order: item.sort_order ?? 0,
                 is_featured: !!item.is_featured,
@@ -92,8 +93,15 @@ export default function PriceLists({ auth, priceLists = [] }) {
                         </div>
                         <div className="space-y-4">
                             <Input className="text-neutral-900" placeholder="Nama paket" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} />
-                            <Input className="text-neutral-900" placeholder="Harga" type="number" value={form.data.price} onChange={(e) => form.setData('price', e.target.value)} />
-                            <textarea className="w-full border rounded-lg px-3 py-2 text-sm min-h-24 text-neutral-900 bg-white" placeholder="Deskripsi paket (fitur yang didapat)..." value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
+                            <Input className="text-neutral-900" placeholder="Harga (Misal: 350000)" type="number" value={form.data.price} onChange={(e) => form.setData('price', e.target.value)} />
+                            <Input className="text-neutral-900" placeholder="Harga Asli/Coret (Misal: 500000) - Opsional" type="number" value={form.data.original_price} onChange={(e) => form.setData('original_price', e.target.value)} />
+                            <textarea className="w-full border rounded-lg px-3 py-2 text-sm min-h-24 text-neutral-900 bg-white" placeholder="Deskripsi paket (fitur yang didapat)... Gunakan tanda koma untuk list fitur (contoh: fitur tracking, fitur tagihan, fitur absensi)" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
+                            {editingId && (
+                                <div>
+                                    <label className="text-xs font-bold text-neutral-600 mb-1 block uppercase tracking-wider">Sort Order</label>
+                                    <Input className="text-neutral-900" type="number" value={form.data.sort_order} onChange={(e) => form.setData('sort_order', e.target.value)} />
+                                </div>
+                            )}
                             <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
                                 <input type="checkbox" className="rounded text-athlix-red focus:ring-athlix-red" checked={form.data.is_featured} onChange={(e) => form.setData('is_featured', e.target.checked)} />
                                 Jadikan paket unggulan / Recommended
@@ -120,8 +128,22 @@ export default function PriceLists({ auth, priceLists = [] }) {
                                                 {item.title}
                                                 {item.is_featured && <Star size={13} className="text-amber-500" />}
                                             </p>
-                                            <p className="text-xs text-neutral-600  mt-1">{item.description || '-'}</p>
-                                            <p className="text-sm font-black text-athlix-red mt-2">Rp {Number(item.price || 0).toLocaleString('id-ID')}</p>
+                                            <div className="text-xs text-neutral-600 mt-1">
+                                                {item.description ? (
+                                                    <ul className="list-disc list-inside space-y-0.5">
+                                                        {item.description.split(',').map((feature, i) => (
+                                                            <li key={i}>{feature.trim()}</li>
+                                                        ))}
+                                                    </ul>
+                                                ) : '-'}
+                                            </div>
+                                            <p className="text-sm font-black text-athlix-red mt-2 flex items-center gap-2">
+                                                Rp {Number(item.price || 0).toLocaleString('id-ID')}
+                                                {item.original_price > 0 && (
+                                                    <span className="text-xs font-normal text-neutral-400 line-through">Rp {Number(item.original_price).toLocaleString('id-ID')}</span>
+                                                )}
+                                            </p>
+                                            {item.sort_order !== 0 && <p className="text-[10px] text-neutral-400 mt-1">Order: {item.sort_order}</p>}
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
                                             <button

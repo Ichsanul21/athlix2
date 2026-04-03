@@ -6,16 +6,35 @@ import { Input } from '@/Components/ui/input';
 import { Loader2, ChevronDown, CheckCircle } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 
-const PLAN_PRICING = {
-    Basic: 300000,
-    Pro: 600000,
-    Advance: 1200000,
-};
-
 const formatCurrency = (amount) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
 
-export default function RegistrationModal({ show, onClose }) {
+export default function RegistrationModal({ show, onClose, priceLists = [], initialPlan = null }) {
+    // Helper to get prices from priceLists
+    const getPlanPricing = () => {
+        const pricing = {};
+        priceLists.forEach(plan => {
+            pricing[plan.title] = plan.price;
+        });
+        return pricing;
+    };
+
+    const getOriginalPricing = () => {
+        const pricing = {};
+        priceLists.forEach(plan => {
+            pricing[plan.title] = plan.original_price || plan.price;
+        });
+        return pricing;
+    };
+
+    const PLAN_PRICING = getPlanPricing();
+    const ORIGINAL_PRICING = getOriginalPricing();
+
+    const planOptions = priceLists.map(plan => ({
+        value: plan.title,
+        label: `${plan.title} (${formatCurrency(plan.price)}/bln)`
+    }));
+
     const [provinces, setProvinces] = useState([]);
     const [regencies, setRegencies] = useState([]);
     const [districts, setDistricts] = useState([]);
@@ -33,7 +52,7 @@ export default function RegistrationModal({ show, onClose }) {
         pic_name: '',
         pic_email: '',
         pic_phone: '',
-        saas_plan_name: 'Basic',
+        saas_plan_name: priceLists.length > 0 ? priceLists[0].title : 'Basic',
         country: 'ID',
         province_code: '',
         province_name: '',
@@ -46,6 +65,12 @@ export default function RegistrationModal({ show, onClose }) {
         address_detail: '',
         timezone: 'Asia/Jakarta',
     });
+
+    useEffect(() => {
+        if (show && initialPlan) {
+            setData('saas_plan_name', initialPlan);
+        }
+    }, [show, initialPlan]);
 
     useEffect(() => {
         if (show && provinces.length === 0) {
@@ -191,11 +216,7 @@ export default function RegistrationModal({ show, onClose }) {
                             <DbSelect
                                 value={data.saas_plan_name}
                                 onChange={(value) => setData('saas_plan_name', value)}
-                                options={[
-                                    { value: 'Basic', label: 'Basic (Rp 300rb/bln)' },
-                                    { value: 'Pro', label: 'Pro (Rp 600rb/bln)' },
-                                    { value: 'Advance', label: 'Advance (Rp 1.2jt/bln)' }
-                                ]}
+                                options={planOptions}
                                 placeholder="Pilih Paket Langganan"
                             />
                             {errors.saas_plan_name && <p className="text-red-500 text-xs mt-1">{errors.saas_plan_name}</p>}
@@ -205,17 +226,23 @@ export default function RegistrationModal({ show, onClose }) {
                         {data.saas_plan_name && (
                             <div className="rounded-xl bg-slate-100 border border-slate-200 p-4 space-y-1.5 text-sm">
                                 <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Ringkasan Biaya</p>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <span className="text-slate-600">Biaya bulanan</span>
-                                    <span className="font-semibold text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-xs text-slate-400 line-through">{formatCurrency(ORIGINAL_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                        <span className="font-semibold text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                    </div>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-green-600 font-semibold">Free Trial (14 hari)</span>
                                     <span className="font-bold text-green-600">GRATIS</span>
                                 </div>
-                                <div className="border-t border-slate-200 pt-1.5 flex justify-between">
+                                <div className="border-t border-slate-200 pt-1.5 flex justify-between items-end">
                                     <span className="text-slate-500 text-xs">Tagihan setelah trial berakhir</span>
-                                    <span className="font-black text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}<span className="text-xs font-normal">/bln</span></span>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[10px] text-slate-400 line-through leading-none">{formatCurrency(ORIGINAL_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                        <span className="font-black text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}<span className="text-xs font-normal">/bln</span></span>
+                                    </div>
                                 </div>
                                 <div className="border-t border-slate-200 pt-1.5 flex justify-between rounded bg-green-50 px-2 py-1 mt-2">
                                     <span className="text-green-700 font-bold text-sm">Total Tagihan Saat Ini</span>
