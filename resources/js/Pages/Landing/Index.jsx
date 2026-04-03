@@ -330,9 +330,9 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                         maximumFractionDigits: 0,
                                     }).format(val);
 
-                                const hasDiscount = plan.original_price > 0 && plan.original_price > plan.price;
+                                const hasDiscount = Number(plan.original_price) > 0 && Number(plan.original_price) > Number(plan.price);
                                 const discountPct = hasDiscount
-                                    ? Math.round((1 - plan.price / plan.original_price) * 100)
+                                    ? Math.round((1 - Number(plan.price) / Number(plan.original_price)) * 100)
                                     : 0;
 
                                 return (

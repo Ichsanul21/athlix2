@@ -10,6 +10,7 @@ class LandingPriceList extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'original_price' => 'decimal:2',
         'is_featured' => 'boolean',
         'sort_order' => 'integer',
     ];

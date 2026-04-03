@@ -22,7 +22,7 @@ export default function RegistrationModal({ show, onClose, priceLists = [], init
     const getOriginalPricing = () => {
         const pricing = {};
         priceLists.forEach(plan => {
-            pricing[plan.title] = plan.original_price || plan.price;
+            pricing[plan.title] = plan.original_price;
         });
         return pricing;
     };
@@ -229,7 +229,9 @@ export default function RegistrationModal({ show, onClose, priceLists = [], init
                                 <div className="flex justify-between items-center">
                                     <span className="text-slate-600">Biaya bulanan</span>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-xs text-slate-400 line-through">{formatCurrency(ORIGINAL_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                        {Number(ORIGINAL_PRICING[data.saas_plan_name]) > Number(PLAN_PRICING[data.saas_plan_name]) && (
+                                            <span className="text-xs text-slate-400 line-through">{formatCurrency(ORIGINAL_PRICING[data.saas_plan_name])}</span>
+                                        )}
                                         <span className="font-semibold text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}</span>
                                     </div>
                                 </div>
@@ -240,7 +242,9 @@ export default function RegistrationModal({ show, onClose, priceLists = [], init
                                 <div className="border-t border-slate-200 pt-1.5 flex justify-between items-end">
                                     <span className="text-slate-500 text-xs">Tagihan setelah trial berakhir</span>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-[10px] text-slate-400 line-through leading-none">{formatCurrency(ORIGINAL_PRICING[data.saas_plan_name] ?? 0)}</span>
+                                        {Number(ORIGINAL_PRICING[data.saas_plan_name]) > Number(PLAN_PRICING[data.saas_plan_name]) && (
+                                            <span className="text-[10px] text-slate-400 line-through leading-none">{formatCurrency(ORIGINAL_PRICING[data.saas_plan_name])}</span>
+                                        )}
                                         <span className="font-black text-slate-800">{formatCurrency(PLAN_PRICING[data.saas_plan_name] ?? 0)}<span className="text-xs font-normal">/bln</span></span>
                                     </div>
                                 </div>
