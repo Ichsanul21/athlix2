@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { submitWellnessPayload } from '@/lib/offlineWellnessSync';
 import { createPortal } from 'react-dom';
+import FileInput from '@/Components/FileInput';
 
 export default function Index({ auth, athlete, attendanceLog = [], todayAttendance = null, flash }) {
     const scannerRef = useRef(null);
@@ -541,10 +542,14 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                                     <textarea className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm min-h-20" placeholder="Jelaskan alasan Anda..." value={absenceReason} onChange={(e) => setAbsenceReason(e.target.value)} />
                                 </label>
 
-                                <label className="block space-y-1">
+                                <div className="space-y-1">
                                     <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1"><Upload size={12} /> Dokumen Pendukung (Opsional)</p>
-                                    <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setAbsenceDocument(e.target.files?.[0] || null)} className="w-full text-xs" />
-                                </label>
+                                    <FileInput 
+                                        accept=".jpg,.jpeg,.png,.pdf" 
+                                        onChange={(file) => setAbsenceDocument(file)} 
+                                        className="h-10 text-xs"
+                                    />
+                                </div>
 
                                 <Button type="button" disabled={absenceSubmitting || !absenceReason.trim()} onClick={submitAbsence} className="w-full h-12 font-black uppercase tracking-widest rounded-2xl">
                                     {absenceSubmitting ? 'Mengirim...' : `Kirim ${absenceType === 'sick' ? 'Sakit' : 'Izin'}`}

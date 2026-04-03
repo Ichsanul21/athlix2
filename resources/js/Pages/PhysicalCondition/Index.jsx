@@ -118,29 +118,64 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-0 max-h-[500px] lg:max-h-[600px] overflow-y-auto">
-                                    {filteredAthletes.map((a, idx) => (
-                                        <button
-                                            key={a.id}
-                                            onClick={() => setSelectedAthleteId(a.id)}
-                                            className={`w-full flex items-center justify-between p-4 transition-all duration-300 text-left border-b border-neutral-50 dark:border-neutral-800/50 animate-fade-in-up fill-both ${
-                                                selectedAthleteId === a.id
-                                                ? 'bg-athlix-red/5 dark:bg-athlix-red/10'
-                                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/50'
-                                            }`}
-                                            style={{ animationDelay: `${idx * 30}ms` }}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 text-athlix-red flex items-center justify-center font-bold text-xs uppercase transition-transform duration-300 hover:scale-110">
-                                                    {a.full_name.charAt(0)}
+                                    {filteredAthletes.map((a, idx) => {
+                                        const isSelected = selectedAthleteId === a.id;
+                                        return (
+                                            <button
+                                                key={a.id}
+                                                onClick={() => setSelectedAthleteId(a.id)}
+                                                className={`
+                                                    w-full flex items-center justify-between p-4 transition-all duration-300 text-left
+                                                    border-b border-neutral-50 dark:border-neutral-800/50 animate-fade-in-up fill-both relative
+                                                    ${isSelected
+                                                        ? 'bg-athlix-red/8 dark:bg-athlix-red/12 border-l-[3px] border-l-athlix-red shadow-[inset_4px_0_12px_-4px_rgba(230,30,50,0.15)]'
+                                                        : 'border-l-[3px] border-l-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900/50'
+                                                    }
+                                                `}
+                                                style={{ animationDelay: `${idx * 30}ms` }}
+                                            >
+                                                {/* Active indicator dot */}
+                                                {isSelected && (
+                                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[2px]">
+                                                        <span className="block w-[6px] h-[6px] rounded-full bg-athlix-red shadow-[0_0_8px_rgba(230,30,50,0.6)]" />
+                                                    </span>
+                                                )}
+
+                                                <div className="flex items-center gap-3 ml-1">
+                                                    <div className={`
+                                                        w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs uppercase
+                                                        transition-all duration-300
+                                                        ${isSelected
+                                                            ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/30 scale-105'
+                                                            : 'bg-gradient-to-br from-athlix-red/20 to-athlix-red/5 text-athlix-red hover:scale-110'
+                                                        }
+                                                    `}>
+                                                        {a.full_name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className={`font-bold text-sm tracking-tight transition-colors duration-300 ${isSelected ? 'text-athlix-red' : ''}`}>
+                                                            {a.full_name}
+                                                        </p>
+                                                        <p className={`text-xs uppercase font-bold transition-colors duration-300 ${isSelected ? 'text-athlix-red/60' : 'text-neutral-500'}`}>
+                                                            {a.belt?.name} | {a.age} Thn
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-bold text-sm tracking-tight">{a.full_name}</p>
-                                                    <p className="text-xs text-neutral-500 uppercase font-bold">{a.belt?.name} | {a.age} Thn</p>
+
+                                                <div className="flex items-center gap-2">
+                                                    {isSelected && (
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-athlix-red bg-athlix-red/10 px-2 py-0.5 rounded-md">
+                                                            Aktif
+                                                        </span>
+                                                    )}
+                                                    <ChevronRight size={16} className={`
+                                                        transition-all duration-300
+                                                        ${isSelected ? 'text-athlix-red rotate-90' : 'text-neutral-300'}
+                                                    `} />
                                                 </div>
-                                            </div>
-                                            <ChevronRight size={16} className={`transition-all duration-300 ${selectedAthleteId === a.id ? 'text-athlix-red translate-x-0.5' : 'text-neutral-300'}`} />
-                                        </button>
-                                    ))}
+                                            </button>
+                                        );
+                                    })}
                                 </CardContent>
                             </Card>
                         </div>

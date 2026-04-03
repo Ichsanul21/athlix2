@@ -118,7 +118,7 @@ class TestCategoryController extends Controller
         $validated = $request->validate([
             'report_sub_category_id' => 'required|integer|exists:report_sub_categories,id',
             'name' => 'required|string|max:100',
-            'unit' => 'required|in:duration,repetition',
+            'unit' => 'required|in:duration,repetition,distance',
             'min_threshold' => 'required|numeric|min:0',
             'max_threshold' => 'required|numeric|min:0|gt:min_threshold',
             'max_duration_seconds' => 'nullable|integer|min:1',
@@ -136,7 +136,7 @@ class TestCategoryController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'unit' => 'required|in:duration,repetition',
+            'unit' => 'required|in:duration,repetition,distance',
             'min_threshold' => 'required|numeric|min:0',
             'max_threshold' => 'required|numeric|min:0|gt:min_threshold',
             'max_duration_seconds' => 'nullable|integer|min:1',

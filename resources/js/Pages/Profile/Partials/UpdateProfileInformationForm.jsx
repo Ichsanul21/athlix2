@@ -2,6 +2,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import FileInput from '@/Components/FileInput';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
@@ -124,19 +125,17 @@ export default function UpdateProfileInformation({
                 <div>
                     <InputLabel htmlFor="profile_photo" value="Foto Profile" />
 
-                    <input
+                    <FileInput
                         id="profile_photo"
-                        type="file"
                         accept=".jpg,.jpeg,.png,.webp"
-                        className="mt-1 block w-full text-sm"
-                        onChange={(e) => setData('profile_photo', e.target.files?.[0] ?? null)}
+                        className="mt-1"
+                        onChange={(file) => setData('profile_photo', file)}
+                        error={errors.profile_photo}
                     />
 
                     {user?.profile_photo_url && (
                         <img src={user.profile_photo_url} alt="Profile" className="mt-2 h-16 w-16 rounded-full object-cover border" />
                     )}
-
-                    <InputError className="mt-2" message={errors.profile_photo} />
                 </div>
 
                 {mustVerifyEmail && user?.email_verified_at === null && (

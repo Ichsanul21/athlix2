@@ -427,6 +427,8 @@ class AthleteController extends Controller
                     'notes' => $report->notes,
                     'recorded_at' => $recordedAt?->toDateString(),
                     'recorded_label' => $recordedAt?->translatedFormat('d M Y') ?? '-',
+                    'dynamic_scores' => $report->dynamic_scores,
+                    'created_at' => (string) $report->created_at,
                     'created_label' => optional($report->created_at)?->translatedFormat('d M Y H:i'),
                 ];
             });
@@ -580,6 +582,110 @@ class AthleteController extends Controller
         return back()->with('success', 'Rapor kemampuan atlet berhasil disimpan.');
     }
 
+    public function updateReport(Request $request, Athlete $athlete, \App\Models\AthleteReport $report)
+    {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+
+        if (! auth()->user()?->isCoachGroup()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'condition_percentage' => 'required|integer|min:0|max:100',
+            'test_values' => 'required|array',
+            'test_values.*' => 'required|numeric|min:0',
+            'notes' => 'nullable|string|max:2000',
+            'recorded_at' => 'required|date',
+            'latest_height' => 'nullable|numeric|min:50|max:260',
+            'latest_weight' => 'nullable|numeric|min:5|max:300',
+        ]);
+
+        // Load the full hierarchy for this dojo
+        $categories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+            ->orWhereNull('dojo_id')
+            ->with(['subCategories.tests'])
+            ->orderBy('sort_order')
+            ->get();
+
+        // Build the full JSON snapshot with bottom-up score calculation
+        $snapshot = ['categories' => [], 'sub_categories' => [], 'tests' => [], 'anthropometry' => [
+            'height' => $validated['latest_height'] ?? $athlete->latest_height,
+            'weight' => $validated['latest_weight'] ?? $athlete->latest_weight,
+        ]];
+
+        foreach ($categories as $cat) {
+            $subScores = [];
+            foreach ($cat->subCategories as $sub) {
+                $testScores = [];
+                foreach ($sub->tests as $test) {
+                    $rawValue = (float) ($validated['test_values'][$test->id] ?? 0);
+                    $scaledScore = $test->calculateScore($rawValue);
+
+                    $snapshot['tests'][$test->id] = [
+                        'test_id' => $test->id,
+                        'test_name' => $test->name,
+                        'sub_category_name' => $sub->name,
+                        'category_name' => $cat->name,
+                        'unit' => $test->unit,
+                        'min_threshold' => $test->min_threshold,
+                        'max_threshold' => $test->max_threshold,
+                        'max_duration_seconds' => $test->max_duration_seconds,
+                        'raw_value' => $rawValue,
+                        'scaled_score' => $scaledScore,
+                    ];
+                    $testScores[] = $scaledScore;
+                }
+                $subAvg = count($testScores) > 0 ? (int) round(array_sum($testScores) / count($testScores)) : 0;
+                $snapshot['sub_categories'][$sub->id] = [
+                    'sub_category_id' => $sub->id,
+                    'name' => $sub->name,
+                    'category_name' => $cat->name,
+                    'score' => $subAvg,
+                    'test_count' => count($testScores),
+                ];
+                $subScores[] = $subAvg;
+            }
+            $catAvg = count($subScores) > 0 ? (int) round(array_sum($subScores) / count($subScores)) : 0;
+            $snapshot['categories'][$cat->id] = [
+                'category_id' => $cat->id,
+                'name' => $cat->name,
+                'score' => $catAvg,
+                'sub_category_count' => count($subScores),
+            ];
+        }
+
+        // Update athlete latest measurements
+        if (isset($validated['latest_height']) || isset($validated['latest_weight'])) {
+            $athlete->update([
+                'latest_height' => $validated['latest_height'] ?? $athlete->latest_height,
+                'latest_weight' => $validated['latest_weight'] ?? $athlete->latest_weight,
+            ]);
+
+            $bmi = null;
+            if ($athlete->latest_height && $athlete->latest_weight) {
+                $heightInMeters = $athlete->latest_height / 100;
+                $bmi = round($athlete->latest_weight / ($heightInMeters * $heightInMeters), 1);
+            }
+
+            $athlete->physicalMetrics()->create([
+                'height'      => $athlete->latest_height,
+                'weight'      => $athlete->latest_weight,
+                'bmi'         => $bmi,
+                'recorded_at' => $validated['recorded_at'],
+            ]);
+        }
+
+        $report->update([
+            'condition_percentage' => $validated['condition_percentage'],
+            'notes' => $validated['notes'] ?? null,
+            'recorded_at' => $validated['recorded_at'],
+            'dynamic_scores' => $snapshot,
+            'evaluator_id' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Rapor kemampuan atlet berhasil diperbarui.');
+    }
+
     public function destroyReport(Athlete $athlete, \App\Models\AthleteReport $report)
     {
         $this->ensureAthleteAccessible($athlete, auth()->user());
@@ -711,7 +817,7 @@ class AthleteController extends Controller
         $validated = $request->validate([
             'report_sub_category_id' => 'required|integer|exists:report_sub_categories,id',
             'name' => 'required|string|max:100',
-            'unit' => 'required|in:duration,repetition',
+            'unit' => 'required|in:duration,repetition,distance',
             'min_threshold' => 'required|numeric|min:0',
             'max_threshold' => 'required|numeric|min:0',
             'max_duration_seconds' => 'nullable|integer|min:0',
@@ -729,7 +835,7 @@ class AthleteController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'unit' => 'required|in:duration,repetition',
+            'unit' => 'required|in:duration,repetition,distance',
             'min_threshold' => 'required|numeric|min:0',
             'max_threshold' => 'required|numeric|min:0',
             'max_duration_seconds' => 'nullable|integer|min:0',
@@ -971,5 +1077,30 @@ class AthleteController extends Controller
         if ($bmi >= 18.5 && $bmi <= 24.9) return 'Prima';
         if ($bmi > 24.9) return 'Kelelahan';
         return 'Pemulihan';
+    }
+    public function checkPhoneAvailability(Request $request)
+    {
+        $phone = $this->normalizePhoneNumber((string) ($request->query('phone', '') ?? ''));
+        $excludeId = $request->query('exclude_id');
+
+        if (!$phone) {
+            return response()->json(['available' => true, 'valid' => true]);
+        }
+
+        $exists = \App\Models\Athlete::where('phone_number', $phone)
+            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+            ->exists();
+
+        $userExists = \App\Models\User::where('phone_number', $phone)
+            ->when($excludeId, function($q) use ($excludeId) {
+                if ($excludeId) $q->where('athlete_id', '!=', $excludeId);
+            })
+            ->exists();
+
+        return response()->json([
+            'available' => !$exists && !$userExists,
+            'valid' => true,
+            'message' => ($exists || $userExists) ? 'Nomor HP sudah terdaftar.' : null
+        ]);
     }
 }

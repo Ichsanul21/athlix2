@@ -52,6 +52,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
 
         Route::get('/athletes', [AthleteController::class, 'index'])->name('athletes.index');
         Route::get('/athletes/check-guardian-phone', [AthleteController::class, 'checkGuardianPhone'])->name('athletes.check-guardian-phone');
+        Route::get('/athletes-api/check-phone', [AthleteController::class, 'checkPhoneAvailability'])->name('api.athletes.check-phone');
         Route::post('/athletes', [AthleteController::class, 'store'])->name('athletes.store');
         Route::get('/athletes/{athlete}', [AthleteController::class, 'show'])->name('athletes.show');
         Route::post('/athletes/{athlete}', [AthleteController::class, 'update'])->name('athletes.update');
@@ -59,6 +60,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/athletes/{athlete}/achievements', [AthleteController::class, 'storeAchievement'])->name('athletes.achievements.store');
         Route::delete('/athletes/{athlete}/achievements/{achievement}', [AthleteController::class, 'destroyAchievement'])->name('athletes.achievements.destroy');
         Route::post('/athletes/{athlete}/reports', [AthleteController::class, 'storeReport'])->name('athletes.reports.store');
+        Route::match(['put', 'patch', 'post'], '/athletes/{athlete}/reports/{report}', [AthleteController::class, 'updateReport'])->name('athletes.reports.update');
         Route::delete('/athletes/{athlete}/reports/{report}', [AthleteController::class, 'destroyReport'])->name('athletes.reports.destroy');
 
         Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
+import FileInput from '@/Components/FileInput';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const INITIAL_FORM = {
@@ -230,6 +231,13 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
 
     const uploadEditorImage = async (file) => {
         if (!file) return;
+
+        const sizeInMB = file.size / (1024 * 1024);
+        if (sizeInMB > 5) {
+            window.alert('Ukuran gambar editor terlalu besar. Maksimal 5MB.');
+            return;
+        }
+
         const data = new FormData();
         data.append('image', file);
 
@@ -355,9 +363,32 @@ export default function Articles({ auth, articles = [], revisions = [], statusOp
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <input type="file" accept=".jpg,.jpeg,.png,.webp,.avif" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" onChange={(e) => form.setData('thumbnail', e.target.files?.[0] ?? null)} />
-                                <Input placeholder="Alt thumbnail" value={form.data.thumbnail_alt} onChange={(e) => form.setData('thumbnail_alt', e.target.value)} />
-                                <input type="file" accept=".jpg,.jpeg,.png,.webp,.avif" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" onChange={(e) => form.setData('og_image', e.target.files?.[0] ?? null)} />
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                                        <span>Thumbnail</span>
+                                        <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG, WEBP. Max: 5MB</span>
+                                    </label>
+                                    <FileInput 
+                                        accept=".jpg,.jpeg,.png,.webp,.avif" 
+                                        onChange={(file) => form.setData('thumbnail', file)} 
+                                        error={form.errors.thumbnail}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alt Thumbnail</label>
+                                    <Input placeholder="Alt thumbnail" value={form.data.thumbnail_alt} onChange={(e) => form.setData('thumbnail_alt', e.target.value)} />
+                                </div>
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                                        <span>OG Image (Social Media Share)</span>
+                                        <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG. Max: 5MB</span>
+                                    </label>
+                                    <FileInput 
+                                        accept=".jpg,.jpeg,.png,.webp,.avif" 
+                                        onChange={(file) => form.setData('og_image', file)} 
+                                        error={form.errors.og_image}
+                                    />
+                                </div>
                                 <Input placeholder="Canonical URL" value={form.data.canonical_url} onChange={(e) => form.setData('canonical_url', e.target.value)} />
                                 <Input placeholder="SEO Title" value={form.data.seo_title} onChange={(e) => form.setData('seo_title', e.target.value)} />
                                 <Input placeholder="SEO Keywords" value={form.data.seo_keywords} onChange={(e) => form.setData('seo_keywords', e.target.value)} />

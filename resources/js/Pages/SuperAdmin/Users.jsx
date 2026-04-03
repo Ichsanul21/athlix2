@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import DbSelect from '@/Components/DbSelect';
+import FileInput from '@/Components/FileInput';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { useState } from 'react';
 import Modal from '@/Components/Modal';
@@ -121,7 +122,14 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                             {editingUserId && (
                                 <Input className="text-sm" type="password" placeholder="Password baru (opsional)" value={form.data.password ?? ''} onChange={(e) => form.setData('password', e.target.value)} />
                             )}
-                            <input type="file" accept=".jpg,.jpeg,.png,.webp" className="border rounded-lg px-3 py-2 text-sm" onChange={(e) => form.setData('profile_photo', e.target.files?.[0] ?? null)} />
+                            <div className="col-span-full space-y-1">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Profil (Max 5MB)</label>
+                                <FileInput 
+                                    accept=".jpg,.jpeg,.png,.webp" 
+                                    onChange={(file) => form.setData('profile_photo', file)} 
+                                    error={form.errors.profile_photo}
+                                />
+                            </div>
 
                             <DbSelect
                                 inputId="super-admin-user-role"

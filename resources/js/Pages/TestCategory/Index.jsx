@@ -142,16 +142,30 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
             durationPlaceholder: 'Contoh: 60',
             durationDefault: 60,
         }
-        : {
-            minLabel: 'Batas Bawah (Waktu Tercepat)',
-            minHint: 'Waktu tercepat yang masih dianggap valid',
-            maxLabel: 'Batas Atas (Waktu Terlambat)',
-            maxHint: 'Batas waktu paling lambat yang ditolerir',
-            durationLabel: 'Target Pukulan (kali)',
-            durationHint: 'Jumlah pukulan yang harus diselesaikan',
-            durationPlaceholder: 'Contoh: 10',
-            durationDefault: 10,
-        };
+        : testForm.unit === 'duration'
+            ? {
+                minLabel: 'Batas Bawah (Waktu Tercepat)',
+                minHint: 'Waktu tercepat yang masih dianggap valid',
+                maxLabel: 'Batas Atas (Waktu Terlambat)',
+                maxHint: 'Batas waktu paling lambat yang ditolerir',
+                durationLabel: 'Target Pukulan (kali)',
+                durationHint: 'Jumlah pukulan yang harus diselesaikan',
+                durationPlaceholder: 'Contoh: 10',
+                durationDefault: 10,
+            }
+            : {
+                minLabel: 'Batas Bawah (Jarak Terpendek)',
+                minHint: 'Jarak minimal (cm) untuk mulai mendapat skor',
+                maxLabel: 'Batas Atas (Jarak Ideal/Terjauh)',
+                maxHint: 'Jarak (cm) untuk skor sempurna (100)',
+                durationLabel: 'Satuan',
+                durationHint: 'Semua input dalam centimeter (cm)',
+                durationPlaceholder: 'cm',
+                durationDefault: 'cm',
+            };
+
+    const isDuration = testForm.unit === 'duration';
+    const isDistance = testForm.unit === 'distance';
 
     const thresholdInvalid = Number(testForm.min_threshold) >= Number(testForm.max_threshold);
     const durationValue = testForm.max_duration_seconds || thresholdConfig.durationDefault;
@@ -229,6 +243,7 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                                 <select className={inputCls} value={testForm.unit} onChange={(e) => setTestForm(p => ({ ...p, unit: e.target.value }))}>
                                     <option value="repetition">Repetisi (kali)</option>
                                     <option value="duration">Durasi (detik)</option>
+                                    <option value="distance">Jarak (cm)</option>
                                 </select>
                             </div>
 
@@ -236,8 +251,8 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-1.5">
                                     <span>Threshold</span>
-                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${isRepetition ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'}`}>
-                                        {isRepetition ? '↑ makin tinggi makin bagus' : '↓ makin rendah makin bagus'}
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${isRepetition || isDistance ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'}`}>
+                                        {isRepetition || isDistance ? '↑ makin tinggi makin bagus' : '↓ makin rendah makin bagus'}
                                     </span>
                                 </label>
 
@@ -307,7 +322,7 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                                             <p>• Nilai di antaranya dihitung proporsional</p>
                                         </div>
                                     </>
-                                ) : (
+                                ) : isDuration ? (
                                     <>
                                         <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
                                             Target pukulan <span className="font-bold text-neutral-800 dark:text-neutral-200">{durationValue} kali</span> (fixed). Yang diukur adalah <span className="font-bold text-neutral-800 dark:text-neutral-200">waktu penyelesaian</span>. Makin cepat makin bagus.
@@ -320,6 +335,17 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                                         <div className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-2.5 py-1.5 mt-1">
                                             <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                                             <span>Waktu di bawah <span className="font-bold">{testForm.min_threshold} detik</span> akan dicurigai / dianggap tidak valid karena terlalu ekstrem.</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                                            Pengukuran <span className="font-bold text-neutral-800 dark:text-neutral-200">Jarak</span> dalam satuan <span className="font-bold text-neutral-800 dark:text-neutral-200">cm</span>. Makin jauh/besar makin bagus.
+                                        </p>
+                                        <div className="text-xs text-neutral-500 leading-relaxed space-y-0.5 pl-2 border-l-2 border-blue-300 dark:border-blue-700">
+                                            <p>• Skor <span className="font-bold text-red-500">0</span> jika jarak <span className="font-bold">&le; {testForm.min_threshold} cm</span> — belum mencapai target</p>
+                                            <p>• Skor <span className="font-bold text-emerald-600">100</span> jika jarak <span className="font-bold">&ge; {testForm.max_threshold} cm</span> — target ideal</p>
+                                            <p>• Nilai di antaranya dihitung proporsional</p>
                                         </div>
                                     </>
                                 )}
@@ -479,13 +505,15 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                                                         <div key={test.id} className="flex items-center justify-between rounded-md bg-neutral-50/70 dark:bg-neutral-900/30 px-2.5 sm:px-3 py-1.5 text-[11px] gap-2">
                                                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                                                 <span className="font-bold text-neutral-600 dark:text-neutral-300 truncate">{test.name}</span>
-                                                                <span className={`shrink-0 px-1.5 py-0.5 rounded font-bold uppercase text-[9px] ${test.unit === 'duration' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
-                                                                    {test.unit === 'duration' ? 'DUR' : 'REP'}
+                                                                <span className={`shrink-0 px-1.5 py-0.5 rounded font-bold uppercase text-[9px] ${test.unit === 'duration' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' : test.unit === 'distance' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
+                                                                    {test.unit === 'duration' ? 'DUR' : test.unit === 'distance' ? 'JAR' : 'REP'}
                                                                 </span>
                                                                 <span className="text-neutral-400 shrink-0 hidden sm:inline">
                                                                     {test.unit === 'repetition'
                                                                         ? `≥${test.min_threshold} → ${test.max_threshold} pukulan`
-                                                                        : `${test.min_threshold}s → ≤${test.max_threshold}s`
+                                                                        : test.unit === 'distance'
+                                                                            ? `≥${test.min_threshold} → ${test.max_threshold} cm`
+                                                                            : `${test.min_threshold}s → ≤${test.max_threshold}s`
                                                                     }
                                                                 </span>
                                                                 {test.max_duration_seconds ? (

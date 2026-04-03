@@ -6,6 +6,7 @@ import { Input } from '@/Components/ui/input';
 import Modal from '@/Components/Modal';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import DbSelect from '@/Components/DbSelect';
+import FileInput from '@/Components/FileInput';
 import { useEffect, useState } from 'react';
 import { Plus, Building2, Users, Shield } from 'lucide-react';
 
@@ -326,15 +327,13 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                             <Input className="text-sm" type="password" placeholder="Minimal 8 karakter" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
                             {form.errors.password && <p className="text-xs text-red-500 mt-1">{form.errors.password}</p>}
                         </div>
-                        <div className="sm:col-span-2">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Foto Profil</label>
-                            <input
-                                type="file"
+                        <div className="sm:col-span-2 space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Profil</label>
+                            <FileInput
                                 accept=".jpg,.jpeg,.png,.webp"
-                                className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"
-                                onChange={(e) => form.setData('profile_photo', e.target.files?.[0] ?? null)}
+                                onChange={(file) => form.setData('profile_photo', file)}
+                                error={form.errors.profile_photo}
                             />
-                            {form.errors.profile_photo && <p className="text-xs text-red-500 mt-1">{form.errors.profile_photo}</p>}
                         </div>
                     </div>
                     <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-neutral-100">

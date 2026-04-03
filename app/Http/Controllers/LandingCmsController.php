@@ -266,7 +266,7 @@ class LandingCmsController extends Controller
     public function uploadArticleEditorImage(Request $request)
     {
         $request->validate([
-            'image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,avif,gif', 'max:8192'],
+            'image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,avif,gif', 'max:5120'],
         ]);
 
         $path = $request->file('image')->store('landing/articles/editor', 'public');
@@ -463,7 +463,7 @@ class LandingCmsController extends Controller
             'is_featured' => ['nullable', 'boolean'],
             'publish_at' => ['nullable', 'date'],
             'is_published' => ['nullable', 'boolean'],
-            'thumbnail' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
+            'thumbnail' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:5120'],
             'thumbnail_alt' => ['nullable', 'string', 'max:255'],
             'canonical_url' => ['nullable', 'url', 'max:2048'],
             'seo_title' => ['nullable', 'string', 'max:70'],
@@ -472,7 +472,7 @@ class LandingCmsController extends Controller
             'meta_robots' => ['nullable', Rule::in(LandingArticle::META_ROBOTS_OPTIONS)],
             'og_title' => ['nullable', 'string', 'max:95'],
             'og_description' => ['nullable', 'string', 'max:200'],
-            'og_image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
+            'og_image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:5120'],
         ];
     }
 
@@ -497,7 +497,7 @@ class LandingCmsController extends Controller
             'revision_summary' => ['nullable', 'string', 'max:500'],
             'is_featured' => ['nullable', 'boolean'],
             'publish_at' => ['nullable', 'date'],
-            'image' => [$gallery ? 'nullable' : 'required', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:10240'],
+            'image' => [$gallery ? 'nullable' : 'required', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:5120'],
             'video_url' => ['nullable', 'required_if:media_type,video', 'url', 'max:2048'],
             'image_alt' => ['nullable', 'string', 'max:255'],
             'canonical_url' => ['nullable', 'url', 'max:2048'],
@@ -507,7 +507,7 @@ class LandingCmsController extends Controller
             'meta_robots' => ['nullable', Rule::in(LandingGallery::META_ROBOTS_OPTIONS)],
             'og_title' => ['nullable', 'string', 'max:95'],
             'og_description' => ['nullable', 'string', 'max:200'],
-            'og_image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
+            'og_image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif', 'max:5120'],
         ];
     }
 

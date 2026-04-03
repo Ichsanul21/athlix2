@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
-import { Search, Plus, ChevronRight, Loader2, X, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, ChevronRight, Loader2, X, Pencil, Trash2, AlertCircle } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 import Modal from '@/Components/Modal';
 import { useState, useEffect, useCallback } from 'react';
@@ -23,6 +23,8 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
     const [loadingVill, setLoadingVill] = useState(false);
     const [guardianPhoneInfo, setGuardianPhoneInfo] = useState(null);
     const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+    const [athletePhoneError, setAthletePhoneError] = useState('');
+    const [isCheckingPhoneAthlete, setIsCheckingPhoneAthlete] = useState(false);
 
     useEffect(() => {
         if (isCreateOpen && provinces.length === 0) {
@@ -106,6 +108,8 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         if (!isCreateOpen) {
             setGuardianPhoneInfo(null);
             setIsCheckingPhone(false);
+            setAthletePhoneError('');
+            setIsCheckingPhoneAthlete(false);
         }
     }, [isCreateOpen]);
 
@@ -127,6 +131,28 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         const timeout = setTimeout(checkPhone, 600);
         return () => clearTimeout(timeout);
     }, [data.parent_phone_number]);
+
+    useEffect(() => {
+        const checkAthletePhone = async () => {
+            if (data.phone_number?.length >= 8) {
+                setIsCheckingPhoneAthlete(true);
+                try {
+                    const response = await fetch(route('api.athletes.check-phone', { phone: data.phone_number }));
+                    const result = await response.json();
+                    if (!result.available) {
+                         setAthletePhoneError(result.message || 'Nomor HP sudah terdaftar.');
+                    } else {
+                         setAthletePhoneError('');
+                    }
+                } catch (e) { } finally { setIsCheckingPhoneAthlete(false); }
+            } else {
+                setAthletePhoneError('');
+            }
+        };
+
+        const timeout = setTimeout(checkAthletePhone, 600);
+        return () => clearTimeout(timeout);
+    }, [data.phone_number]);
 
     // Auto-fill nama dan email jika nomor HP orang tua ditemukan
     useEffect(() => {
@@ -439,6 +465,17 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                         placeholder="08xxxxxxxxxx"
                                         required
                                     />
+                                    {isCheckingPhoneAthlete && <p className="text-[10px] text-neutral-400 mt-1 animate-pulse italic">Mengecek nomor HP...</p>}
+                                    {athletePhoneError && (
+                                        <div className="mt-1.5 p-2.5 bg-athlix-red/5 border border-athlix-red/10 rounded-xl animate-in fade-in slide-in-from-top-1">
+                                            <p className="text-[11px] font-black uppercase tracking-tight text-athlix-red flex items-center gap-1.5">
+                                                <AlertCircle size={13} /> Nomor HP Duplikat
+                                            </p>
+                                            <p className="text-[10px] text-neutral-600 mt-1 leading-relaxed">
+                                                {athletePhoneError}
+                                            </p>
+                                        </div>
+                                    )}
                                     {errors.phone_number && <p className="text-xs text-athlix-red">{errors.phone_number}</p>}
                                 </div>
 
@@ -563,7 +600,10 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                 </div>
 
                                 <div className="sm:col-span-2 space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Atlet (Opsional)</label>
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                                        <span>Foto Atlet (Opsional)</span>
+                                        <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG, WEBP. Max: 5MB</span>
+                                    </label>
                                     <Input
                                         type="file"
                                         accept=".jpg,.jpeg,.png,.webp"
@@ -731,9 +771,11 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                             </div>
                         </div>
 
-                        {/* Dokumen Registrasi */}
                         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
-                            <p className="text-xs font-black uppercase tracking-widest text-neutral-400">Dokumen Registrasi <span className="text-athlix-red normal-case tracking-normal">(Minimal 1 wajib)</span></p>
+                            <p className="text-xs font-black uppercase tracking-widest text-neutral-400 flex justify-between items-center">
+                                <span>Dokumen Registrasi <span className="text-athlix-red normal-case tracking-normal">(Minimal 1 wajib)</span></span>
+                                <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG, PDF. Max: 5MB</span>
+                            </p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">KK</label>

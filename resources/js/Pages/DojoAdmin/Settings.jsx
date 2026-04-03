@@ -120,6 +120,13 @@ export default function Settings({ auth, dojo }) {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            const sizeInMB = file.size / (1024 * 1024);
+            if (sizeInMB > 5) {
+                form.setError('logo', 'Ukuran file logo terlalu besar. Maksimal 5MB.');
+                e.target.value = '';
+                return;
+            }
+            form.clearErrors('logo');
             form.setData('logo', file);
             setPreviewLogo(URL.createObjectURL(file));
         }

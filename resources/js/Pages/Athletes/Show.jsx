@@ -10,6 +10,8 @@ import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, Use
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
+import { debounce } from 'lodash';
 
 const COLORS = ['#DC2626', '#404040'];
 
@@ -26,6 +28,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
+    const [reportEditModalOpen, setReportEditModalOpen] = useState(false);
     const [provinces, setProvinces] = useState([]);
     const [regencies, setRegencies] = useState([]);
     const [districts, setDistricts] = useState([]);
@@ -38,6 +41,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [reportError, setReportError] = useState('');
+    const [phoneChecking, setPhoneChecking] = useState(false);
+    const [phoneError, setPhoneError] = useState('');
     const [portalRoot, setPortalRoot] = useState(null);
 
     const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', variant: 'danger' });
@@ -99,48 +104,61 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const [selectedReportId, setSelectedReportId] = useState(reportHistory?.[0]?.id ?? latestReport?.id ?? '');
 
     const sortedReports = useMemo(
-        () => [...reportHistory].sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime()),
+        () => [...(reportHistory || [])].sort((a, b) => new Date(b.created_at || b.recorded_at || 0).getTime() - new Date(a.created_at || a.recorded_at || 0).getTime()),
         [reportHistory]
     );
     const activeReport = useMemo(
-        () => sortedReports.find((item) => String(item.id) === String(selectedReportId)) || sortedReports[0] || latestReport || null,
+        () => sortedReports.find((item) => String(item?.id) === String(selectedReportId)) || sortedReports[0] || latestReport || null,
         [sortedReports, selectedReportId, latestReport]
     );
-    const conditionScore = Number(activeReport?.condition_percentage ?? performance?.condition?.[0]?.value ?? 0);
-    const conditionData = [
-        { label: 'Kondisi Fisik', value: conditionScore },
-        { label: 'Gap', value: Math.max(0, 100 - conditionScore) },
-    ];
 
-    const safeParseDynScores = (raw) => {
+    function safeParseDynScores(raw) {
         if (!raw) return {};
         if (typeof raw === 'object') return raw;
         if (typeof raw === 'string') {
             try { return JSON.parse(raw) || {}; } catch { return {}; }
         }
         return {};
-    };
+    }
 
-    const categorySeries = reportCategories.length
-        ? reportCategories.map((cat) => {
-              const snapshot = safeParseDynScores(activeReport?.dynamic_scores);
-              const catSnapshot = snapshot?.categories?.[cat.id];
-              return {
-                  label: cat.name,
-                  score: Number(catSnapshot?.score ?? performance?.categories?.find((item) => item.label === cat.name)?.score ?? 0),
-              };
-          })
-        : performance?.categories?.map((item) => ({ label: item.label, score: Number(item.score) })) || [];
+    const snapshot = useMemo(() => safeParseDynScores(activeReport?.dynamic_scores), [activeReport]);
+
+    const categorySeries = useMemo(() => {
+        if (!reportCategories.length) return performance?.categories?.map((item) => ({ label: item?.label, score: Number(item?.score) })) || [];
+        return reportCategories.map((cat) => {
+            const catSnapshot = snapshot?.categories?.[cat?.id];
+            return {
+                label: cat?.name,
+                score: Number(catSnapshot?.score ?? 0),
+            };
+        });
+    }, [reportCategories, snapshot, performance]);
+
+    const conditionScore = useMemo(() => {
+        if (activeReport) {
+            if (categorySeries.length > 0 && categorySeries.some(c => c.score > 0)) {
+                return Math.round(categorySeries.reduce((acc, item) => acc + item.score, 0) / categorySeries.length);
+            }
+            return Number(activeReport.condition_percentage || 0);
+        }
+        return Number(performance?.condition?.[0]?.value ?? 0);
+    }, [activeReport, categorySeries, performance]);
+
+    const conditionData = [
+        { label: 'Kondisi Fisik', value: conditionScore },
+        { label: 'Gap', value: Math.max(0, 100 - conditionScore) },
+    ];
+
     const averageScore = categorySeries.length ? Math.round(categorySeries.reduce((acc, item) => acc + item.score, 0) / categorySeries.length) : 0;
     const abilityStatus = resolveAbilityStatus(categorySeries.map((item) => item.score));
-    const reportOptions = sortedReports.map((item) => ({
-        value: String(item.id),
-        label: `${item.recorded_label || item.recorded_at || '-'} | Kondisi ${item.condition_percentage}%`,
+    const reportOptions = (sortedReports || []).map((item) => ({
+        value: String(item?.id),
+        label: `${item?.recorded_label || item?.recorded_at || '-'} | Kondisi ${item?.condition_percentage}%`,
     }));
 
     useEffect(() => {
         if (!sortedReports.length) return;
-        if (!sortedReports.some((item) => String(item.id) === String(selectedReportId))) {
+        if (!selectedReportId || !sortedReports.some((item) => String(item.id) === String(selectedReportId))) {
             setSelectedReportId(sortedReports[0].id);
         }
     }, [sortedReports]);
@@ -200,6 +218,31 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         }
     }, [editModalOpen, athlete]);
 
+    const checkPhoneAvailability = useCallback(
+        debounce(async (phone) => {
+            if (!phone || phone.length < 8) {
+                setPhoneError('');
+                return;
+            }
+            setPhoneChecking(true);
+            try {
+                const res = await axios.get(route('api.athletes.check-phone'), {
+                    params: { phone, exclude_id: athlete?.id }
+                });
+                if (!res.data.available) {
+                    setPhoneError(res.data.message || 'Nomor HP sudah terdaftar.');
+                } else {
+                    setPhoneError('');
+                }
+            } catch (err) {
+                console.error('Phone check error:', err);
+            } finally {
+                setPhoneChecking(false);
+            }
+        }, 500),
+        [athlete?.id]
+    );
+
     const primaryGuardian = athlete?.primary_guardian;
     const editForm = useForm({
         full_name: athlete?.full_name || '',
@@ -230,6 +273,14 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         village_name: athlete?.village_name || '',
         address_detail: athlete?.address_detail || '',
     });
+
+    useEffect(() => {
+        if (editModalOpen && editForm.data.phone_number !== athlete?.phone_number) {
+            checkPhoneAvailability(editForm.data.phone_number);
+        } else {
+            setPhoneError('');
+        }
+    }, [editForm.data.phone_number, editModalOpen]);
 
     useEffect(() => {
         if (athlete && editModalOpen) {
@@ -297,9 +348,9 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         const vals = {};
         const snapshot = safeParseDynScores(activeReport?.dynamic_scores);
         reportCategories.forEach((cat) => {
-            (cat.sub_categories || []).forEach((sub) => {
-                (sub.tests || []).forEach((test) => {
-                    vals[String(test.id)] = snapshot?.tests?.[test.id]?.raw_value ?? 0;
+            (cat?.sub_categories || []).forEach((sub) => {
+                (sub?.tests || []).forEach((test) => {
+                    vals[String(test?.id)] = snapshot?.tests?.[test?.id]?.raw_value ?? 0;
                 });
             });
         });
@@ -330,6 +381,50 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         latest_height: athlete?.latest_height || '',
         latest_weight: athlete?.latest_weight || '',
     });
+
+    const reportEditForm = useForm({
+        id: '',
+        condition_percentage: 0,
+        test_values: {},
+        notes: '',
+        recorded_at: '',
+        latest_height: '',
+        latest_weight: '',
+    });
+
+    const openEditReport = (report) => {
+        const snap = safeParseDynScores(report?.dynamic_scores);
+        const vals = {};
+        reportCategories.forEach((cat) => {
+            (cat.sub_categories || []).forEach((sub) => {
+                (sub.tests || []).forEach((test) => {
+                    vals[String(test.id)] = snap?.tests?.[test.id]?.raw_value ?? 0;
+                });
+            });
+        });
+
+        reportEditForm.setData({
+            id: report?.id,
+            condition_percentage: report?.condition_percentage,
+            test_values: vals,
+            notes: report?.notes || '',
+            recorded_at: report?.recorded_at,
+            latest_height: snap?.anthropometry?.height ?? athlete?.latest_height ?? '',
+            latest_weight: snap?.anthropometry?.weight ?? athlete?.latest_weight ?? '',
+        });
+        setReportEditModalOpen(true);
+    };
+
+    const submitUpdateReport = (e) => {
+        e.preventDefault();
+        reportEditForm.post(route('athletes.reports.update', { athlete: athlete.id, report: reportEditForm.data.id }), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setReportEditModalOpen(false);
+                showAlert('Berhasil', 'Rapor berhasil diperbarui.');
+            }
+        });
+    };
 
     const resetReportForm = () => {
         setReportError('');
@@ -580,9 +675,14 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                             <DbSelect inputId="report-history-select" options={reportOptions} value={String(selectedReportId || '')} onChange={(next) => setSelectedReportId(next)} placeholder="Pilih data rapor" />
                                         </div>
                                         {isSensei && selectedReportId && (
-                                            <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={handleDeleteReport}>
-                                                <Trash2 size={14} />
-                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button type="button" variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => openEditReport(activeReport)}>
+                                                    <Pencil size={14} />
+                                                </Button>
+                                                <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={handleDeleteReport}>
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 text-xs text-neutral-600">
@@ -647,39 +747,46 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {categorySeries.map((item) => {
-                                const catMeta = reportCategories.find(c => c.name === item.label);
-                                const dynScores = safeParseDynScores(activeReport?.dynamic_scores);
-                                const rawEntry = catMeta ? dynScores[catMeta.id] : null;
-                                const rawValue = rawEntry?.raw_value;
-                                const unitLabel = catMeta?.unit === 'duration' ? 'detik' : 'kali';
-                                const scoreColor = item.score >= 80 ? 'text-emerald-600' : item.score >= 50 ? 'text-amber-600' : 'text-athlix-red';
+                            {reportCategories.map((cat) => {
+                                const catSnapshot = snapshot?.categories?.[cat.id];
+                                const catScore = Number(catSnapshot?.score ?? 0);
+                                const scoreColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-athlix-red';
+                                const subs = cat.sub_categories || [];
+
                                 return (
-                                    <div key={item.label} className="space-y-1.5">
+                                    <div key={cat.id} className="space-y-3 border-b border-neutral-100 dark:border-neutral-800 pb-4 last:border-0 last:pb-0">
                                         <div className="flex items-center justify-between text-xs">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-bold uppercase tracking-wider text-neutral-500">{item.label}</span>
-                                                {catMeta && (
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
-                                                        {catMeta.unit === 'duration' ? 'DURASI' : 'REPETISI'}
-                                                    </span>
-                                                )}
+                                                <span className="font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {rawValue !== undefined && rawValue !== null && (
-                                                    <span className="text-neutral-400 font-medium">{rawValue} {unitLabel}</span>
-                                                )}
-                                                <span className={`font-black text-sm ${scoreColor}`}>{item.score}<span className="text-neutral-400 text-[10px] font-bold">/100</span></span>
+                                                <span className={`font-black text-sm ${scoreColor}`}>{catScore}<span className="text-neutral-400 text-[10px] font-bold">/100</span></span>
                                             </div>
                                         </div>
-                                        <div className="h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-500 ${item.score >= 80 ? 'bg-emerald-500' : item.score >= 50 ? 'bg-amber-500' : 'bg-athlix-red'}`} style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
+                                        <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${catScore >= 80 ? 'bg-emerald-500' : catScore >= 50 ? 'bg-amber-500' : 'bg-athlix-red'}`} style={{ width: `${Math.max(0, Math.min(100, catScore))}%` }} />
                                         </div>
-                                        {catMeta && (
-                                            <div className="text-[10px] text-neutral-400">
-                                                <span>Threshold: {catMeta.min_threshold} → {catMeta.max_threshold} {unitLabel}</span>
-                                            </div>
-                                        )}
+
+                                        <div className="space-y-2 mt-2 ml-4 pl-4 border-l-2 border-neutral-100 dark:border-neutral-800">
+                                            {subs.map((sub) => {
+                                                const subSnapshot = snapshot?.sub_categories?.[sub.id];
+                                                const subScore = Number(subSnapshot?.score ?? 0);
+                                                const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                const subBg = subScore >= 80 ? 'bg-emerald-500' : subScore >= 50 ? 'bg-amber-500' : 'bg-red-500';
+
+                                                return (
+                                                    <div key={sub.id} className="p-2 sm:p-2.5 rounded-xl bg-neutral-50/50 dark:bg-neutral-900/30 space-y-1.5 border border-neutral-100 dark:border-neutral-800/50">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-500 truncate mr-2">{sub.name}</span>
+                                                            <span className={`text-[11px] font-black ${subColor}`}>{subScore}</span>
+                                                        </div>
+                                                        <div className="h-1 rounded-full bg-neutral-200/50 dark:bg-neutral-800/50 overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all duration-700 ${subBg}`} style={{ width: `${Math.max(0, Math.min(100, subScore))}%` }} />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -744,7 +851,21 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">No HP Atlet *</label>
-                                <Input value={editForm.data.phone_number} onChange={e => editForm.setData('phone_number', e.target.value)} placeholder="08xxxxxxxxxx" required />
+                                <div className="relative">
+                                    <Input
+                                        value={editForm.data.phone_number}
+                                        onChange={e => editForm.setData('phone_number', e.target.value)}
+                                        placeholder="08xxxxxxxxxx"
+                                        required
+                                        className={phoneError ? 'border-red-400 focus:ring-red-200' : ''}
+                                    />
+                                    {phoneChecking && (
+                                        <div className="absolute right-3 top-2.5">
+                                            <Loader2 size={14} className="animate-spin text-neutral-400" />
+                                        </div>
+                                    )}
+                                </div>
+                                {phoneError && <p className="text-[11px] font-bold text-athlix-red flex items-center gap-1 mt-1"><AlertCircle size={11} /> {phoneError}</p>}
                                 {editForm.errors.phone_number && <p className="text-xs text-athlix-red">{editForm.errors.phone_number}</p>}
                             </div>
                             <div className="space-y-1">
@@ -781,7 +902,10 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                 <Input value={editForm.data.class_note} onChange={e => editForm.setData('class_note', e.target.value)} placeholder="Umum / Senior -67kg" />
                             </div>
                             <div className="sm:col-span-2 space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Ganti Foto (Opsional)</label>
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                                    <span>Ganti Foto (Opsional)</span>
+                                    <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG, WEBP. Max: 5MB</span>
+                                </label>
                                 <Input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={e => editForm.setData('photo', e.target.files?.[0] || null)} />
                                 {editForm.errors.photo && <p className="text-xs text-athlix-red">{editForm.errors.photo}</p>}
                             </div>
@@ -906,7 +1030,10 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </div>
 
                         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 p-3 sm:p-4 space-y-3">
-                            <p className="text-sm font-semibold">Perbarui Dokumen (opsional)</p>
+                            <p className="text-sm font-semibold flex justify-between items-center text-neutral-800 dark:text-neutral-200">
+                                <span>Perbarui Dokumen (opsional)</span>
+                                <span className="text-[10px] text-neutral-400 font-medium normal-case">Format: JPG, PNG, PDF. Max: 5MB</span>
+                            </p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 {[{ key: 'doc_kk', label: 'KK' }, { key: 'doc_akte', label: 'Akte' }, { key: 'doc_ktp', label: 'KTP' }].map(doc => (
                                     <div key={doc.key} className="space-y-1">
@@ -939,6 +1066,131 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </Button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* ── Edit Report Modal ── */}
+            <Modal show={reportEditModalOpen} onClose={() => setReportEditModalOpen(false)} maxWidth="3xl">
+                <form onSubmit={submitUpdateReport} className="p-4 sm:p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h3 className="text-lg font-black uppercase tracking-tight">Edit Rapor Kemampuan Atlet</h3>
+                            <p className="text-xs text-neutral-500 mt-1">Perbarui nilai mentah (raw) per test.</p>
+                        </div>
+                        <div className="w-56 shrink-0">
+                            <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Ganti Rapor</label>
+                            <DbSelect
+                                inputId="edit-report-select"
+                                options={reportOptions}
+                                value={String(reportEditForm.data.id)}
+                                onChange={(next) => {
+                                    const rep = sortedReports.find(r => String(r.id) === String(next));
+                                    if (rep) openEditReport(rep);
+                                }}
+                                placeholder="Pilih rapor"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        {reportCategories.map((cat) => {
+                            const subs = cat.sub_categories || [];
+                            const subScores = subs.map((sub) => {
+                                const tests = sub.tests || [];
+                                const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
+                                return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                            });
+                            const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
+                            const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
+                            return (
+                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                        <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                    </div>
+                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                        {subs.map((sub) => {
+                                            const tests = sub.tests || [];
+                                            const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
+                                            const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                            const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                            return (
+                                                <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
+                                                        <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {tests.map((test) => {
+                                                            const rawVal = reportEditForm.data.test_values[String(test.id)] ?? 0;
+                                                            const previewScore = calcTestScore(test, rawVal);
+                                                            const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
+                                                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                            const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
+
+                                                            return (
+                                                                <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
+                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
+                                                                        </div>
+                                                                        <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.1"
+                                                                            min="0"
+                                                                            className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0"
+                                                                            value={rawVal}
+                                                                            onChange={(e) => {
+                                                                                const curr = { ...reportEditForm.data.test_values };
+                                                                                curr[String(test.id)] = parseFloat(e.target.value) || 0;
+                                                                                reportEditForm.setData('test_values', curr);
+                                                                            }}
+                                                                        />
+                                                                        <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Kondisi Fisik (%)
+                            <input type="number" min="0" max="100" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.condition_percentage} onChange={(e) => reportEditForm.setData('condition_percentage', e.target.value)} required />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tinggi (cm)
+                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_height} onChange={(e) => reportEditForm.setData('latest_height', e.target.value)} />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Berat (kg)
+                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_weight} onChange={(e) => reportEditForm.setData('latest_weight', e.target.value)} />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tanggal Penilaian
+                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.recorded_at} onChange={(e) => reportEditForm.setData('recorded_at', e.target.value)} required />
+                        </label>
+                    </div>
+                    <div className="space-y-1">
+                        <textarea className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm min-h-20 bg-white dark:bg-neutral-900" value={reportEditForm.data.notes} onChange={(e) => reportEditForm.setData('notes', e.target.value)} placeholder="Catatan rapor..." />
+                    </div>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                        <Button type="button" variant="outline" onClick={() => setReportEditModalOpen(false)} className="w-full sm:w-auto">Batal</Button>
+                        <Button type="submit" disabled={reportEditForm.processing} className="w-full sm:w-auto">
+                            {reportEditForm.processing && <Loader2 size={14} className="animate-spin mr-2" />} Simpan Perubahan
+                        </Button>
+                    </div>
+                </form>
             </Modal>
 
             {/* ── Report Modal ── */}
@@ -996,15 +1248,17 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                                         {tests.map((test) => {
                                                             const rawVal = reportForm.data.test_values[String(test.id)] ?? 0;
                                                             const previewScore = calcTestScore(test, rawVal);
-                                                            const unitLabel = test.unit === 'duration' ? 'detik' : 'kali';
+                                                            const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
                                                             const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
                                                             const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                            const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
+
                                                             return (
                                                                 <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
                                                                     <div className="flex items-center justify-between gap-2">
                                                                         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                                                                             <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
-                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{test.unit === 'duration' ? 'DURASI' : 'REP'}</span>
+                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
                                                                             {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
                                                                         </div>
                                                                         <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
@@ -1086,10 +1340,17 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                     </div>
                     <input className="w-full rounded-md border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" placeholder="Penyelenggara" value={achievementForm.data.organizer} onChange={(e) => achievementForm.setData('organizer', e.target.value)} />
                     <textarea className="w-full rounded-md border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm min-h-20 bg-white dark:bg-neutral-900" placeholder="Catatan" value={achievementForm.data.notes} onChange={(e) => achievementForm.setData('notes', e.target.value)} />
-                    <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => achievementForm.setData('certificate', e.target.files?.[0] ?? null)} className="w-full text-sm" />
-                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-                        <Button type="button" variant="outline" onClick={() => setAchievementModalOpen(false)} className="w-full sm:w-auto">Batal</Button>
-                        <Button type="submit" disabled={achievementForm.processing} className="w-full sm:w-auto">{achievementForm.processing ? 'Menyimpan...' : 'Simpan Prestasi'}</Button>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                            <span>Sertifikat / Foto Bukti</span>
+                            <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG, PDF. Max: 5MB</span>
+                        </label>
+                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => achievementForm.setData('certificate', e.target.files?.[0] ?? null)} className="w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded-md px-3 py-2 bg-white dark:bg-neutral-900" />
+                        {achievementForm.errors.certificate && <p className="text-xs text-athlix-red">{achievementForm.errors.certificate}</p>}
+                    </div>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                        <Button type="button" variant="outline" onClick={() => setAchievementModalOpen(false)} className="w-full sm:w-auto font-bold uppercase tracking-widest text-[10px]">Batal</Button>
+                        <Button type="submit" disabled={achievementForm.processing} className="w-full sm:w-auto font-bold uppercase tracking-widest text-[10px]">{achievementForm.processing ? 'Menyimpan...' : 'Simpan Prestasi'}</Button>
                     </div>
                 </form>
             </Modal>

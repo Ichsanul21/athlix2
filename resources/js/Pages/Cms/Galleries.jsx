@@ -9,6 +9,7 @@ import { Eye, Images, Pencil, Search, Trash2, Plus, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
+import FileInput from '@/Components/FileInput';
 
 const INITIAL_FORM = {
     title: '',
@@ -264,10 +265,36 @@ export default function Galleries({ auth, galleries = [], revisions = [], status
                             <textarea className="min-h-28 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" placeholder="Description" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
 
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <input type="file" accept=".jpg,.jpeg,.png,.webp,.avif" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" onChange={(e) => form.setData('image', e.target.files?.[0] ?? null)} />
-                                <Input placeholder="URL Video (untuk tipe video)" value={form.data.video_url} onChange={(e) => form.setData('video_url', e.target.value)} />
-                                <Input placeholder="Alt image" value={form.data.image_alt} onChange={(e) => form.setData('image_alt', e.target.value)} />
-                                <input type="file" accept=".jpg,.jpeg,.png,.webp,.avif" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" onChange={(e) => form.setData('og_image', e.target.files?.[0] ?? null)} />
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                                        <span>Image / File Media</span>
+                                        <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG, WEBP. Max: 5MB</span>
+                                    </label>
+                                    <FileInput 
+                                        accept=".jpg,.jpeg,.png,.webp,.avif" 
+                                        onChange={(file) => form.setData('image', file)} 
+                                        error={form.errors.image}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Video URL (Opsional)</label>
+                                    <Input placeholder="URL Video (untuk tipe video)" value={form.data.video_url} onChange={(e) => form.setData('video_url', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alt Image</label>
+                                    <Input placeholder="Alt image" value={form.data.image_alt} onChange={(e) => form.setData('image_alt', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex justify-between items-center">
+                                        <span>OG Image</span>
+                                        <span className="text-[10px] text-neutral-400 normal-case font-medium">Format: JPG, PNG. Max: 5MB</span>
+                                    </label>
+                                    <FileInput 
+                                        accept=".jpg,.jpeg,.png,.webp,.avif" 
+                                        onChange={(file) => form.setData('og_image', file)} 
+                                        error={form.errors.og_image}
+                                    />
+                                </div>
                                 <Input placeholder="Canonical URL" value={form.data.canonical_url} onChange={(e) => form.setData('canonical_url', e.target.value)} />
                                 <Input placeholder="SEO Title" value={form.data.seo_title} onChange={(e) => form.setData('seo_title', e.target.value)} />
                                 <Input placeholder="SEO Keywords" value={form.data.seo_keywords} onChange={(e) => form.setData('seo_keywords', e.target.value)} />
