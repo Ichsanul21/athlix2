@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    public const DEMO_PASSWORD = 'password123';
+    public const DEMO_PASSWORD = 'athlix2026';
 
     public function run(): void
     {

@@ -115,7 +115,7 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                             <Input className="text-sm" placeholder="No. WhatsApp (opsional)" value={form.data.phone_number} onChange={(e) => form.setData('phone_number', e.target.value)} />
                             {!editingUserId && (
                                 <div className="col-span-full rounded-xl bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-700 flex items-center gap-2">
-                                    🔐 Password default: <span className="font-mono font-bold">password@123</span> — user wajib ganti saat login pertama.
+                                    🔐 Password default: <span className="font-mono font-bold">athlix2026</span> — user wajib ganti saat login pertama.
                                 </div>
                             )}
                             {editingUserId && (

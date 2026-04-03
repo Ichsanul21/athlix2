@@ -79,7 +79,7 @@ class LandingCmsController extends Controller
                 'phone_number' => $dojoRegistration->pic_phone,
                 'role' => 'dojo_admin',
                 'dojo_id' => $dojo->id,
-                'password' => Hash::make('password@123'),
+                'password' => Hash::make('athlix2026'),
                 'must_change_password' => true,
                 'email_verified_at' => now(),
             ]);

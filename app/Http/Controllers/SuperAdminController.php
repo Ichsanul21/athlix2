@@ -65,13 +65,13 @@ class SuperAdminController extends Controller
         unset($validated['profile_photo']);
 
         // Default password saat akun dibuat — wajib ganti saat login pertama
-        $validated['password']             = Hash::make('password@123');
+        $validated['password']             = Hash::make('athlix2026');
         $validated['must_change_password'] = true;
         $validated['email_verified_at']    = now();
 
         User::create($validated);
 
-        return back()->with('success', 'Akun baru berhasil dibuat. Password default: password@123');
+        return back()->with('success', 'Akun baru berhasil dibuat. Password default: athlix2026');
     }
 
     public function updateUser(Request $request, User $user)

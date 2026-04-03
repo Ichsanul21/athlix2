@@ -274,7 +274,7 @@ class AthleteController extends Controller
 
         $athlete = Athlete::create($validated);
 
-        $athleteLoginPassword = "password123";
+        $athleteLoginPassword = "athlix2026";
         User::query()->create([
             'name' => $athlete->full_name,
             'email' => $this->generateUniqueUserEmail('athlete.' . Str::lower($athlete->athlete_code) . '@athlix.test'),

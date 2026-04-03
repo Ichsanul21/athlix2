@@ -26,7 +26,7 @@ class PasswordChangeController extends Controller
         $user = $request->user();
 
         // Pastikan tidak boleh sama dengan default password
-        if ($request->password === 'password@123') {
+        if ($request->password === 'athlix2026') {
             return back()->withErrors(['password' => 'Password tidak boleh sama dengan password default.']);
         }
 

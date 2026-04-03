@@ -310,7 +310,7 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                         </div>
                                     </div>
                                     <p className="text-xs text-neutral-500 mt-2 bg-neutral-100 p-2 rounded-lg italic font-medium">
-                                        Persetujuan registrasi ini akan secara otomatis membuat entry Club dan akun Admin (username = alamat email PIC, password = password@123), dan langsung mengaktifkan billing sesuai nominal paket "{selectedRegistration.saas_plan_name}" ({formatCurrency(selectedRegistration.nominal || 0)}).
+                                        Persetujuan registrasi ini akan secara otomatis membuat entry Club dan akun Admin (username = alamat email PIC, password = athlix2026), dan langsung mengaktifkan billing sesuai nominal paket "{selectedRegistration.saas_plan_name}" ({formatCurrency(selectedRegistration.nominal || 0)}).
                                     </p>
                                 </div>
                             </div>

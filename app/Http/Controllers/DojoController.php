@@ -154,7 +154,7 @@ class DojoController extends Controller
                     'phone_number' => $validated['contact_phone'] ?: null,
                     'role' => 'dojo_admin',
                     'dojo_id' => $dojo->id,
-                    'password' => \Illuminate\Support\Facades\Hash::make('password@123'),
+                    'password' => \Illuminate\Support\Facades\Hash::make('athlix2026'),
                     'must_change_password' => true,
                     'email_verified_at' => now(),
                 ]
