@@ -39,18 +39,18 @@ export default function AdminLayout({ user, header, children }) {
             ? [
                   { name: t('common.dashboard', 'Dashboard'), href: route('dashboard'), icon: LayoutDashboard, current: 'dashboard' },
                   { name: t('admin.db_athlete', 'Database Atlet'), href: route('athletes.index'), icon: Users, current: 'athletes.*' },
+                  { name: t('admin.physical_condition', 'Kondisi Atlet'), href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
+                  { name: t('admin.training_program', 'Program Latihan'), href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
                   { name: t('admin.attendance', 'Absensi'), href: route('attendance.index'), icon: CalendarCheck, current: 'attendance.*' },
                   { name: t('admin.payment', 'Pembayaran'), href: route('finance.index'), icon: CreditCard, current: 'finance.*' },
-                  { name: t('admin.physical_condition', 'Kondisi Fisik'), href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
-                  { name: t('admin.training_program', 'Program Latihan'), href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
                   { name: t('admin.statistics', 'Statistik'), href: route('statistics.index'), icon: BarChart3, current: 'statistics.*' },
                   { name: t('admin.athlete_notification', 'Notifikasi Atlet'), href: route('senpai-notifications.index'), icon: BellRing, current: 'senpai-notifications.*' },
               ]
             : []),
         ...(role === 'dojo_admin' || role === 'super_admin' || role === 'head_coach'
             ? [
-                  { name: t('admin.db_coach', 'Database Pelatih'), href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' },
                   { name: t('admin.report_category', 'Kategori Test'), href: route('report-categories.index'), icon: ClipboardList, current: 'report-categories.*' },
+                  { name: t('admin.db_coach', 'Database Pelatih'), href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' },
                   { name: t('admin.system_settings', 'Pengaturan Dojo'), href: route('dojo-admin.settings.index'), icon: ShieldCheck, current: 'dojo-admin.settings.*' }
               ]
             : []),

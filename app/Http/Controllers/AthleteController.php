@@ -171,6 +171,7 @@ class AthleteController extends Controller
             'village_code' => 'nullable|string|max:20',
             'village_name' => 'nullable|string|max:255',
             'address_detail' => 'nullable|string',
+            'parent_address_detail' => 'nullable|string',
         ]);
 
         if (! $request->hasFile('doc_kk') && ! $request->hasFile('doc_akte') && ! $request->hasFile('doc_ktp')) {
@@ -261,6 +262,7 @@ class AthleteController extends Controller
 
         $parentName = trim((string) $validated['parent_name']);
         $parentRelationType = trim((string) ($validated['parent_relation_type'] ?? '')) ?: 'parent';
+        $parentAddress = trim((string) ($validated['parent_address_detail'] ?? '')) ?: null;
         unset(
             $validated['photo'],
             $validated['doc_kk'],
@@ -269,7 +271,8 @@ class AthleteController extends Controller
             $validated['parent_name'],
             $validated['parent_phone_number'],
             $validated['parent_email'],
-            $validated['parent_relation_type']
+            $validated['parent_relation_type'],
+            $validated['parent_address_detail']
         );
 
         $athlete = Athlete::create($validated);
@@ -284,6 +287,7 @@ class AthleteController extends Controller
             'dojo_id' => $athlete->dojo_id,
             'athlete_id' => $athlete->id,
             'email_verified_at' => now(),
+            'address_detail' => $athlete->address_detail, // Athlete gets their own address
         ]);
 
         $parentWasCreated = false;
@@ -296,12 +300,14 @@ class AthleteController extends Controller
                 'role' => 'parent',
                 'dojo_id' => $athlete->dojo_id,
                 'email_verified_at' => now(),
+                'address_detail' => $parentAddress,
             ]);
             $parentWasCreated = true;
         } else {
             $existingParent->update([
                 'name' => $existingParent->name ?: $parentName,
                 'dojo_id' => $existingParent->dojo_id ?: $athlete->dojo_id,
+                'address_detail' => $parentAddress ?: $existingParent->address_detail,
             ]);
         }
 
@@ -437,7 +443,6 @@ class AthleteController extends Controller
             ? $latestReport->dynamic_scores
             : json_decode($latestReport?->dynamic_scores ?? '{}', true) ?? [];
 
-        // Build category-level scores from the latest report snapshot
         $categories = [];
         foreach ($latestDynamicScores['categories'] ?? [] as $catId => $catData) {
             $categories[] = [
@@ -456,24 +461,33 @@ class AthleteController extends Controller
             'bmi' => $bmi ? round($bmi, 1) : null,
         ];
 
+        $dojoAthletes = $this->scopeAthletesForUser(\App\Models\Athlete::query(), $user)
+            ->where('dojo_id', $athlete->dojo_id)
+            ->orderBy('full_name')
+            ->get(['id', 'full_name']);
+
         return Inertia::render('Athletes/Show', [
             'athlete' => Inertia::defer(fn () => $athlete),
             'performance' => Inertia::defer(fn () => $performance),
             'achievementHistory' => Inertia::defer(fn () => $achievementHistory),
-            'reportHistory' => Inertia::defer(fn () => $reportHistory),
+
+            'reportHistory' => $reportHistory,
+            'dojoAthletes' => $dojoAthletes,
+
             'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
             'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
                 ->orWhereNull('dojo_id')
                 ->with(['subCategories.tests'])
                 ->orderBy('sort_order')
                 ->get(),
-            'latestReport' => Inertia::defer(fn () => $latestReport ? [
+
+            'latestReport' => $latestReport ? [
                 'id' => $latestReport->id,
                 'condition_percentage' => (int) $latestReport->condition_percentage,
                 'dynamic_scores' => $latestDynamicScores,
                 'notes' => $latestReport->notes,
                 'recorded_at' => optional($latestReport->recorded_at)?->toDateString() ?? now()->toDateString(),
-            ] : null),
+            ] : null,
         ]);
     }
 
@@ -486,7 +500,7 @@ class AthleteController extends Controller
         }
 
         $validated = $request->validate([
-            'condition_percentage' => 'required|integer|min:0|max:100',
+            'condition_percentage' => 'nullable|integer|min:0|max:100',
             'test_values' => 'required|array',
             'test_values.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
@@ -570,8 +584,12 @@ class AthleteController extends Controller
             ]);
         }
 
+        // Calculate condition_percentage as average of all category scores
+        $categoriesScores = array_column($snapshot['categories'], 'score');
+        $calcConditionPercentage = count($categoriesScores) > 0 ? (int) round(array_sum($categoriesScores) / count($categoriesScores)) : 0;
+
         \App\Models\AthleteReport::create([
-            'condition_percentage' => $validated['condition_percentage'],
+            'condition_percentage' => $calcConditionPercentage,
             'notes' => $validated['notes'] ?? null,
             'recorded_at' => $validated['recorded_at'],
             'dynamic_scores' => $snapshot,
@@ -591,7 +609,7 @@ class AthleteController extends Controller
         }
 
         $validated = $request->validate([
-            'condition_percentage' => 'required|integer|min:0|max:100',
+            'condition_percentage' => 'nullable|integer|min:0|max:100',
             'test_values' => 'required|array',
             'test_values.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
@@ -675,8 +693,12 @@ class AthleteController extends Controller
             ]);
         }
 
+        // Calculate condition_percentage as average of all category scores
+        $categoriesScores = array_column($snapshot['categories'], 'score');
+        $calcConditionPercentage = count($categoriesScores) > 0 ? (int) round(array_sum($categoriesScores) / count($categoriesScores)) : 0;
+
         $report->update([
-            'condition_percentage' => $validated['condition_percentage'],
+            'condition_percentage' => $calcConditionPercentage,
             'notes' => $validated['notes'] ?? null,
             'recorded_at' => $validated['recorded_at'],
             'dynamic_scores' => $snapshot,

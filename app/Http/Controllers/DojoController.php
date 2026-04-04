@@ -119,16 +119,27 @@ class DojoController extends Controller
             $validated['timezone'] = self::PROVINCE_TIMEZONES[$validated['province_code']] ?? $validated['timezone'];
         }
 
-        // Auto-compute subscription dates if started_at is set
-        if (! empty($validated['subscription_started_at'])) {
+        // Set default subscription start date to today if not provided
+        if (empty($validated['subscription_started_at'])) {
+            $validated['subscription_started_at'] = now()->toDateString();
+        }
+
+        // Auto-compute subscription dates
+        if (empty($validated['subscription_expires_at'])) {
+            // Default trial for new dojo is 14 days
+            $start = \Illuminate\Support\Carbon::parse($validated['subscription_started_at']);
+            $validated['subscription_expires_at'] = $start->addDays(14)->toDateString();
+            
+            // For trial, we might not need long grace periods, but we set them to same or slightly more
+            $validated['grace_period_stage1_ends_at'] = $validated['subscription_expires_at'];
+            $validated['grace_period_ends_at'] = $validated['subscription_expires_at'];
+        } else {
+            // If manually provided or billing cycle exists
             $computed = \App\Models\Dojo::computeSubscriptionDates(
                 $validated['subscription_started_at'],
-                (int) $validated['billing_cycle_months']
+                (int) ($validated['billing_cycle_months'] ?? 1)
             );
-            // Only auto-fill if not overridden manually
-            if (empty($validated['subscription_expires_at'])) {
-                $validated['subscription_expires_at'] = $computed['subscription_expires_at'];
-            }
+            
             if (empty($validated['grace_period_stage1_ends_at'])) {
                 $validated['grace_period_stage1_ends_at'] = $computed['grace_period_stage1_ends_at'];
             }

@@ -29,7 +29,7 @@ const MESSAGES = {
         'admin.db_athlete': 'Atlet',
         'admin.attendance': 'Absensi',
         'admin.payment': 'Pembayaran',
-        'admin.physical_condition': 'Kondisi Fisik',
+        'admin.physical_condition': 'Kondisi Atlet',
         'admin.training_program': 'Program Latihan',
         'admin.statistics': 'Statistik',
         'admin.ai_assistant': 'Gemini AI Assistant',

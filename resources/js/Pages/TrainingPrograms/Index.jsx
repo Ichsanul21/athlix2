@@ -29,7 +29,7 @@ import DbSelect from '@/Components/DbSelect';
 export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [], isAllDojos = false, isSuperAdmin = false }) {
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-    const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Drill Teknik', 'Kumite Drill', 'Kata Session', 'Sparring', 'Pendinginan', 'Evaluasi'];
+    const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Sparring', 'Pendinginan', 'Evaluasi', 'Other/Lainnya'];
     const programTitleTemplatesByType = {
         teknik: ['Fundamental Kihon', 'Teknik Kuda-kuda', 'Teknik Timing & Distance'],
         kata: ['Kata Inti Mingguan', 'Kata Kompetisi', 'Bunkai Kata'],
@@ -509,16 +509,36 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                                             <TextInput type="time" value={item.start_time} onChange={(e) => updateAgendaItem(idx, 'start_time', e.target.value)} />
                                             <TextInput type="time" value={item.end_time} onChange={(e) => updateAgendaItem(idx, 'end_time', e.target.value)} />
-                                            <DbSelect
-                                                inputId={`agenda-title-${idx}`}
-                                                className="w-full text-sm min-w-[150px]"
-                                                value={item.title}
-                                                options={Array.from(new Set([...agendaTitleTemplates, item.title || ''])).filter(Boolean).map((agendaTitle) => (
-                                                    { value: agendaTitle, label: agendaTitle }
-                                                ))}
-                                                onChange={(val) => updateAgendaItem(idx, 'title', val)}
-                                                placeholder="Pilih Detail Sesi"
-                                            />
+                                            {!agendaTitleTemplates.filter(t => t !== 'Other/Lainnya').includes(item.title) && item.title !== '' ? (
+                                                <div className="relative group sm:col-span-1">
+                                                    <TextInput 
+                                                        className="w-full text-sm pr-8"
+                                                        placeholder="Custom Agenda..."
+                                                        value={item.title === 'Other/Lainnya' ? '' : item.title}
+                                                        onChange={(e) => updateAgendaItem(idx, 'title', e.target.value)}
+                                                        autoFocus={item.title === 'Other/Lainnya'}
+                                                    />
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => updateAgendaItem(idx, 'title', agendaTitleTemplates[0])}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-athlix-red"
+                                                        title="Pilih dari template"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <DbSelect
+                                                    inputId={`agenda-title-${idx}`}
+                                                    className="w-full text-sm min-w-[150px] sm:col-span-1"
+                                                    value={item.title}
+                                                    options={agendaTitleTemplates.map((agendaTitle) => (
+                                                        { value: agendaTitle, label: agendaTitle }
+                                                    ))}
+                                                    onChange={(val) => updateAgendaItem(idx, 'title', val)}
+                                                    placeholder="Pilih Detail Sesi"
+                                                />
+                                            )}
                                             <button type="button" onClick={() => removeAgendaItem(idx)} className="rounded-lg border border-red-200 text-red-600 text-xs font-bold">Hapus</button>
                                         </div>
                                         <textarea

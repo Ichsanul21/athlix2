@@ -94,6 +94,8 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                         <div className="flex items-center gap-3">
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-10 w-10 rounded-xl object-cover ring-1 ring-white/20" />
                             <span className="text-2xl font-black tracking-wide text-white">ATHLIX</span>
+                            {/* <span className="text-slate-600 font-black mx-1">X</span> */}
+                            {/* <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-8 w-auto object-contain" /> */}
                         </div>
 
                         <div className="hidden items-center gap-8 text-sm font-semibold tracking-widest text-slate-300 md:flex">
@@ -138,10 +140,10 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
 
                     <div className="container relative z-10 mx-auto flex flex-col items-center gap-16 px-6 lg:flex-row lg:px-12">
                         <div className="flex flex-col gap-6 text-center lg:w-1/2 lg:text-left">
-                            <div className="mx-auto inline-flex w-max items-center gap-2 rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 lg:mx-0">
+                            {/* <div className="mx-auto inline-flex w-max items-center gap-2 rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 lg:mx-0">
                                 <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
                                 <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Club Operating System</span>
-                            </div>
+                            </div> */}
 
                             <h1 className="text-5xl font-black uppercase leading-tight tracking-tight lg:text-7xl">
                                 Fokus pada <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent">Latihan.</span>
@@ -311,7 +313,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                     </div>
                 </section>
 
-                                <section id="pricing" className="relative overflow-hidden bg-slate-950 py-24">
+                <section id="pricing" className="relative overflow-hidden bg-slate-950 py-24">
                     <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[500px] w-full max-w-5xl rounded-full bg-red-600/5 blur-[120px] -z-10" />
                     <div className="container mx-auto px-6 lg:px-12">
                         <div className="mx-auto mb-16 max-w-2xl text-center">
@@ -338,11 +340,10 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                 return (
                                     <div
                                         key={plan.id}
-                                        className={`relative flex flex-col rounded-3xl border p-8 transition-all duration-500 hover:-translate-y-2 ${
-                                            plan.is_featured
-                                                ? 'border-red-500 bg-slate-900/50 shadow-[0_20px_50px_rgba(220,38,38,0.15)] ring-1 ring-red-500/50'
-                                                : 'border-slate-800 bg-slate-950'
-                                        }`}
+                                        className={`relative flex flex-col rounded-3xl border p-8 transition-all duration-500 hover:-translate-y-2 ${plan.is_featured
+                                            ? 'border-red-500 bg-slate-900/50 shadow-[0_20px_50px_rgba(220,38,38,0.15)] ring-1 ring-red-500/50'
+                                            : 'border-slate-800 bg-slate-950'
+                                            }`}
                                     >
                                         {plan.is_featured && (
                                             <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-4 py-1 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20">
@@ -398,11 +399,10 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                                 setSelectedPlan(plan.title);
                                                 setShowRegistrationModal(true);
                                             }}
-                                            className={`w-full rounded-xl py-4 text-sm font-black uppercase tracking-widest transition-all ${
-                                                plan.is_featured
-                                                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 hover:bg-red-700'
-                                                    : 'border border-slate-700 bg-slate-800 text-white hover:border-slate-500 hover:bg-slate-700'
-                                            }`}
+                                            className={`w-full rounded-xl py-4 text-sm font-black uppercase tracking-widest transition-all ${plan.is_featured
+                                                ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 hover:bg-red-700'
+                                                : 'border border-slate-700 bg-slate-800 text-white hover:border-slate-500 hover:bg-slate-700'
+                                                }`}
                                         >
                                             Pilih Paket {plan.title}
                                         </button>
@@ -523,13 +523,15 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                         <div className="flex cursor-pointer items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20" />
                             <span className="text-xl font-black tracking-wide text-white">ATHLIX</span>
+                            <span className="text-slate-600 font-bold mx-1">X</span>
+                            <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-6 w-auto object-contain opacity-70" />
                         </div>
                         <p className="text-sm font-medium text-slate-500">&copy; 2026 ATHLIX Club Operating System. All rights reserved.</p>
                         <div className="flex gap-4">
                             <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:border-slate-700 hover:bg-slate-800 hover:text-red-500">
                                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
                             </a>
-                            <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:border-slate-700 hover:bg-slate-800 hover:text-red-500">
+                            <a href="https://www.instagram.com/athlixindonesia?utm_source=qr&igsh=eWdwaWJ4cnZuNmNq" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:border-slate-700 hover:bg-slate-800 hover:text-red-500">
                                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
                             </a>
                         </div>

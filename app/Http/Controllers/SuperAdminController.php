@@ -139,6 +139,16 @@ class SuperAdminController extends Controller
         return back()->with('success', 'Akun berhasil diperbarui.');
     }
 
+    public function resetUserPassword(User $user)
+    {
+        $user->update([
+            'password' => Hash::make('athlix2026'),
+            'must_change_password' => true
+        ]);
+
+        return back()->with('success', 'Password berhasil direset ke default: athlix2026');
+    }
+
     public function destroyUser(User $user)
     {
         if ($user->id === auth()->id()) {

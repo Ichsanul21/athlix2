@@ -29,14 +29,22 @@ class EnsureTenantAccess
             return $next($request);
         }
 
-        $message = $dojo->accessStatusLabel() === 'Expired'
-            ? 'Akses dojo ditutup karena masa berlangganan SaaS telah berakhir.'
-            : 'Akses dojo sedang nonaktif atau diblokir oleh platform.';
+        $status = $dojo->accessStatusLabel();
+        
+        $message = "Maaf, akses dashboard telah ditutup. Masa berlangganan atau paket uji coba (Trial) klub Anda telah berakhir. Silakan lakukan pembayaran paket atau hubungi Admin Athlix untuk mengaktifkan kembali fitur pengelolaan klub Anda.";
+
+        if ($status === 'Grace Tahap 2 (Terbatas)') {
+            $message = "Masa tenggang pembayaran paket klub Anda telah memasuki tahap akhir (Terbatas). Sebagian fitur telah dibatasi. Silakan lakukan pembayaran segera agar akses penuh dashboard tetap dapat digunakan.";
+        } elseif ($status === 'Diblokir Manual') {
+            $message = "Akses klub Anda telah diblokir secara manual oleh sistem karena alasan kepatuhan atau pelanggaran Syarat & Ketentuan. Silakan hubungi dukungan pusat untuk informasi lebih lanjut.";
+        } elseif ($status === 'Nonaktif') {
+            $message = "Klub ini saat ini dalam status Nonaktif. Silakan hubungi administrator klub Anda atau pusat bantuan Athlix.";
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => $message,
-                'tenant_status' => $dojo->accessStatusLabel(),
+                'tenant_status' => $status,
             ], 423);
         }
 
@@ -47,7 +55,7 @@ class EnsureTenantAccess
         }
 
         return redirect()->route('login')->withErrors([
-            'email' => $message,
+            'identifier' => $message,
         ]);
     }
 }

@@ -125,6 +125,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::get('/super-admin/users', [SuperAdminController::class, 'users'])->name('super-admin.users.index');
         Route::post('/super-admin/users', [SuperAdminController::class, 'storeUser'])->name('super-admin.users.store');
         Route::patch('/super-admin/users/{user}', [SuperAdminController::class, 'updateUser'])->name('super-admin.users.update');
+        Route::post('/super-admin/users/{user}/reset-password', [SuperAdminController::class, 'resetUserPassword'])->name('super-admin.users.reset-password');
         Route::delete('/super-admin/users/{user}', [SuperAdminController::class, 'destroyUser'])->name('super-admin.users.destroy');
 
         Route::get('/super-admin/dojos', [DojoController::class, 'index'])->name('super-admin.dojos.index');

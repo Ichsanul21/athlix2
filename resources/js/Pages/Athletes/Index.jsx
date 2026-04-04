@@ -102,6 +102,8 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         village_code: '',
         village_name: '',
         address_detail: '',
+        parent_address_detail: '',
+        parent_address_same_as_athlete: true,
     });
 
     useEffect(() => {
@@ -112,6 +114,12 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
             setIsCheckingPhoneAthlete(false);
         }
     }, [isCreateOpen]);
+
+    useEffect(() => {
+        if (data.parent_address_same_as_athlete) {
+            setData('parent_address_detail', data.address_detail);
+        }
+    }, [data.address_detail, data.parent_address_same_as_athlete, setData]);
 
     useEffect(() => {
         const checkPhone = async () => {
@@ -767,6 +775,41 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                         placeholder="orangtua@example.com"
                                     />
                                     {errors.parent_email && <p className="text-xs text-athlix-red">{errors.parent_email}</p>}
+                                </div>
+
+                                <div className="sm:col-span-2 space-y-3 pt-2">
+                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800">
+                                        <input 
+                                            type="checkbox" 
+                                            id="parent_address_same" 
+                                            checked={data.parent_address_same_as_athlete}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setData('parent_address_same_as_athlete', checked);
+                                                if (checked) {
+                                                    setData('parent_address_detail', data.address_detail);
+                                                }
+                                            }}
+                                            className="w-4 h-4 rounded text-athlix-red focus:ring-athlix-red border-neutral-300"
+                                        />
+                                        <label htmlFor="parent_address_same" className="text-xs font-bold uppercase tracking-tight text-neutral-600 cursor-pointer">
+                                            Alamat orang tua sama dengan alamat atlet
+                                        </label>
+                                    </div>
+
+                                    {!data.parent_address_same_as_athlete && (
+                                        <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+                                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Detail Alamat Orang Tua *</label>
+                                            <textarea
+                                                required
+                                                value={data.parent_address_detail}
+                                                onChange={e => setData('parent_address_detail', e.target.value)}
+                                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:ring-2 focus:ring-athlix-red/30 focus:border-athlix-red/50 min-h-[80px] text-neutral-900 dark:text-neutral-100"
+                                                placeholder="Masukkan alamat lengkap orang tua..."
+                                            />
+                                            {errors.parent_address_detail && <p className="text-xs text-athlix-red">{errors.parent_address_detail}</p>}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

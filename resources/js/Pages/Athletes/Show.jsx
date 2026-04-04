@@ -23,7 +23,7 @@ const resolveAbilityStatus = (scores) => {
     return average > 0 ? 'Perlu Pembinaan' : 'Belum Dinilai';
 };
 
-export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [], reportCategories = [] }) {
+export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [], reportCategories = [], dojoAthletes = [] }) {
     const isLoading = !athlete || !performance;
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
@@ -101,7 +101,17 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const isSensei = auth?.user?.role === 'sensei' || auth?.user?.role === 'head_coach' || auth?.user?.role === 'assistant' || auth?.user?.role === 'super_admin' || auth?.user?.role === 'dojo_admin';
 
-    const [selectedReportId, setSelectedReportId] = useState(reportHistory?.[0]?.id ?? latestReport?.id ?? '');
+    const [selectedReportId, setSelectedReportId] = useState(() => {
+        const reports = reportHistory || [];
+        if (reports.length === 0) {
+            return latestReport?.id ? String(latestReport.id) : '';
+        }
+        const sorted = [...reports].sort((a, b) =>
+            new Date(b.created_at || b.recorded_at || 0).getTime() -
+            new Date(a.created_at || a.recorded_at || 0).getTime()
+        );
+        return String(sorted[0]?.id || '');
+    });
 
     const sortedReports = useMemo(
         () => [...(reportHistory || [])].sort((a, b) => new Date(b.created_at || b.recorded_at || 0).getTime() - new Date(a.created_at || a.recorded_at || 0).getTime()),
@@ -159,9 +169,9 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     useEffect(() => {
         if (!sortedReports.length) return;
         if (!selectedReportId || !sortedReports.some((item) => String(item.id) === String(selectedReportId))) {
-            setSelectedReportId(sortedReports[0].id);
+            setSelectedReportId(String(sortedReports[0]?.id || ''));
         }
-    }, [sortedReports]);
+    }, [sortedReports, selectedReportId]);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -346,11 +356,11 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const buildTestValues = () => {
         const vals = {};
-        const snapshot = safeParseDynScores(activeReport?.dynamic_scores);
+        const snap = safeParseDynScores(activeReport?.dynamic_scores);
         reportCategories.forEach((cat) => {
             (cat?.sub_categories || []).forEach((sub) => {
                 (sub?.tests || []).forEach((test) => {
-                    vals[String(test?.id)] = snapshot?.tests?.[test?.id]?.raw_value ?? 0;
+                    vals[String(test?.id)] = snap?.tests?.[test?.id]?.raw_value ?? 0;
                 });
             });
         });
@@ -457,7 +467,20 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         reportForm.setData('test_values', formattedTestValues);
         reportForm.post(route('athletes.reports.store', athlete.id), {
             preserveScroll: true,
-            onSuccess: () => { setReportModalOpen(false); setReportError(''); },
+            onSuccess: (page) => {
+                setReportModalOpen(false);
+                setReportError('');
+
+                // Otomatis pilih rapor yang baru saja dibuat (terbaru)
+                const newReports = page.props.reportHistory || [];
+                if (newReports.length > 0) {
+                    const sorted = [...newReports].sort((a, b) =>
+                        new Date(b.created_at || b.recorded_at || 0).getTime() -
+                        new Date(a.created_at || a.recorded_at || 0).getTime()
+                    );
+                    setSelectedReportId(String(sorted[0]?.id || ''));
+                }
+            },
             onError: (errors) => {
                 console.error('Report validation errors:', errors);
                 const errorMessages = Object.values(errors).join(', ');
@@ -583,9 +606,23 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             {universalModals}
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
-                    <Link href={route('athletes.index')} className="inline-flex items-center text-sm font-bold text-neutral-500 hover:text-athlix-red transition-colors">
-                        <ArrowLeft size={16} className="mr-1" /> KEMBALI KE DATABASE
-                    </Link>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <Link href={route('athletes.index')} className="inline-flex items-center text-sm font-bold text-neutral-500 hover:text-athlix-red transition-colors shrink-0">
+                            <ArrowLeft size={16} className="mr-1" /> KEMBALI KE DATABASE
+                        </Link>
+                        {dojoAthletes.length > 0 && (
+                            <div className="w-full sm:w-[220px]">
+                                <DbSelect
+                                    inputId="athlete-switcher"
+                                    value={String(athlete.id)}
+                                    options={dojoAthletes.map(a => ({ value: String(a.id), label: a.full_name }))}
+                                    placeholder="Navigasi Atlet..."
+                                    onChange={(id) => router.get(route('athletes.show', id))}
+                                    className="scale-95 sm:origin-right h-10"
+                                />
+                            </div>
+                        )}
+                    </div>
 
                     <Card className="border-neutral-200/80 dark:border-neutral-800">
                         <CardContent className="p-4 sm:p-6">
@@ -650,6 +687,12 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         <p className="font-semibold">{athlete.primary_guardian.name} <span className="text-xs font-normal text-neutral-500">({athlete.primary_guardian.pivot?.relation_type || 'parent'})</span></p>
                                         {athlete.primary_guardian.phone_number && <p className="text-neutral-500 text-xs flex items-center gap-1"><Phone size={10} /> {athlete.primary_guardian.phone_number}</p>}
                                         {athlete.primary_guardian.email && <p className="text-neutral-500 text-xs flex items-center gap-1"><Mail size={10} /> {athlete.primary_guardian.email}</p>}
+                                        {athlete.primary_guardian.address_detail && (
+                                            <p className="text-neutral-500 text-xs mt-1.5 leading-relaxed bg-neutral-100/50 dark:bg-neutral-900/50 p-2.5 rounded-xl border border-neutral-200/50 dark:border-neutral-800/50 shadow-sm transition-all hover:bg-neutral-100 dark:hover:bg-neutral-900 group">
+                                                <span className="font-black text-neutral-400 uppercase text-[9px] block mb-1 tracking-widest group-hover:text-athlix-red transition-colors">Alamat Orang Tua</span>
+                                                {athlete.primary_guardian.address_detail}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -707,7 +750,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         <Tooltip />
                                     </PieChart>
                                 </ResponsiveContainer>
-                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-5">
                                     <div className="text-4xl font-black text-athlix-red">{conditionScore}%</div>
                                 </div>
                                 <div className="pointer-events-none absolute bottom-5 left-0 w-full flex justify-center">
@@ -724,7 +767,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Skor Kemampuan Atlet (Diagram Jaring)</CardTitle></CardHeader>
                             <CardContent className="h-72 relative flex flex-col items-center justify-center">
                                 <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
-                                    <span className="text-7xl font-black text-athlix-red">{averageScore}</span>
+                                    <span className="text-7xl font-black text-athlix-red -mt-5">{averageScore}</span>
                                 </div>
                                 <ResponsiveContainer width="100%" height="85%" className="relative z-10">
                                     <RadarChart data={categorySeries}>
@@ -865,7 +908,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         </div>
                                     )}
                                 </div>
-                                {phoneError && <p className="text-[11px] font-bold text-athlix-red flex items-center gap-1 mt-1"><AlertCircle size={11} /> {phoneError}</p>}
+                                {phoneError && <p className="text-[11px] font-bold text-athlix-red flex items-center gap-1 mt-1"><AlertTriangle size={11} /> {phoneError}</p>}
                                 {editForm.errors.phone_number && <p className="text-xs text-athlix-red">{editForm.errors.phone_number}</p>}
                             </div>
                             <div className="space-y-1">
@@ -1151,6 +1194,13 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                                                         />
                                                                         <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
                                                                     </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                                                            <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                        </div>
+                                                                        <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
+                                                                        {Number(test.max_threshold) < Number(test.min_threshold) && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
+                                                                    </div>
                                                                 </div>
                                                             );
                                                         })}
@@ -1163,11 +1213,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Kondisi Fisik (%)
-                            <input type="number" min="0" max="100" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.condition_percentage} onChange={(e) => reportEditForm.setData('condition_percentage', e.target.value)} required />
-                        </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tinggi (cm)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_height} onChange={(e) => reportEditForm.setData('latest_height', e.target.value)} />
@@ -1286,12 +1332,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Kondisi Fisik (%)
-                            <input type="number" min="0" max="100" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.condition_percentage} onChange={(e) => reportForm.setData('condition_percentage', e.target.value)} required />
-                            {reportForm.errors.condition_percentage && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.condition_percentage}</p>}
-                        </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tinggi (cm)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_height} onChange={(e) => reportForm.setData('latest_height', e.target.value)} />

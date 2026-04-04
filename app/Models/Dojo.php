@@ -78,16 +78,7 @@ class Dojo extends Model
             return true;
         }
 
-        if ($now->toDateString() <= $this->subscription_expires_at->toDateString()) {
-            return true;
-        }
-
-        // Still active during grace period (either stage)
-        if ($this->grace_period_ends_at && $now->toDateString() <= $this->grace_period_ends_at->toDateString()) {
-            return true;
-        }
-
-        return false;
+        return $now->toDateString() <= \Carbon\Carbon::parse($this->subscription_expires_at)->toDateString();
     }
 
     public function canAccessSaas(?Carbon $now = null): bool
@@ -114,14 +105,14 @@ class Dojo extends Model
             return 'Diblokir Manual';
         }
 
-        if ($this->subscription_expires_at && $now->toDateString() > $this->subscription_expires_at->toDateString()) {
+        if ($this->subscription_expires_at && $now->toDateString() > \Carbon\Carbon::parse($this->subscription_expires_at)->toDateString()) {
             // Stage 1 grace: warning only, full access
-            if ($this->grace_period_stage1_ends_at && $now->toDateString() <= $this->grace_period_stage1_ends_at->toDateString()) {
+            if ($this->grace_period_stage1_ends_at && $now->toDateString() <= \Carbon\Carbon::parse($this->grace_period_stage1_ends_at)->toDateString()) {
                 return 'Grace Tahap 1 (Peringatan)';
             }
 
             // Stage 2 grace: restricted access
-            if ($this->grace_period_ends_at && $now->toDateString() <= $this->grace_period_ends_at->toDateString()) {
+            if ($this->grace_period_ends_at && $now->toDateString() <= \Carbon\Carbon::parse($this->grace_period_ends_at)->toDateString()) {
                 return 'Grace Tahap 2 (Terbatas)';
             }
 

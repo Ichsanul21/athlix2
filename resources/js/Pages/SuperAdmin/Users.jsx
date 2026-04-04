@@ -25,6 +25,13 @@ const ROLE_LABELS = {
 export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUserId, setEditingUserId] = useState(null);
+    const [search, setSearch] = useState('');
+
+    const filteredUsers = users.filter((user) =>
+        user.name?.toLowerCase().includes(search.toLowerCase()) ||
+        user.email?.toLowerCase().includes(search.toLowerCase())
+    );
+
     const form = useForm({
         name: '',
         email: '',
@@ -44,6 +51,7 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                     setEditingUserId(null);
                     form.reset('name', 'email', 'phone_number', 'password', 'role', 'dojo_id', 'athlete_id', 'profile_photo');
                     form.setData('role', 'sensei');
+                    setIsModalOpen(false);
                 },
             });
             return;
@@ -57,6 +65,17 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                 setIsModalOpen(false);
             },
         });
+    };
+
+    const handleResetPassword = () => {
+        if (!editingUserId) return;
+        if (confirm('Yakin ingin reset password akun ini ke "athlix2026"?')) {
+            router.post(route('super-admin.users.reset-password', editingUserId), {}, {
+                onSuccess: () => {
+                    // Password changed
+                }
+            });
+        }
     };
 
     const openModal = (user = null) => {
@@ -114,19 +133,12 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                             />
                             <Input className="text-sm" placeholder="Email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
                             <Input className="text-sm" placeholder="No. WhatsApp (opsional)" value={form.data.phone_number} onChange={(e) => form.setData('phone_number', e.target.value)} />
-                            {!editingUserId && (
-                                <div className="col-span-full rounded-xl bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-700 flex items-center gap-2">
-                                    🔐 Password default: <span className="font-mono font-bold">athlix2026</span> — user wajib ganti saat login pertama.
-                                </div>
-                            )}
-                            {editingUserId && (
-                                <Input className="text-sm" type="password" placeholder="Password baru (opsional)" value={form.data.password ?? ''} onChange={(e) => form.setData('password', e.target.value)} />
-                            )}
+
                             <div className="col-span-full space-y-1">
                                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Profil (Max 5MB)</label>
-                                <FileInput 
-                                    accept=".jpg,.jpeg,.png,.webp" 
-                                    onChange={(file) => form.setData('profile_photo', file)} 
+                                <FileInput
+                                    accept=".jpg,.jpeg,.png,.webp"
+                                    onChange={(file) => form.setData('profile_photo', file)}
                                     error={form.errors.profile_photo}
                                 />
                             </div>
@@ -183,29 +195,63 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                                 isDisabled={form.data.role !== 'atlet' && form.data.role !== 'parent'}
                             />
                         </div>
-                        <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-neutral-100">
-                            <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
-                            <Button onClick={submit}>{editingUserId ? 'Simpan Perubahan' : 'Buat Akun'}</Button>
+
+                        <div className="mt-6 pt-4 border-t border-neutral-100 space-y-4">
+                            {!editingUserId ? (
+                                <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                                    Password default: <span className="font-mono font-bold">athlix2026</span> — user wajib ganti saat login pertama.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Keamanan</label>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="text-xs font-bold text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 gap-2 h-9"
+                                            onClick={handleResetPassword}
+                                        >
+                                            Reset Password ke Default
+                                        </Button>
+                                        <p className="text-[10px] text-neutral-400 italic leading-tight">
+                                            Password akan direset menjadi "athlix2026" dan user wajib menggantinya saat login.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
+                                <Button onClick={submit}>{editingUserId ? 'Simpan Perubahan' : 'Buat Akun'}</Button>
+                            </div>
                         </div>
                     </div>
                 </Modal>
 
                 <Card>
                     <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
                                 Daftar Akun Pengguna
                             </CardTitle>
-                            <Button
-                                onClick={() => openModal()}
-                                className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
-                            >
-                                <Plus size={14} /> Tambah Akun
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    className="text-xs h-9 w-full md:w-64"
+                                    placeholder="Cari nama atau email..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                                <Button
+                                    onClick={() => openModal()}
+                                    className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0 h-9"
+                                >
+                                    <Plus size={14} /> Tambah Akun
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                        {users.map((user) => (
+                    <CardContent className="space-y-2 pt-4">
+                        {filteredUsers.map((user) => (
                             <div key={user.id} className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="min-w-0 flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-neutral-100 overflow-hidden flex items-center justify-center text-xs font-black">
@@ -228,13 +274,22 @@ export default function Users({ auth, users = [], dojos = [], athletes = [] }) {
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
                                     <button
-                                        className="text-blue-600 text-sm"
+                                        className="text-blue-600 text-sm font-bold"
                                         onClick={() => openModal(user)}
                                     >Edit</button>
-                                    <button className="text-red-500 text-sm" onClick={() => router.delete(route('super-admin.users.destroy', user.id))}>Hapus</button>
+                                    <button className="text-red-500 text-sm font-bold" onClick={() => {
+                                        if(confirm('Yakin ingin menghapus akun ini?')) {
+                                            router.delete(route('super-admin.users.destroy', user.id));
+                                        }
+                                    }}>Hapus</button>
                                 </div>
                             </div>
                         ))}
+                        {filteredUsers.length === 0 && (
+                            <div className="py-12 text-center text-sm text-neutral-400 italic">
+                                Akun tidak ditemukan.
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
