@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Athlete;
 use App\Models\Attendance;
 use App\Models\Dojo;
+use App\Models\DojoRegistration;
+use App\Models\DojoSubscriptionRequest;
 use App\Models\FinanceRecord;
 use App\Models\TrainingProgram;
 use App\Models\WellnessReadinessLog;
@@ -109,12 +111,17 @@ class DashboardController extends Controller
             })
             ->values();
 
+        $pendingRegistrationsCount = $user?->isSuperAdmin() ? DojoRegistration::where('status', 'pending')->count() : 0;
+        $pendingSubscriptionRequestsCount = $user?->isSuperAdmin() ? DojoSubscriptionRequest::where('status', 'pending')->count() : 0;
+
         return Inertia::render('Dashboard', [
             'stats'               => Inertia::defer(fn () => $stats),
             'trainingPrograms'    => Inertia::defer(fn () => $trainingPrograms),
             'nextTrainingReminder'=> Inertia::defer(fn () => $nextTrainingReminder),
             'attendanceSummary'   => Inertia::defer(fn () => $attendanceSummary),
             'recentAttendances'   => Inertia::defer(fn () => $recentAttendances),
+            'pendingRegistrationsCount' => $pendingRegistrationsCount,
+            'pendingSubscriptionRequestsCount' => $pendingSubscriptionRequestsCount,
             'dojoName'            => Inertia::defer(fn () => $isAllDojos ? 'Semua Dojo' : ($dojo?->name ?? 'Dojo Utama')),
             'dojos'               => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId'      => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),

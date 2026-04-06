@@ -596,13 +596,13 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                     <CardHeader className="pb-3 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800">
                         <div className="flex items-center justify-between gap-4">
                             <CardTitle className="text-base font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300">
-                                Daftar Dojo Aktif
+                                Daftar Club Aktif
                             </CardTitle>
                             <Button
                                 onClick={() => openModal()}
                                 className="flex items-center gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-red-900/20 rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 shrink-0"
                             >
-                                <Plus size={14} /> Tambah Dojo
+                                <Plus size={14} /> Tambah Club
                             </Button>
                         </div>
                     </CardHeader>
@@ -631,12 +631,21 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                             {dojo.contact_email ? ` · ${dojo.contact_email}` : ''}
                                         </p>
                                     )}
-                                    <p className="text-xs text-neutral-500">Status akses: {dojo.access_status || (dojo.is_active ? 'Aktif' : 'Nonaktif')}</p>
+                                    <div className="flex items-center gap-3 mt-1 text-xs">
+                                        <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800">
+                                            <span className={dojo.subscription_type === 'Trial' ? 'text-amber-600' : 'text-green-600'}>
+                                                {dojo.subscription_type}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Loader2 size={10} className={dojo.remaining_days <= 7 ? 'text-athlix-red animate-pulse' : 'text-neutral-400'} />
+                                            <span className={dojo.remaining_days <= 7 ? 'text-athlix-red font-bold' : 'text-neutral-500'}>
+                                                Sisa {dojo.remaining_days} hari
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-neutral-500">Akses Sistem: <span className={`font-bold ${dojo.access_status?.includes('Aktif') ? 'text-green-600' : 'text-red-500'}`}>{dojo.access_status}</span> &bull; <span className={dojo.is_active ? 'text-green-600' : 'text-red-500'}>{dojo.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
                                     <p className="text-xs text-neutral-500">Langganan: {dojo.subscription_started_at ? formatDateInput(dojo.subscription_started_at) : '-'} s/d {dojo.subscription_expires_at ? formatDateInput(dojo.subscription_expires_at) : '-'}</p>
-                                    <p className="text-xs text-neutral-500">
-                                        Grace Tahap 1: {dojo.grace_period_stage1_ends_at ? formatDateInput(dojo.grace_period_stage1_ends_at) : '-'}
-                                        {' | '}Grace Tahap 2: {dojo.grace_period_ends_at ? formatDateInput(dojo.grace_period_ends_at) : '-'}
-                                    </p>
                                     <p className="text-xs text-neutral-500">Akun user: {dojo.users_count ?? 0} | Atlet: {dojo.athletes_count ?? 0}</p>
                                     {dojo.is_saas_blocked && dojo.saas_block_reason && (
                                         <p className="text-xs text-red-600">Alasan blokir: {dojo.saas_block_reason}</p>

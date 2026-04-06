@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Athlete;
 use App\Models\Dojo;
+use App\Models\DojoSubscriptionRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -246,5 +247,41 @@ class DojoAdminController extends Controller
         $sensei->senseiAthletes()->sync($syncPayload);
 
         return back()->with('success', 'Penugasan atlet berhasil diperbarui.');
+    }
+
+    public function requestPlanChange(Request $request)
+    {
+        $user = auth()->user();
+        $dojoId = $user?->dojo_id;
+
+        if (! $dojoId) {
+            return back()->with('error', 'Dojo tidak terhubung.');
+        }
+
+        $dojo = Dojo::findOrFail($dojoId);
+
+        $validated = $request->validate([
+            'requested_plan_name' => ['required', 'string', 'max:100'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        // Check for existing pending request
+        $existing = DojoSubscriptionRequest::where('dojo_id', $dojoId)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($existing) {
+            return back()->with('error', 'Anda masih memiliki permintaan perubahan paket yang sedang diproses.');
+        }
+
+        DojoSubscriptionRequest::create([
+            'dojo_id' => $dojoId,
+            'current_plan_name' => $dojo->saas_plan_name ?? 'Basic',
+            'requested_plan_name' => $validated['requested_plan_name'],
+            'reason' => $validated['reason'],
+            'status' => 'pending',
+        ]);
+
+        return back()->with('success', 'Permintaan perubahan paket berhasil dikirim.');
     }
 }

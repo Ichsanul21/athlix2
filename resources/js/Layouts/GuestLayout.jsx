@@ -24,21 +24,19 @@ export default function GuestLayout({ children }) {
                 {/* Brand */}
                 <div className="mb-8 animate-fade-in-up">
                     <Link href="/" className="flex flex-col items-center gap-3 group">
-                        <div className="relative flex items-center gap-4">
+                        <div className="relative flex items-center gap-4 px-2">
                             <div className="absolute inset-0 bg-athlix-red/20 rounded-2xl blur-xl group-hover:bg-athlix-red/30 transition-all duration-500"></div>
-                            <div className="relative w-16 h-16 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl flex items-center justify-center border border-neutral-200/50 dark:border-neutral-700/50 group-hover:scale-105 transition-transform duration-500">
-                                <img src="/logo.png" alt="ATHLIX" className="w-12 h-12 rounded-xl object-cover" />
+
+                            {/* Logo + Athlix dalam 1 background */}
+                            <div className="relative flex items-center gap-2.5 bg-white dark:bg-neutral-900 rounded-xl sm:rounded-2xl shadow-xl pl-2 pr-4 sm:pl-3 sm:pr-5 py-1.5 sm:py-2 border border-neutral-200/50 dark:border-neutral-700/50 group-hover:scale-105 transition-transform duration-500">
+                                <img src="/logo.png" alt="ATHLIX" className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl object-cover" />
+                                <span className="text-[#800000] dark:text-[#C0392B] font-black text-lg sm:text-2xl tracking-tight">Athlix</span>
                             </div>
-                            <span className="relative text-neutral-400 font-bold mx-0.5 text-xl">X</span>
-                            <div className="relative h-16 bg-white dark:bg-neutral-900 px-4 rounded-2xl shadow-xl flex items-center justify-center border border-neutral-200/50 dark:border-neutral-700/50 group-hover:scale-105 transition-transform duration-500">
-                                <img src="/icons/winpro_logo.png" alt="WINPRO" className="h-8 w-auto object-contain" />
+
+                            <span className="relative text-neutral-400 font-bold mx-0.5 text-base sm:text-xl shrink-0">X</span>
+                            <div className="relative h-12 sm:h-16 bg-white dark:bg-neutral-900 px-3 sm:px-4 rounded-xl sm:rounded-2xl shadow-xl flex items-center justify-center border border-neutral-200/50 dark:border-neutral-700/50 group-hover:scale-105 transition-transform duration-500 min-w-[80px]">
+                                <img src="/icons/winpro_logo.png" alt="WINPRO" className="h-6 sm:h-8 w-auto object-contain" />
                             </div>
-                        </div>
-                        <div className="text-center">
-                            <h1 className="text-2xl font-black tracking-tighter text-athlix-black ">
-                                ATHLIX<span className="text-athlix-red">.</span>
-                            </h1>
-                            <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-[0.3em]">Dojo Management</p>
                         </div>
                     </Link>
                 </div>
@@ -54,13 +52,18 @@ export default function GuestLayout({ children }) {
                 </div>
 
                 {/* Footer */}
-                <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '200ms' }}>
-                    <p className="text-xs text-neutral-400 font-bold uppercase tracking-[0.2em]">
-                        &copy; {new Date().getFullYear()} ATHLIX. All rights reserved.
+                <div className="mt-12 text-center animate-fade-in space-y-4" style={{ animationDelay: '200ms' }}>
+                    <div className="flex items-center justify-center gap-2 grayscale opacity-40 hover:opacity-100 hover:grayscale-0 transition-all duration-500 scale-90">
+                        <img src="/logo.png" alt="ATHLIX" className="h-6 w-6 rounded-md object-cover" />
+                        <span className="text-sm font-black tracking-tight text-neutral-500">ATHLIX</span>
+                        <span className="text-xs font-bold text-neutral-400 mx-1">X</span>
+                        <img src="/icons/winpro_logo.png" alt="WINPRO" className="h-4 w-auto object-contain" />
+                    </div>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-[0.2em]">
+                        &copy; {new Date().getFullYear()} Athlix X Winpro Collaboration. All rights reserved.
                     </p>
                 </div>
             </div>
         </div>
     );
 }
-

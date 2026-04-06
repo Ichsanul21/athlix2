@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Dojo;
+use App\Models\DojoSubscriptionRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class DojoController extends Controller
 {
@@ -77,6 +79,8 @@ class DojoController extends Controller
                     return [
                         ...$dojo->toArray(),
                         'access_status' => $dojo->accessStatusLabel(),
+                        'remaining_days' => $dojo->remaining_days,
+                        'subscription_type' => $dojo->subscription_type,
                     ];
                 })),
             'planPricing' => self::PLAN_PRICING,
@@ -268,6 +272,65 @@ class DojoController extends Controller
     {
         $dojo->delete();
 
-        return back()->with('success', 'Dojo berhasil dihapus.');
+        return back()->with('success', 'Master Club berhasil dihapus.');
+    }
+
+    public function subscriptionRequests()
+    {
+        return Inertia::render('SuperAdmin/SubscriptionRequests', [
+            'requests' => Inertia::defer(fn () => DojoSubscriptionRequest::with('dojo')
+                ->latest()
+                ->get()),
+        ]);
+    }
+
+    public function approveSubscriptionRequest(Request $request, DojoSubscriptionRequest $subscriptionRequest)
+    {
+        $this->authorizeSuperAdmin();
+
+        DB::transaction(function () use ($subscriptionRequest) {
+            $dojo = $subscriptionRequest->dojo;
+            
+            // Get price from PLAN_PRICING
+            $newPrice = self::PLAN_PRICING[$subscriptionRequest->requested_plan_name] ?? $dojo->monthly_saas_fee;
+
+            $dojo->update([
+                'saas_plan_name' => $subscriptionRequest->requested_plan_name,
+                'monthly_saas_fee' => $newPrice,
+            ]);
+
+            $subscriptionRequest->update([
+                'status' => 'approved',
+                'processed_at' => now(),
+                'processed_by' => auth()->id(),
+            ]);
+        });
+
+        return back()->with('success', 'Request perubahan paket berhasil disetujui.');
+    }
+
+    public function rejectSubscriptionRequest(Request $request, DojoSubscriptionRequest $subscriptionRequest)
+    {
+        $this->authorizeSuperAdmin();
+
+        $request->validate([
+            'super_admin_notes' => 'required|string|max:500',
+        ]);
+
+        $subscriptionRequest->update([
+            'status' => 'rejected',
+            'super_admin_notes' => $request->super_admin_notes,
+            'processed_at' => now(),
+            'processed_by' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Request perubahan paket berhasil ditolak.');
+    }
+
+    private function authorizeSuperAdmin()
+    {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403);
+        }
     }
 }

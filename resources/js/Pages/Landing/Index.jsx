@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import RegistrationModal from './RegistrationModal';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
@@ -9,6 +9,7 @@ import {
     CreditCard,
     BarChart3,
     ChevronRight,
+    ChevronDown,
     Menu,
     X,
     Play,
@@ -57,6 +58,9 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [sessionExpired, setSessionExpired] = useState(false);
+    const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const moreMenuRef = useRef(null);
 
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -68,10 +72,55 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
         const params = new URLSearchParams(window.location.search);
         if (params.get('session_expired') === '1') {
             setSessionExpired(true);
-            // Clean the URL so it doesn't show again on refresh
             window.history.replaceState({}, '', window.location.pathname);
         }
     }, []);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+                setMoreMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // PWA Installation Logic
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
+
+    const handleInstallPWA = (e) => {
+        if (e) e.preventDefault();
+        
+        // Support check for iOS/Safari
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        if (isIOS || isSafari) {
+            alert('Untuk menginstal di iOS: Tap ikon "Share" di bawah browser, lalu pilih "Add to Home Screen".');
+            return;
+        }
+
+        if (!deferredPrompt) {
+            alert('Aplikasi sudah terinstal atau browser Anda tidak mendukung fitur ini secara otomatis. Gunakan menu browser "Instal Aplikasi".');
+            return;
+        }
+
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                setDeferredPrompt(null);
+            }
+        });
+    };
 
     return (
         <>
@@ -92,28 +141,32 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
 
             <div className="min-h-screen overflow-x-hidden bg-slate-950 font-sans text-slate-50 selection:bg-red-500 selection:text-white">
                 <nav className={`fixed z-50 w-full transition-all duration-300 ${isScrolled ? 'border-b border-slate-800 bg-slate-950/90 py-4 backdrop-blur-md' : 'bg-transparent py-6'}`}>
-                    <div className="container mx-auto flex items-center justify-between px-6 lg:px-12">
-                        <div className="flex items-center gap-3">
-                            <img src="/logo.png" alt="ATHLIX Logo" className="h-10 w-10 rounded-xl object-cover ring-1 ring-white/20" />
-                            <span className="text-2xl font-black tracking-wide text-white">ATHLIX</span>
-                            <span className="text-slate-600 font-black mx-1">X</span>
-                            <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-8 w-auto object-contain" />
+                    <div className="container mx-auto flex items-center justify-between gap-4 px-6 py-4 lg:gap-8 lg:px-12 lg:py-6">
+                        <div className="flex cursor-pointer items-center gap-2 group shrink-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2.5 bg-slate-900 rounded-lg sm:rounded-xl px-1.5 py-1 sm:px-2 sm:py-1.5 border border-slate-800 shadow-xl group-hover:scale-105 transition-transform duration-500">
+                                <img src="/logo.png" alt="ATHLIX" className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg object-cover" />
+                                <span className="text-white font-black text-base sm:text-xl tracking-tight">Athlix</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                                <span className="text-slate-600 font-black text-[10px] sm:text-sm">X</span>
+                                <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-4 sm:h-8 w-auto object-contain" />
+                            </div>
                         </div>
 
-                        <div className="hidden items-center gap-8 text-sm font-semibold tracking-widest text-slate-300 md:flex">
-                            <a href="#fitur" className="transition-colors hover:text-red-500">FITUR</a>
-                            <a href="#pricing" className="transition-colors hover:text-red-500">HARGA</a>
-                            <a href="#sistem" className="transition-colors hover:text-red-500">SISTEM</a>
-                            <a href="#artikel" className="transition-colors hover:text-red-500">ARTIKEL</a>
-                            <a href="#galeri" className="transition-colors hover:text-red-500">GALERI</a>
-                            <LanguageSwitch compact />
-                            <Link href={route('login')} className="rounded-md bg-red-600 px-6 py-2.5 text-white shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] transition-all hover:-translate-y-0.5 hover:bg-red-700">
+                        <div className="hidden items-center gap-4 lg:gap-8 text-xs sm:text-sm font-semibold tracking-widest text-slate-300 md:flex overflow-hidden">
+                            <a href="#fitur" className="transition-colors hover:text-red-500 whitespace-nowrap">FITUR</a>
+                            <a href="#pricing" className="transition-colors hover:text-red-500 whitespace-nowrap">HARGA</a>
+                            <a href="#sistem" className="transition-colors hover:text-red-500 whitespace-nowrap">SISTEM</a>
+                            <a href="#artikel" className="transition-colors hover:text-red-500 whitespace-nowrap">ARTIKEL</a>
+                            <a href="#galeri" className="transition-colors hover:text-red-500 whitespace-nowrap">GALERI</a>
+                            <div className="shrink-0"><LanguageSwitch compact /></div>
+                            <Link href={route('login')} className="rounded-md bg-red-600 px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm text-white shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] transition-all hover:-translate-y-0.5 hover:bg-red-700 whitespace-nowrap">
                                 LOGIN CLUB
                             </Link>
                         </div>
 
-                        <button className="text-slate-300 transition-colors hover:text-white md:hidden" onClick={() => setMobileMenuOpen((prev) => !prev)}>
-                            {mobileMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
+                        <button className="text-slate-300 transition-colors hover:text-white md:hidden p-1 shrink-0 ml-auto" onClick={() => setMobileMenuOpen((prev) => !prev)}>
+                            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                         </button>
                     </div>
 
@@ -142,11 +195,6 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
 
                     <div className="container relative z-10 mx-auto flex flex-col items-center gap-16 px-6 lg:flex-row lg:px-12">
                         <div className="flex flex-col gap-6 text-center lg:w-1/2 lg:text-left">
-                            {/* <div className="mx-auto inline-flex w-max items-center gap-2 rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 lg:mx-0">
-                                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Club Operating System</span>
-                            </div> */}
-
                             <h1 className="text-5xl font-black uppercase leading-tight tracking-tight lg:text-7xl">
                                 Fokus pada <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent">Latihan.</span>
                                 <br />
@@ -157,17 +205,67 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                 Sistem operasi club yang dirancang khusus untuk sasana bela diri. Kelola anggota, jadwal kelas, tagihan, dan level sabuk dalam satu platform super cepat.
                             </p>
 
-                            <div className="mt-4 flex flex-wrap justify-center gap-4 lg:justify-start">
-                                <button onClick={() => setShowRegistrationModal(true)} className="group flex items-center justify-center gap-2 rounded-xl bg-red-600 px-8 py-4 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-transform hover:-translate-y-1 hover:bg-red-700">
-                                    MULAI GRATIS
-                                    <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                                </button>
-                                <Link href={route('login')} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-8 py-4 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-700">
-                                    <LogIn className="h-5 w-5 text-red-500" /> LOGIN CLUB
-                                </Link>
-                                <a href="#" className="flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-800/80 px-8 py-4 font-bold text-white transition-all hover:border-indigo-500 hover:bg-slate-700">
-                                    <Smartphone className="h-5 w-5 text-indigo-400" /> DOWNLOAD PWA
-                                </a>
+                            {/* === BUTTONS: Mobile/Tablet = grid 2 kolom, Desktop = sejajar + dropdown === */}
+                            <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-start">
+                                {/* Mobile/Tablet: grid 2 kolom semua tampil */}
+                                <div className="grid grid-cols-2 gap-4 lg:hidden">
+                                    <button
+                                        onClick={() => setShowRegistrationModal(true)}
+                                        className="group flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-all hover:-translate-y-1 hover:bg-red-700"
+                                    >
+                                        MULAI GRATIS
+                                        <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                                    </button>
+                                    <a
+                                        href="#sistem"
+                                        className="group flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-3.5 font-bold text-white transition-all hover:border-slate-500 hover:bg-slate-800/80"
+                                    >
+                                        <Play className="h-5 w-5 text-red-500 transition-transform group-hover:scale-110" />
+                                        LIHAT DEMO
+                                    </a>
+                                    <Link
+                                        href={route('login')}
+                                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-3.5 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-800"
+                                    >
+                                        <LogIn className="h-5 w-5 text-red-500" /> LOGIN CLUB
+                                    </Link>
+                                    <button
+                                        onClick={handleInstallPWA}
+                                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-3.5 font-bold text-white transition-all hover:border-indigo-500 hover:bg-slate-800"
+                                    >
+                                        <Smartphone className="h-5 w-5 text-indigo-400" /> DOWNLOAD PWA
+                                    </button>
+                                </div>
+
+                                {/* Desktop: Semua tombol tampil sejajar */}
+                                <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:gap-3">
+                                    <button
+                                        onClick={() => setShowRegistrationModal(true)}
+                                        className="group flex items-center gap-2 rounded-xl bg-red-600 px-8 py-4 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-all hover:-translate-y-1 hover:bg-red-700"
+                                    >
+                                        MULAI GRATIS
+                                        <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                                    </button>
+                                    <a
+                                        href="#sistem"
+                                        className="group flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-8 py-4 font-bold text-white transition-all hover:border-slate-500 hover:bg-slate-800/80"
+                                    >
+                                        <Play className="h-5 w-5 text-red-500 transition-transform group-hover:scale-110" />
+                                        LIHAT DEMO
+                                    </a>
+                                    <Link
+                                        href={route('login')}
+                                        className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-4 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-800"
+                                    >
+                                        <LogIn className="h-5 w-5 text-red-500" /> LOGIN
+                                    </Link>
+                                    <button
+                                        onClick={handleInstallPWA}
+                                        className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-4 font-bold text-white transition-all hover:border-indigo-500 hover:bg-slate-800"
+                                    >
+                                        <Smartphone className="h-5 w-5 text-indigo-400" /> UNDUH PWA
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="mt-8 flex items-center justify-center gap-8 border-t border-slate-800/60 pt-8 lg:justify-start">
@@ -360,17 +458,14 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                             <h4 className="text-xl font-black uppercase tracking-tight text-white">{plan.title}</h4>
 
                                             <div className="mt-4 flex flex-col gap-2">
-                                                {/* Harga coret di atas — besar & mencolok */}
                                                 {hasDiscount && (
                                                     <div className="flex items-center gap-2">
-                                                        {/* <span className="text-[10px] font-bold uppercase tracking-widest text-red-400/80">Harga Normal</span> */}
                                                         <span className="text-xl font-extrabold text-slate-500 line-through decoration-red-500 decoration-[3px]">
                                                             {fmtCurrency(plan.original_price)}
                                                         </span>
                                                     </div>
                                                 )}
 
-                                                {/* Harga aktual */}
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-4xl font-black text-white">
                                                         {fmtCurrency(plan.price)}
@@ -378,7 +473,6 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                                     <span className="text-sm font-medium text-slate-500">/bulan</span>
                                                 </div>
 
-                                                {/* Badge hemat */}
                                                 {hasDiscount && (
                                                     <span className="mt-1 inline-flex w-max items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20">
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -529,7 +623,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20" />
                             <span className="text-xl font-black tracking-wide text-white">ATHLIX</span>
                             <span className="text-slate-600 font-bold mx-1">X</span>
-                            <img src="/icons/winpro.png" alt="Winpro Logo" className="h-6 w-auto object-contain opacity-70" />
+                            <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-6 w-auto object-contain opacity-70" />
                         </div>
                         <p className="text-sm font-medium text-slate-500">&copy; 2026 ATHLIX Club Operating System. All rights reserved.</p>
                         <div className="flex gap-4">

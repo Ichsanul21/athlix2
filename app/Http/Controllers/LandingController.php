@@ -86,8 +86,10 @@ class LandingController extends Controller
             'timezone' => 'required|string|max:255',
             'saas_plan_name' => 'required|string|max:255',
             'pic_name' => 'required|string|max:255',
-            'pic_email' => 'required|email|max:255',
+            'pic_email' => 'required|email|max:255|unique:dojo_registrations,pic_email|unique:users,email',
             'pic_phone' => 'required|string|max:255',
+        ], [
+            'pic_email.unique' => 'Email ini sudah terdaftar di sistem kami.',
         ]);
 
         \App\Models\DojoRegistration::create(array_merge($request->only([
@@ -101,6 +103,19 @@ class LandingController extends Controller
         ]));
 
         return back()->with('success', 'Pendaftaran dojo telah diterima. Kami akan segera menghubungi Anda.');
+    }
+
+    public function checkEmailAvailability(Request $request)
+    {
+        $email = $request->query('email');
+        if (!$email) return response()->json(['available' => true]);
+
+        $exists = \App\Models\DojoRegistration::where('pic_email', $email)->exists() ||
+                  \App\Models\User::where('email', $email)->exists();
+
+        return response()->json([
+            'available' => !$exists
+        ]);
     }
 
     public function showArticle(Request $request, string $slug): InertiaResponse

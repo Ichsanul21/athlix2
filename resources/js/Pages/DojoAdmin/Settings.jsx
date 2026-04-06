@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Palette, Image as ImageIcon, Save } from 'lucide-react';
+import { Palette, Image as ImageIcon, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
@@ -21,6 +21,12 @@ export default function Settings({ auth, dojo }) {
     const [loadingReg, setLoadingReg] = useState(false);
     const [loadingDist, setLoadingDist] = useState(false);
     const [loadingVill, setLoadingVill] = useState(false);
+    const [planModal, setPlanModal] = useState(false);
+
+    const planForm = useForm({
+        requested_plan_name: dojo?.saas_plan_name || 'Basic',
+        reason: '',
+    });
 
     const form = useForm({
         name: '',
@@ -146,17 +152,44 @@ export default function Settings({ auth, dojo }) {
             <div className="space-y-6 py-4 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 {/* Header Branding Card */}
-                <Card className="border-neutral-200/80 dark:border-neutral-800 bg-gradient-to-r from-athlix-red/10 to-transparent shadow-sm">
-                    <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-                        <div className="flex items-center gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card className="border-neutral-200/80 dark:border-neutral-800 bg-gradient-to-r from-athlix-red/10 to-transparent shadow-sm">
+                        <CardContent className="p-5 sm:p-6 flex items-center gap-4">
                             <div className="p-3 rounded-2xl bg-athlix-red/15 text-athlix-red"><Palette size={22} /></div>
                             <div>
                                 <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Branding Club</p>
                                 <h3 className="text-lg font-black">{dojo?.name || 'Club'}</h3>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-neutral-200/80 dark:border-neutral-800 bg-gradient-to-r from-emerald-500/10 to-transparent shadow-sm relative overflow-hidden">
+                        <CardContent className="p-5 sm:p-6 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-600">
+                                    <CheckCircle2 size={22} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Status Langganan</p>
+                                    <h3 className="text-lg font-black uppercase">{dojo?.saas_plan_name || 'Basic'}</h3>
+                                    <p className="text-[10px] font-bold text-neutral-400">Exp: {dojo?.subscription_expires_at ? new Date(dojo.subscription_expires_at).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</p>
+                                </div>
+                            </div>
+                            <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="outline" 
+                                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-[10px] font-black uppercase tracking-widest px-3 h-8 rounded-lg"
+                                onClick={() => setPlanModal(true)}
+                            >
+                                Ubah Paket
+                            </Button>
+                            <div className="absolute -right-4 -bottom-4 opacity-10">
+                                <Palette size={80} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 <form onSubmit={submit} className="space-y-6">
 
@@ -311,6 +344,39 @@ export default function Settings({ auth, dojo }) {
                         </CardContent>
                     </Card>
 
+                    {/* Subscription Management Card */}
+                    <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm">
+                        <CardHeader className="p-5 sm:p-6 pb-0 sm:pb-0">
+                            <CardTitle className="text-base font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">Manajemen Berlangganan</CardTitle>
+                            <CardDescription className="text-sm">Lihat paket saat ini dan ajukan perubahan jika diperlukan.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-5 sm:p-6 space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Paket Saat Ini</p>
+                                    <h4 className="text-lg font-black text-athlix-red uppercase tracking-wider">{dojo?.saas_plan_name ?? 'Basic'}</h4>
+                                    <p className="text-xs text-neutral-500 mt-1">Berakhir: {dojo?.subscription_expires_at ?? '-'}</p>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Sisa Masa Aktif</p>
+                                    <h4 className="text-lg font-black">{dojo?.remaining_days ?? 0} Hari</h4>
+                                    <p className="text-xs text-neutral-500 mt-1 uppercase font-bold tracking-tighter">{dojo?.subscription_type ?? 'Trial'}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="pt-2">
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="w-full sm:w-auto rounded-xl border-athlix-red text-athlix-red hover:bg-athlix-red hover:text-white font-bold"
+                                    onClick={() => setPlanModal(true)}
+                                >
+                                    Ajukan Perubahan Paket
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Branding & Theme Card */}
                     <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm">
                         <CardHeader className="p-5 sm:p-6 pb-0 sm:pb-0">
@@ -418,6 +484,79 @@ export default function Settings({ auth, dojo }) {
                 </form>
 
             </div>
+
+            {/* Change Plan Modal */}
+            <Modal show={planModal} onClose={() => setPlanModal(false)} maxWidth="md">
+                <div className="p-6 space-y-6">
+                    <div>
+                        <h3 className="text-xl font-black tracking-tight">Ajukan Ubah Paket</h3>
+                        <p className="text-sm text-neutral-500">Permintaan ini akan diproses oleh Super Admin.</p>
+                    </div>
+
+                    <form onSubmit={(e) => {
+                        e.preventDefault();
+                        planForm.post(route('dojo-admin.request-plan-change'), {
+                            onSuccess: () => { setPlanModal(false); planForm.reset(); },
+                        });
+                    }} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Paket Baru Pilihan</label>
+                            <div className="grid grid-cols-1 gap-2">
+                                {['Basic', 'Pro', 'Advance'].map((plan) => (
+                                    <button
+                                        key={plan}
+                                        type="button"
+                                        onClick={() => planForm.setData('requested_plan_name', plan)}
+                                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                                            planForm.data.requested_plan_name === plan
+                                            ? 'bg-athlix-red/5 border-athlix-red font-bold text-athlix-red'
+                                            : 'bg-white border-neutral-200 hover:border-neutral-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-1.5 rounded-lg ${planForm.data.requested_plan_name === plan ? 'bg-athlix-red text-white' : 'bg-neutral-100'}`}>
+                                                {planForm.data.requested_plan_name === plan ? <CheckCircle2 size={14} /> : <div className="w-3.5 h-3.5" />}
+                                            </div>
+                                            {plan}
+                                        </div>
+                                        {dojo?.saas_plan_name === plan && (
+                                            <span className="text-[10px] uppercase font-black bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full">Paket Sekarang</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alasan Perubahan (Opsional)</label>
+                            <textarea
+                                value={planForm.data.reason}
+                                onChange={(e) => planForm.setData('reason', e.target.value)}
+                                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm min-h-[100px]"
+                                placeholder="Contoh: Menambah jumlah atlet, perlu fitur advanced, dsb."
+                            ></textarea>
+                        </div>
+
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
+                            <AlertCircle className="text-amber-600 shrink-0" size={18} />
+                            <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                                Setelah dikirim, Anda tidak dapat mengubah proposal ini sampai diproses oleh Super Admin. Tagihan akan menyesuaikan di siklus berikutnya setelah disetujui.
+                            </p>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2">
+                            <Button variant="outline" type="button" onClick={() => setPlanModal(false)}>Batal</Button>
+                            <Button 
+                                type="submit" 
+                                disabled={planForm.processing || dojo?.saas_plan_name === planForm.data.requested_plan_name}
+                                className="bg-athlix-black text-white hover:bg-neutral-800"
+                            >
+                                Kirim Pengajuan
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+            </Modal>
         </AdminLayout>
     );
 }

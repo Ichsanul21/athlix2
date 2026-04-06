@@ -139,4 +139,27 @@ class Dojo extends Model
             'grace_period_ends_at' => $stage2->toDateString(),
         ];
     }
+
+    public function getRemainingDaysAttribute(): int
+    {
+        if (!$this->subscription_expires_at) return 0;
+        $expires = Carbon::parse($this->subscription_expires_at);
+        $diff = now()->startOfDay()->diffInDays($expires->startOfDay(), false);
+        return (int) $diff;
+    }
+
+    public function getSubscriptionTypeAttribute(): string
+    {
+        // If they have any paid invoices, or if duration is > 14 days since start
+        // For simplicity: if start and expires is exactly 14 days apart, it's trial
+        if (!$this->subscription_started_at || !$this->subscription_expires_at) return 'Unknown';
+        
+        $start = Carbon::parse($this->subscription_started_at);
+        $expires = Carbon::parse($this->subscription_expires_at);
+        $diff = $start->diffInDays($expires);
+        
+        // A 14-day trial means expires is 14 days after start (addDays(14))
+        // diffInDays will return 14
+        return $diff <= 14 ? 'Trial' : 'Subscriber';
+    }
 }

@@ -29,6 +29,7 @@ Route::get('/robots.txt', [LandingController::class, 'robots'])->name('seo.robot
 Route::get('/artikel/{slug}', [LandingController::class, 'showArticle'])->name('landing.articles.show');
 Route::get('/galeri/{slug}', [LandingController::class, 'showGallery'])->name('landing.galleries.show');
 Route::post('/landing/register-dojo', [LandingController::class, 'registerDojo'])->name('landing.register-dojo');
+Route::get('/landing/check-email', [LandingController::class, 'checkEmailAvailability'])->name('landing.check-email');
 
 Route::prefix('/api/regions')->group(function () {
     Route::get('/provinces', [RegionController::class, 'provinces'])->name('api.regions.provinces');
@@ -136,6 +137,10 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
 
         Route::get('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'index'])->name('super-admin.system-settings.index');
         Route::patch('/super-admin/system-settings', [SuperAdminSystemSettingController::class, 'update'])->name('super-admin.system-settings.update');
+
+        Route::get('/super-admin/subscription-requests', [DojoController::class, 'subscriptionRequests'])->name('super-admin.subscription-requests.index');
+        Route::post('/super-admin/subscription-requests/{subscriptionRequest}/approve', [DojoController::class, 'approveSubscriptionRequest'])->name('super-admin.subscription-requests.approve');
+        Route::post('/super-admin/subscription-requests/{subscriptionRequest}/reject', [DojoController::class, 'rejectSubscriptionRequest'])->name('super-admin.subscription-requests.reject');
     });
 
     Route::middleware('role:dojo_admin,super_admin,head_coach')->group(function () {
@@ -145,7 +150,8 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/dojo-admin/sensei', [DojoAdminController::class, 'storeSensei'])->name('dojo-admin.sensei.store');
         Route::patch('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'updateSensei'])->name('dojo-admin.sensei.update');
         Route::delete('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'destroySensei'])->name('dojo-admin.sensei.destroy');
-        Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
+        Route::post('/dojo-admin/assignments/{sensei}', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.assignments.update');
+        Route::post('/dojo-admin/request-plan-change', [DojoAdminController::class, 'requestPlanChange'])->name('dojo-admin.request-plan-change');
 
         // ── Test Category Management ──
         Route::get('/report-categories', [TestCategoryController::class, 'index'])->name('report-categories.index');

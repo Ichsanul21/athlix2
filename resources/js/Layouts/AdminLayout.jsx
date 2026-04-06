@@ -67,6 +67,7 @@ export default function AdminLayout({ user, header, children }) {
             ? [
                   { name: t('admin.master_account', 'Master Akun'), href: route('super-admin.users.index'), icon: ShieldCheck, current: 'super-admin.users.*' },
                   { name: t('admin.master_dojo', 'Master Club'), href: route('super-admin.dojos.index'), icon: CalendarCheck, current: 'super-admin.dojos.*' },
+                  { name: 'Subscription Requests', href: route('super-admin.subscription-requests.index'), icon: CreditCard, current: 'super-admin.subscription-requests.*' },
                   { name: t('admin.system_settings', 'System Settings'), href: route('super-admin.system-settings.index'), icon: ShieldCheck, current: 'super-admin.system-settings.*' },
               ]
             : []),

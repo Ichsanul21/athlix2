@@ -47,7 +47,7 @@ export default function RegistrationModal({ show, onClose, priceLists = [], init
 
     const [isSuccess, setIsSuccess] = useState(false);
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
         dojo_name: '',
         pic_name: '',
         pic_email: '',
@@ -65,6 +65,23 @@ export default function RegistrationModal({ show, onClose, priceLists = [], init
         address_detail: '',
         timezone: 'Asia/Jakarta',
     });
+
+    const [emailChecking, setEmailChecking] = useState(false);
+
+    const checkEmail = async (email) => {
+        if (!email || !email.includes('@')) return;
+        setEmailChecking(true);
+        try {
+            const res = await fetch(route('landing.check-email', { email }));
+            const result = await res.json();
+            if (!result.available) {
+                setError('pic_email', 'Email ini sudah terdaftar di sistem kami.');
+            } else {
+                clearErrors('pic_email');
+            }
+        } catch (e) {}
+        setEmailChecking(false);
+    };
 
     useEffect(() => {
         if (show && initialPlan) {
@@ -188,14 +205,25 @@ export default function RegistrationModal({ show, onClose, priceLists = [], init
 
                         <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">Email Valid *</label>
-                            <Input
-                                required
-                                type="email"
-                                value={data.pic_email}
-                                onChange={e => setData('pic_email', e.target.value)}
-                                placeholder="alamat@email.com"
-                                className="h-11 bg-white text-neutral-900"
-                            />
+                            <div className="relative">
+                                <Input
+                                    required
+                                    type="email"
+                                    value={data.pic_email}
+                                    onChange={e => {
+                                        setData('pic_email', e.target.value);
+                                        clearErrors('pic_email');
+                                    }}
+                                    onBlur={(e) => checkEmail(e.target.value)}
+                                    placeholder="alamat@email.com"
+                                    className={`h-11 bg-white text-neutral-900 ${errors.pic_email ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                />
+                                {emailChecking && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <Loader2 size={14} className="animate-spin text-slate-400" />
+                                    </div>
+                                )}
+                            </div>
                             {errors.pic_email && <p className="text-red-500 text-xs mt-1">{errors.pic_email}</p>}
                         </div>
 

@@ -32,7 +32,19 @@ class LandingCmsController extends Controller
     public function dojoRegistrations(): Response
     {
         return Inertia::render('Cms/DojoRegistrations', [
-            'registrations' => Inertia::defer(fn () => DojoRegistration::query()->latest()->get()),
+            'registrations' => Inertia::defer(fn () => DojoRegistration::query()
+                ->latest()
+                ->get()
+                ->map(function ($reg) {
+                    // Try to finding the created dojo to show its status
+                    $dojo = Dojo::where('contact_email', $reg->pic_email)->first();
+                    $reg->remaining_days = $dojo?->remaining_days;
+                    $reg->subscription_expires_at = $dojo?->subscription_expires_at;
+                    $reg->subscription_started_at = $dojo?->subscription_started_at;
+                    $reg->subscription_type = $dojo?->subscription_type;
+                    return $reg;
+                })
+            ),
         ]);
     }
 
@@ -44,7 +56,11 @@ class LandingCmsController extends Controller
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($dojoRegistration) {
             $today = now()->toDateString();
-            $subscriptionDates = \App\Models\Dojo::computeSubscriptionDates($today, 1);
+            
+            // Approval gives a 14-day trial initially
+            $subscriptionExpiresAt = now()->addDays(14)->toDateString();
+            $graceStage1 = now()->addDays(28)->toDateString(); // Optional grace after trial
+            $graceStage2 = now()->addDays(35)->toDateString();
 
             $dojo = Dojo::create([
                 'name'                       => $dojoRegistration->dojo_name,
@@ -67,9 +83,9 @@ class LandingCmsController extends Controller
                 'monthly_saas_fee'           => \App\Models\LandingPriceList::where('title', $dojoRegistration->saas_plan_name)->first()->price ?? ($dojoRegistration->saas_plan_name === 'Advance' ? 1750000 : ($dojoRegistration->saas_plan_name === 'Pro' ? 700000 : 350000)),
                 'billing_cycle_months'       => 1,
                 'subscription_started_at'    => $today,
-                'subscription_expires_at'    => $subscriptionDates['subscription_expires_at'],
-                'grace_period_stage1_ends_at' => $subscriptionDates['grace_period_stage1_ends_at'],
-                'grace_period_ends_at'       => $subscriptionDates['grace_period_ends_at'],
+                'subscription_expires_at'    => $subscriptionExpiresAt,
+                'grace_period_stage1_ends_at' => $graceStage1,
+                'grace_period_ends_at'       => $graceStage2,
                 'is_saas_blocked'            => false,
             ]);
 

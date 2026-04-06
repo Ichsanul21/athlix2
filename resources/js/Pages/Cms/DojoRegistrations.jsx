@@ -3,7 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import Modal from '@/Components/Modal';
-import { Users, CheckCircle, XCircle, Trash2, Phone, Mail, Eye, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Trash2, Phone, Mail, Eye, AlertTriangle, ShieldCheck, Info, Loader2 } from 'lucide-react';
 import React, { useState, useCallback } from 'react';
 
 const ICON_MAP = {
@@ -224,14 +224,26 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
                                                     <p className="text-xs font-bold text-athlix-red mt-1">Paket: {item.saas_plan_name} ({formatCurrency(item.nominal || 0)})</p>
                                                 </td>
                                                 <td className="px-6 py-4 text-xs font-medium">
-                                                    {statusBadge(item.status)}
+                                                    <div className="flex flex-col gap-1">
+                                                        {statusBadge(item.status)}
+                                                        {item.status === 'approved' && item.remaining_days !== undefined && (
+                                                            <div className="pt-1">
+                                                                <p className="text-[10px] font-bold text-neutral-500 uppercase">Langganan ({item.subscription_type})</p>
+                                                                {item.subscription_expires_at && (
+                                                                    <p className="text-[10px] font-semibold text-neutral-400">Exp: {item.subscription_expires_at}</p>
+                                                                )}
+                                                                <p className="text-[11px] font-bold text-athlix-red flex items-center gap-1 mt-0.5">
+                                                                    <Loader2 size={10} className={item.remaining_days <= 7 ? 'animate-spin' : ''} />
+                                                                    Sisa {item.remaining_days} hari
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 items-center justify-end flex gap-2">
-                                                    {item.status === 'pending' && (
-                                                        <Button size="sm" variant="outline" className="h-8 gap-1 border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100" onClick={() => openDetails(item)}>
-                                                            <Eye size={14} /> <span className="hidden sm:inline">Detail</span>
-                                                        </Button>
-                                                    )}
+                                                    <Button size="sm" variant="outline" className="h-8 gap-1 border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100" onClick={() => openDetails(item)}>
+                                                        <Eye size={14} /> <span className="hidden sm:inline">Detail</span>
+                                                    </Button>
                                                     <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleDelete(item.id)}>
                                                         <Trash2 size={14} />
                                                     </Button>
@@ -299,18 +311,37 @@ export default function DojoRegistrations({ auth, registrations = [] }) {
 
                                 <div>
                                     <h4 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-4 pb-2 border-b border-neutral-200">Subscription</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-red-50 p-4 rounded-xl border border-red-100">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-red-50 p-4 rounded-xl border border-red-100">
                                         <div>
-                                            <p className="text-xs font-semibold text-red-700 mb-1">Pilihan Paket Awal</p>
+                                            <p className="text-xs font-semibold text-red-700 mb-1">Paket</p>
                                             <p className="font-black text-red-900 text-lg uppercase tracking-wider">{selectedRegistration.saas_plan_name}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-red-700 mb-1">Nominal Paket</p>
+                                            <p className="text-xs font-semibold text-red-700 mb-1">Nominal</p>
                                             <p className="font-black text-red-900 text-lg">{formatCurrency(selectedRegistration.nominal || 0)}</p>
+                                        </div>
+                                        {selectedRegistration.status === 'approved' && (
+                                            <div>
+                                                <p className="text-xs font-semibold text-red-700 mb-1">Status Sisa Kuota</p>
+                                                <p className="font-black text-emerald-600 text-lg">Sisa {selectedRegistration.remaining_days} hari</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Mulai Langganan</p>
+                                            <p className="font-bold text-neutral-900">{selectedRegistration.subscription_started_at || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-neutral-500 mb-1">Berakhir Langganan</p>
+                                            <p className="font-bold text-neutral-900">{selectedRegistration.subscription_expires_at || '-'}</p>
                                         </div>
                                     </div>
                                     <p className="text-xs text-neutral-500 mt-2 bg-neutral-100 p-2 rounded-lg italic font-medium">
-                                        Persetujuan registrasi ini akan secara otomatis membuat entry Club dan akun Admin (username = alamat email PIC, password = athlix2026), dan langsung mengaktifkan billing sesuai nominal paket "{selectedRegistration.saas_plan_name}" ({formatCurrency(selectedRegistration.nominal || 0)}).
+                                        {selectedRegistration.status === 'pending'
+                                            ? `Persetujuan registrasi ini akan secara otomatis membuat entry Club dan akun Admin, dan langsung mengaktifkan masa trial 14 hari.`
+                                            : `Registrasi ini telah disetujui. Silakan cek data Club di menu Master Dojo untuk manajemen billing lanjutan.`
+                                        }
                                     </p>
                                 </div>
                             </div>

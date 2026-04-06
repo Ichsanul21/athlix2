@@ -41,8 +41,8 @@ class AuthenticatedSessionController extends Controller
                 $request->session()->regenerateToken();
 
                 $message = $dojo && $dojo->accessStatusLabel() === 'Expired'
-                    ? 'Login ditolak: masa berlangganan SaaS dojo sudah berakhir.'
-                    : 'Login ditolak: dojo sedang nonaktif atau diblokir.';
+                    ? 'Login ditolak: masa berlangganan SaaS club sudah berakhir.'
+                    : 'Login ditolak: club sedang nonaktif atau diblokir.';
 
                 throw ValidationException::withMessages([
                     'identifier' => $message,

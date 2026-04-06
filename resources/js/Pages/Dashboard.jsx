@@ -7,7 +7,7 @@ import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
 import {
     Users, Dumbbell, Activity, CreditCard, Sparkles, ChevronRight,
-    CheckCircle2, Clock, User, X,
+    CheckCircle2, Clock, User, X, FileText,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -21,6 +21,8 @@ export default function Dashboard({
     dojoName,
     dojos = [],
     selectedDojoId = null,
+    pendingRegistrationsCount = 0,
+    pendingSubscriptionRequestsCount = 0,
 }) {
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const [scheduleModal, setScheduleModal] = useState(null);
@@ -260,7 +262,41 @@ export default function Dashboard({
                                 <CardContent className="p-5 space-y-4">
                                     <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Informasi Cepat</p>
                                     <div className="space-y-3">
-                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900">
+                                        {isSuperAdmin && (
+                                            <>
+                                                <Link href={route('cms.dojo-registrations.index')} className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-100 hover:shadow-md transition-all group">
+                                                    <div className="p-2 rounded-xl bg-orange-500/10">
+                                                        <FileText size={16} className="text-orange-500" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-[11px] text-orange-600 font-bold uppercase tracking-tight">Pending Registrasi</p>
+                                                        <p className="font-black text-sm">{pendingRegistrationsCount} Dojo</p>
+                                                    </div>
+                                                    <ChevronRight size={14} className="text-orange-300 group-hover:translate-x-1 transition-transform" />
+                                                </Link>
+                                                <Link href={route('super-admin.subscription-requests.index')} className="flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-100 hover:shadow-md transition-all group">
+                                                    <div className="p-2 rounded-xl bg-red-500/10">
+                                                        <CreditCard size={16} className="text-red-500" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-[11px] text-red-600 font-bold uppercase tracking-tight">Request Upgrade</p>
+                                                        <p className="font-black text-sm">{pendingSubscriptionRequestsCount} Request</p>
+                                                    </div>
+                                                    <ChevronRight size={14} className="text-red-300 group-hover:translate-x-1 transition-transform" />
+                                                </Link>
+                                            </>
+                                        )}
+                                        <Link href={route('reports.index')} className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100 hover:shadow-md transition-all group">
+                                            <div className="p-2 rounded-xl bg-blue-500/10">
+                                                <FileText size={16} className="text-blue-500" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-[11px] text-blue-600 font-bold uppercase tracking-tight">Rapor Kemampuan</p>
+                                                <p className="font-black text-sm">Monitoring Atlet</p>
+                                            </div>
+                                            <ChevronRight size={14} className="text-blue-300 group-hover:translate-x-1 transition-transform" />
+                                        </Link>
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 shadow-sm border border-neutral-100 dark:border-neutral-800">
                                             <div className="p-2 rounded-xl bg-athlix-red/10">
                                                 <Clock size={16} className="text-athlix-red" />
                                             </div>
