@@ -764,7 +764,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </Card>
 
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Skor Kemampuan Atlet (Diagram Jaring)</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Skor Kemampuan Atlet</CardTitle></CardHeader>
                             <CardContent className="h-72 relative flex flex-col items-center justify-center">
                                 <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
                                     <span className="text-7xl font-black text-athlix-red -mt-5">{averageScore}</span>

@@ -10,7 +10,6 @@
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|roboto:400,500,700&display=swap" rel="stylesheet" />
-        
         <link rel="manifest" href="/manifest.webmanifest">
         <meta name="theme-color" content="#ef4444">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -34,7 +33,6 @@
                 <span class="collab-x">X</span>
                 <img src="/icons/winpro_logo.png" class="winpro-brand">
             </div>
-            
             <div class="loader-box">
                 <div class="loader-fill"></div>
             </div>
@@ -58,10 +56,8 @@
                 .athlix-brand { color: #fff; font-size: 26px; font-weight: 900; letter-spacing: 1px; }
                 .collab-x { color: #334155; font-size: 22px; font-weight: 300; }
                 .winpro-brand { height: 42px; filter: drop-shadow(0 0 8px rgba(255,255,255,0.05)); }
-                
                 .loader-box { margin-top: 40px; width: 120px; height: 2px; background: #1e293b; border-radius: 2px; overflow: hidden; position: relative; }
                 .loader-fill { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, #ef4444, #dc2626); animation: loadingBar 2.5s infinite ease-in-out; }
-                
                 .footer-credit { position: absolute; bottom: 40px; color: #475569; font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; }
 
                 @media (max-width: 640px) {

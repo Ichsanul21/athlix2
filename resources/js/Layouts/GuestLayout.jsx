@@ -24,10 +24,14 @@ export default function GuestLayout({ children }) {
                 {/* Brand */}
                 <div className="mb-8 animate-fade-in-up">
                     <Link href="/" className="flex flex-col items-center gap-3 group">
-                        <div className="relative">
+                        <div className="relative flex items-center gap-4">
                             <div className="absolute inset-0 bg-athlix-red/20 rounded-2xl blur-xl group-hover:bg-athlix-red/30 transition-all duration-500"></div>
                             <div className="relative w-16 h-16 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl flex items-center justify-center border border-neutral-200/50 dark:border-neutral-700/50 group-hover:scale-105 transition-transform duration-500">
                                 <img src="/logo.png" alt="ATHLIX" className="w-12 h-12 rounded-xl object-cover" />
+                            </div>
+                            <span className="relative text-neutral-400 font-bold mx-0.5 text-xl">X</span>
+                            <div className="relative h-16 bg-white dark:bg-neutral-900 px-4 rounded-2xl shadow-xl flex items-center justify-center border border-neutral-200/50 dark:border-neutral-700/50 group-hover:scale-105 transition-transform duration-500">
+                                <img src="/icons/winpro_logo.png" alt="WINPRO" className="h-8 w-auto object-contain" />
                             </div>
                         </div>
                         <div className="text-center">
@@ -44,7 +48,7 @@ export default function GuestLayout({ children }) {
                     <div className="glass rounded-3xl shadow-xl p-8 sm:p-10 relative overflow-hidden">
                         {/* Red accent line */}
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-gradient-to-r from-transparent via-athlix-red to-transparent rounded-full"></div>
-                        
+
                         {children}
                     </div>
                 </div>

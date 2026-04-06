@@ -16,6 +16,8 @@ import {
     Zap,
     CheckCircle2,
     Clapperboard,
+    LogIn,
+    Smartphone,
 } from 'lucide-react';
 import LanguageSwitch from '@/Components/LanguageSwitch';
 
@@ -94,8 +96,8 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                         <div className="flex items-center gap-3">
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-10 w-10 rounded-xl object-cover ring-1 ring-white/20" />
                             <span className="text-2xl font-black tracking-wide text-white">ATHLIX</span>
-                            {/* <span className="text-slate-600 font-black mx-1">X</span> */}
-                            {/* <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-8 w-auto object-contain" /> */}
+                            <span className="text-slate-600 font-black mx-1">X</span>
+                            <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-8 w-auto object-contain" />
                         </div>
 
                         <div className="hidden items-center gap-8 text-sm font-semibold tracking-widest text-slate-300 md:flex">
@@ -155,13 +157,16 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                 Sistem operasi club yang dirancang khusus untuk sasana bela diri. Kelola anggota, jadwal kelas, tagihan, dan level sabuk dalam satu platform super cepat.
                             </p>
 
-                            <div className="mt-4 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
-                                <button onClick={() => setShowRegistrationModal(true)} className="group flex items-center justify-center gap-2 rounded-md bg-red-600 px-8 py-4 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-transform hover:-translate-y-1 hover:bg-red-700">
+                            <div className="mt-4 flex flex-wrap justify-center gap-4 lg:justify-start">
+                                <button onClick={() => setShowRegistrationModal(true)} className="group flex items-center justify-center gap-2 rounded-xl bg-red-600 px-8 py-4 font-bold text-white shadow-[0_10px_30px_-10px_rgba(220,38,38,0.7)] transition-transform hover:-translate-y-1 hover:bg-red-700">
                                     MULAI GRATIS
                                     <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                                 </button>
-                                <a href="#artikel" className="flex items-center justify-center gap-2 rounded-md border border-slate-700 bg-slate-800/80 px-8 py-4 font-bold text-white transition-colors hover:border-slate-500 hover:bg-slate-700">
-                                    <Play className="h-5 w-5" /> LIHAT DEMO
+                                <Link href={route('login')} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-8 py-4 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-700">
+                                    <LogIn className="h-5 w-5 text-red-500" /> LOGIN CLUB
+                                </Link>
+                                <a href="#" className="flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-800/80 px-8 py-4 font-bold text-white transition-all hover:border-indigo-500 hover:bg-slate-700">
+                                    <Smartphone className="h-5 w-5 text-indigo-400" /> DOWNLOAD PWA
                                 </a>
                             </div>
 
@@ -524,7 +529,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                             <img src="/logo.png" alt="ATHLIX Logo" className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20" />
                             <span className="text-xl font-black tracking-wide text-white">ATHLIX</span>
                             <span className="text-slate-600 font-bold mx-1">X</span>
-                            <img src="/icons/winpro_logo.png" alt="Winpro Logo" className="h-6 w-auto object-contain opacity-70" />
+                            <img src="/icons/winpro.png" alt="Winpro Logo" className="h-6 w-auto object-contain opacity-70" />
                         </div>
                         <p className="text-sm font-medium text-slate-500">&copy; 2026 ATHLIX Club Operating System. All rights reserved.</p>
                         <div className="flex gap-4">

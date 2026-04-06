@@ -490,6 +490,130 @@ class AthleteController extends Controller
             ] : null,
         ]);
     }
+    
+    public function reportsIndex(Request $request)
+    {
+        $user = auth()->user();
+        $selectedDojoId = $request->query('dojo_id', $user->dojo_id);
+        $selectedAthleteId = $request->query('athlete_id');
+        $search = trim((string) $request->query('search', ''));
+
+        $athleteQuery = Athlete::with(['belt', 'latestReport']);
+
+        if ($user->isSuperAdmin()) {
+            if ($selectedDojoId) {
+                $athleteQuery->where('dojo_id', $selectedDojoId);
+            }
+        } else {
+            $athleteQuery = $this->scopeAthletesForUser($athleteQuery, $user);
+            $selectedDojoId = $user->dojo_id;
+        }
+        
+        $athletes = $athleteQuery->orderBy('full_name')->get()
+            ->map(function ($a) {
+                $a->age = \Carbon\Carbon::parse($a->dob)->age;
+                return $a;
+            })
+            ->filter(function ($a) use ($search) {
+                if ($search === '') return true;
+                return Str::contains(Str::lower($a->full_name), Str::lower($search));
+            })
+            ->values();
+
+        if (!$selectedAthleteId && $athletes->isNotEmpty()) {
+            $selectedAthleteId = $athletes->first()->id;
+        }
+
+        $athlete = $selectedAthleteId ? Athlete::with([
+            'belt',
+            'dojo',
+            'achievements',
+            'attendances',
+            'guardians' => fn ($q) => $q->withPivot(['relation_type', 'is_primary', 'emergency_contact']),
+            'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
+            'reports' => fn ($query) => $query->latest('recorded_at')->latest('id'),
+            'latestReport',
+        ])->find($selectedAthleteId) : null;
+
+        $dojos = $user->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : [];
+
+        if ($athlete) {
+            $this->ensureAthleteAccessible($athlete, $user);
+            
+            $athlete->primary_guardian = $athlete->guardians->firstWhere('pivot.is_primary', true);
+            $athlete->age = \Carbon\Carbon::parse($athlete->dob)->age;
+            $latestMetric = $athlete->physicalMetrics->first();
+            
+            $reportHistory = $athlete->reports
+                ->sortByDesc('recorded_at')
+                ->values()
+                ->map(function ($report) {
+                    return [
+                        'id' => $report->id,
+                        'condition_percentage' => (int) $report->condition_percentage,
+                        'notes' => $report->notes,
+                        'recorded_at' => optional($report->recorded_at)->toDateString(),
+                        'recorded_label' => optional($report->recorded_at)->translatedFormat('d M Y') ?? '-',
+                        'dynamic_scores' => $report->dynamic_scores,
+                        'created_at' => (string) $report->created_at,
+                    ];
+                });
+
+            $latestReport = $athlete->latestReport;
+            $latestDynamicScores = is_array($latestReport?->dynamic_scores)
+                ? $latestReport->dynamic_scores
+                : json_decode($latestReport?->dynamic_scores ?? '{}', true) ?? [];
+
+            $categories = [];
+            foreach ($latestDynamicScores['categories'] ?? [] as $catId => $catData) {
+                $categories[] = [
+                    'label' => $catData['name'] ?? 'Unknown',
+                    'score' => (int) ($catData['score'] ?? 0),
+                ];
+            }
+
+            $attendanceTotal = $athlete->attendances->count();
+            $attendancePresent = $athlete->attendances->where('status', 'present')->count();
+            $attendanceRate = $attendanceTotal > 0 ? round(($attendancePresent / $attendanceTotal) * 100) : 0;
+            $bmi = $latestMetric?->bmi;
+            $conditionScore = $this->resolveConditionScore($bmi, $attendanceRate);
+
+            $performance = [
+                'condition' => [
+                    ['label' => 'Kondisi Fisik', 'value' => (int) ($latestReport?->condition_percentage ?? $conditionScore)],
+                    ['label' => 'Gap', 'value' => 100 - (int) ($latestReport?->condition_percentage ?? $conditionScore)],
+                ],
+                'categories' => $categories,
+                'ability_status' => $this->resolveAbilityStatus(collect($categories)->pluck('score')->all()),
+                'bmi' => $bmi ? round($bmi, 1) : null,
+            ];
+
+            return Inertia::render('Reports/Index', [
+                'athletes' => $athletes,
+                'dojos' => $dojos,
+                'selectedDojoId' => (int)$selectedDojoId,
+                'selectedId' => (int)$selectedAthleteId,
+                'selectedAthlete' => $athlete,
+                'performance' => $performance,
+                'reportHistory' => $reportHistory,
+                'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+                    ->orWhereNull('dojo_id')
+                    ->with(['subCategories.tests'])
+                    ->orderBy('sort_order')
+                    ->get(),
+                'filters' => ['search' => $search]
+            ]);
+        }
+
+        return Inertia::render('Reports/Index', [
+            'athletes' => $athletes,
+            'dojos' => $dojos,
+            'selectedDojoId' => (int)$selectedDojoId,
+            'selectedId' => null,
+            'selectedAthlete' => null,
+            'filters' => ['search' => $search]
+        ]);
+    }
 
     public function storeReport(Request $request, Athlete $athlete)
     {

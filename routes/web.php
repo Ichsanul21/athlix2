@@ -80,6 +80,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         });
 
         Route::get('/physical-condition', [PhysicalConditionController::class, 'index'])->name('physical-condition.index');
+        Route::get('/reports', [AthleteController::class, 'reportsIndex'])->name('reports.index');
 
         Route::get('/training-programs', [TrainingProgramController::class, 'index'])->name('training-programs.index');
         Route::post('/training-programs', [TrainingProgramController::class, 'store'])->name('training-programs.store');
