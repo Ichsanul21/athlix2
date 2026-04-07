@@ -163,7 +163,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const abilityStatus = resolveAbilityStatus(categorySeries.map((item) => item.score));
     const reportOptions = (sortedReports || []).map((item) => ({
         value: String(item?.id),
-        label: `${item?.recorded_label || item?.recorded_at || '-'} | Kondisi ${item?.condition_percentage}%`,
+        label: `${item?.name ? item.name + ' | ' : ''}${item?.recorded_label || item?.recorded_at || '-'} | Kondisi ${item?.condition_percentage}%`,
     }));
 
     useEffect(() => {
@@ -385,6 +385,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const reportForm = useForm({
         condition_percentage: activeReport?.condition_percentage ?? 0,
+        name: '',
         test_values: buildTestValues(),
         notes: '',
         recorded_at: new Date().toISOString().slice(0, 10),
@@ -394,6 +395,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const reportEditForm = useForm({
         id: '',
+        name: '',
         condition_percentage: 0,
         test_values: {},
         notes: '',
@@ -415,6 +417,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
         reportEditForm.setData({
             id: report?.id,
+            name: report?.name || '',
             condition_percentage: report?.condition_percentage,
             test_values: vals,
             notes: report?.notes || '',
@@ -431,7 +434,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             preserveScroll: true,
             onSuccess: () => {
                 setReportEditModalOpen(false);
-                showAlert('Berhasil', 'Rapor berhasil diperbarui.');
             }
         });
     };
@@ -441,6 +443,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         reportForm.clearErrors();
         reportForm.setData({
             condition_percentage: activeReport?.condition_percentage ?? 0,
+            name: '',
             test_values: buildTestValues(),
             notes: '',
             recorded_at: new Date().toISOString().slice(0, 10),
@@ -497,7 +500,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             router.delete(route('athletes.reports.destroy', { athlete: athlete.id, report: selectedReportId }), {
                 preserveScroll: true,
                 onSuccess: () => {
-                    showAlert('Berhasil', 'Rapor berhasil dihapus.');
                     setSelectedReportId('');
                 }
             });
@@ -1213,7 +1215,17 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Nama Rapor
+                            <input type="text" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.name} onChange={(e) => reportEditForm.setData('name', e.target.value)} placeholder="" />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tanggal Penilaian
+                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.recorded_at} onChange={(e) => reportEditForm.setData('recorded_at', e.target.value)} required />
+                        </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tinggi (cm)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_height} onChange={(e) => reportEditForm.setData('latest_height', e.target.value)} />
@@ -1221,10 +1233,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Berat (kg)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_weight} onChange={(e) => reportEditForm.setData('latest_weight', e.target.value)} />
-                        </label>
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Tanggal Penilaian
-                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.recorded_at} onChange={(e) => reportEditForm.setData('recorded_at', e.target.value)} required />
                         </label>
                     </div>
                     <div className="space-y-1">
@@ -1332,21 +1340,24 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Tinggi (cm)
-                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_height} onChange={(e) => reportForm.setData('latest_height', e.target.value)} />
-                            {reportForm.errors.latest_height && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.latest_height}</p>}
-                        </label>
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Berat (kg)
-                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_weight} onChange={(e) => reportForm.setData('latest_weight', e.target.value)} />
-                            {reportForm.errors.latest_weight && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.latest_weight}</p>}
+                            Nama Rapor
+                            <input type="text" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.name} onChange={(e) => reportForm.setData('name', e.target.value)} placeholder="" />
                         </label>
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tanggal Penilaian
                             <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
-                            {reportForm.errors.recorded_at && <p className="text-xs text-athlix-red normal-case">{reportForm.errors.recorded_at}</p>}
+                        </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tinggi (cm)
+                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_height} onChange={(e) => reportForm.setData('latest_height', e.target.value)} />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Berat (kg)
+                            <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_weight} onChange={(e) => reportForm.setData('latest_weight', e.target.value)} />
                         </label>
                     </div>
                     <div className="space-y-1">

@@ -433,6 +433,7 @@ class AthleteController extends Controller
                     'notes' => $report->notes,
                     'recorded_at' => $recordedAt?->toDateString(),
                     'recorded_label' => $recordedAt?->translatedFormat('d M Y') ?? '-',
+                    'name' => $report->name,
                     'dynamic_scores' => $report->dynamic_scores,
                     'created_at' => (string) $report->created_at,
                     'created_label' => optional($report->created_at)?->translatedFormat('d M Y H:i'),
@@ -482,6 +483,7 @@ class AthleteController extends Controller
 
             'latestReport' => $latestReport ? [
                 'id' => $latestReport->id,
+                'name' => $latestReport->name,
                 'condition_percentage' => (int) $latestReport->condition_percentage,
                 'dynamic_scores' => $latestDynamicScores,
                 'notes' => $latestReport->notes,
@@ -553,6 +555,7 @@ class AthleteController extends Controller
                         'notes' => $report->notes,
                         'recorded_at' => optional($report->recorded_at)->toDateString(),
                         'recorded_label' => optional($report->recorded_at)->translatedFormat('d M Y') ?? '-',
+                        'name' => $report->name,
                         'dynamic_scores' => $report->dynamic_scores,
                         'created_at' => (string) $report->created_at,
                     ];
@@ -627,6 +630,7 @@ class AthleteController extends Controller
 
         $validated = $request->validate([
             'condition_percentage' => 'nullable|integer|min:0|max:100',
+            'name' => 'nullable|string|max:255',
             'test_values' => 'required|array',
             'test_values.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
@@ -716,6 +720,7 @@ class AthleteController extends Controller
 
         \App\Models\AthleteReport::create([
             'condition_percentage' => $calcConditionPercentage,
+            'name' => $validated['name'] ?? null,
             'notes' => $validated['notes'] ?? null,
             'recorded_at' => $validated['recorded_at'],
             'dynamic_scores' => $snapshot,
@@ -736,6 +741,7 @@ class AthleteController extends Controller
 
         $validated = $request->validate([
             'condition_percentage' => 'nullable|integer|min:0|max:100',
+            'name' => 'nullable|string|max:255',
             'test_values' => 'required|array',
             'test_values.*' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
@@ -825,6 +831,7 @@ class AthleteController extends Controller
 
         $report->update([
             'condition_percentage' => $calcConditionPercentage,
+            'name' => $validated['name'] ?? null,
             'notes' => $validated['notes'] ?? null,
             'recorded_at' => $validated['recorded_at'],
             'dynamic_scores' => $snapshot,

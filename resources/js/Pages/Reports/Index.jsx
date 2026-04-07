@@ -180,6 +180,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
 
     const reportForm = useForm({
         condition_percentage: activeReport?.condition_percentage ?? 0,
+        name: '',
         test_values: buildTestValues(),
         notes: '',
         recorded_at: new Date().toISOString().slice(0, 10),
@@ -189,6 +190,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
 
     const reportEditForm = useForm({
         id: '',
+        name: '',
         condition_percentage: 0,
         test_values: {},
         notes: '',
@@ -210,6 +212,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
 
         reportEditForm.setData({
             id: report?.id,
+            name: report?.name || '',
             condition_percentage: report?.condition_percentage,
             test_values: vals,
             notes: report?.notes || '',
@@ -225,6 +228,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
         reportForm.clearErrors();
         reportForm.setData({
             condition_percentage: activeReport?.condition_percentage ?? 0,
+            name: '',
             test_values: buildTestValues(),
             notes: '',
             recorded_at: new Date().toISOString().slice(0, 10),
@@ -266,7 +270,6 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
             preserveScroll: true,
             onSuccess: () => {
                 setReportEditModalOpen(false);
-                showAlert('Berhasil', 'Rapor berhasil diperbarui.');
             }
         });
     };
@@ -278,7 +281,6 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
             router.delete(route('athletes.reports.destroy', { athlete: selectedAthlete.id, report: selectedReportId }), {
                 preserveScroll: true,
                 onSuccess: () => {
-                    showAlert('Berhasil', 'Rapor berhasil dihapus.');
                     setSelectedReportId('');
                 }
             });
@@ -418,9 +420,14 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                     <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm ring-1 ring-athlix-red/5">
                                         <CardHeader className="py-4 border-b border-neutral-100 dark:border-neutral-800">
                                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                                <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
-                                                    <FileText size={16} className="text-athlix-red" /> Riwayat Rapor
-                                                </CardTitle>
+                                                <div className="space-y-1">
+                                                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
+                                                        <FileText size={16} className="text-athlix-red" /> Riwayat Rapor
+                                                    </CardTitle>
+                                                    {activeReport?.name && (
+                                                        <h4 className="text-sm font-black text-athlix-black dark:text-neutral-100 uppercase tracking-tight">{activeReport.name}</h4>
+                                                    )}
+                                                </div>
                                                 {isSensei && (
                                                     <Button type="button" size="sm" className="w-full sm:w-auto gap-2" onClick={() => { resetReportForm(); setReportModalOpen(true); }}>
                                                         <FilePlus2 size={14} /> Tambah Rapor
@@ -436,7 +443,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                                             <DbSelect
                                                                 inputId="report-select"
                                                                 value={selectedReportId}
-                                                                options={reportHistory.map(r => ({ value: String(r.id), label: `${r.recorded_label} | Kondisi ${r.condition_percentage}%` }))}
+                                                                options={reportHistory.map(r => ({ value: String(r.id), label: `${r.name ? r.name + ' | ' : ''}${r.recorded_label} | Kondisi ${r.condition_percentage}%` }))}
                                                                 onChange={(val) => setSelectedReportId(val)}
                                                                 placeholder="Pilih Tanggal Rapor..."
                                                             />
@@ -692,7 +699,17 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Nama Rapor
+                            <input type="text" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.name} onChange={(e) => reportEditForm.setData('name', e.target.value)} placeholder="" />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tanggal Penilaian
+                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.recorded_at} onChange={(e) => reportEditForm.setData('recorded_at', e.target.value)} required />
+                        </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tinggi (cm)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_height} onChange={(e) => reportEditForm.setData('latest_height', e.target.value)} />
@@ -700,10 +717,6 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Berat (kg)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.latest_weight} onChange={(e) => reportEditForm.setData('latest_weight', e.target.value)} />
-                        </label>
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Tanggal Penilaian
-                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportEditForm.data.recorded_at} onChange={(e) => reportEditForm.setData('recorded_at', e.target.value)} required />
                         </label>
                     </div>
                     <div className="space-y-1">
@@ -804,7 +817,17 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                             );
                         })}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Nama Rapor
+                            <input type="text" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.name} onChange={(e) => reportForm.setData('name', e.target.value)} placeholder="" />
+                        </label>
+                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
+                            Tanggal Penilaian
+                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
+                        </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Tinggi (cm)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_height} onChange={(e) => reportForm.setData('latest_height', e.target.value)} />
@@ -812,10 +835,6 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Berat (kg)
                             <input type="number" step="0.1" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.latest_weight} onChange={(e) => reportForm.setData('latest_weight', e.target.value)} />
-                        </label>
-                        <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
-                            Tanggal Penilaian
-                            <input type="date" className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm bg-white dark:bg-neutral-900" value={reportForm.data.recorded_at} onChange={(e) => reportForm.setData('recorded_at', e.target.value)} required />
                         </label>
                     </div>
                     <div className="space-y-1">
