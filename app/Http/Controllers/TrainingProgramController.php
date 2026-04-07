@@ -67,17 +67,56 @@ class TrainingProgramController extends Controller
             })
             ->get(['id', 'name', 'role']);
 
+        $performanceStats = $this->calculateDojoPerformanceStats($selectedDojoId);
+
         return Inertia::render('TrainingPrograms/Index', [
             'weeklySchedule' => Inertia::defer(fn () => $structuredPrograms),
             'dojos'          => Inertia::defer(fn () => $user?->isSuperAdmin()
-                                ? Dojo::orderBy('name')->get(['id', 'name'])
-                                : ($selectedDojoId ? Dojo::where('id', $selectedDojoId)->get(['id', 'name']) : [])
+                                ? Dojo::orderBy('name')->get(['id', 'name', 'ppa_file_path', 'ppa_file_name', 'ppa_file_size', 'ppa_uploaded_at'])
+                                : ($selectedDojoId ? Dojo::where('id', $selectedDojoId)->get(['id', 'name', 'ppa_file_path', 'ppa_file_name', 'ppa_file_size', 'ppa_uploaded_at']) : [])
                             ),
             'selectedDojoId' => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'selectedDojo'   => Inertia::defer(fn () => $selectedDojoId ? Dojo::find($selectedDojoId, ['id', 'name', 'ppa_file_path', 'ppa_file_name', 'ppa_file_size', 'ppa_uploaded_at']) : null),
             'isAllDojos'     => Inertia::defer(fn () => $isAllDojos),
             'isSuperAdmin'   => Inertia::defer(fn () => $user?->isSuperAdmin() ?? false),
             'senseis'        => Inertia::defer(fn () => $senseis),
+            'clubPerformanceStats' => Inertia::defer(fn () => $performanceStats),
         ]);
+    }
+
+    public function uploadPPA(Request $request)
+    {
+        $user = auth()->user();
+        $validated = $request->validate([
+            'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
+            'ppa_file' => 'required|file|mimes:pdf,xlsx,xls|max:5120', // 5MB max
+        ]);
+
+        $dojoId = $user?->isSuperAdmin() ? $validated['dojo_id'] : $user->dojo_id;
+
+        if (!$dojoId) {
+            return redirect()->back()->withErrors(['ppa_file' => 'Dojo tidak ditemukan.']);
+        }
+
+        $dojo = Dojo::findOrFail($dojoId);
+
+        if ($request->hasFile('ppa_file')) {
+            // Delete old file if exists
+            if ($dojo->ppa_file_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($dojo->ppa_file_path);
+            }
+
+            $file = $request->file('ppa_file');
+            $path = $file->store('ppa_files', 'public');
+            $dojo->update([
+                'ppa_file_path' => $path,
+                'ppa_file_name' => $file->getClientOriginalName(),
+                'ppa_file_size' => $file->getSize(),
+                'ppa_uploaded_at' => now(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'PPA berhasil diunggah.');
     }
 
     public function store(Request $request)

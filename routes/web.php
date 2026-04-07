@@ -87,6 +87,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/training-programs', [TrainingProgramController::class, 'store'])->name('training-programs.store');
         Route::patch('/training-programs/{trainingProgram}', [TrainingProgramController::class, 'update'])->name('training-programs.update');
         Route::delete('/training-programs/{trainingProgram}', [TrainingProgramController::class, 'destroy'])->name('training-programs.destroy');
+        Route::post('/training-programs/ppa-upload', [TrainingProgramController::class, 'uploadPPA'])->name('training-programs.ppa-upload');
 
         Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics.index');
 

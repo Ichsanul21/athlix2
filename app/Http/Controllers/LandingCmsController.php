@@ -422,10 +422,13 @@ class LandingCmsController extends Controller
             'currency' => 'nullable|string|max:10',
             'sort_order' => 'nullable|integer|min:0',
             'is_featured' => 'nullable|boolean',
+            'is_custom' => 'nullable|boolean',
+            'custom_label' => 'nullable|string|max:100',
         ]);
 
         $validated['currency'] = $validated['currency'] ?? 'IDR';
         $validated['is_featured'] = (bool) ($validated['is_featured'] ?? false);
+        $validated['is_custom'] = (bool) ($validated['is_custom'] ?? false);
 
         LandingPriceList::create($validated);
 
@@ -442,10 +445,13 @@ class LandingCmsController extends Controller
             'currency' => 'nullable|string|max:10',
             'sort_order' => 'nullable|integer|min:0',
             'is_featured' => 'nullable|boolean',
+            'is_custom' => 'nullable|boolean',
+            'custom_label' => 'nullable|string|max:100',
         ]);
 
         $validated['currency'] = $validated['currency'] ?? 'IDR';
         $validated['is_featured'] = (bool) ($validated['is_featured'] ?? false);
+        $validated['is_custom'] = (bool) ($validated['is_custom'] ?? false);
 
         $priceList->update($validated);
 

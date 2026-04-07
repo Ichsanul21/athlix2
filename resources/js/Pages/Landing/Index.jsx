@@ -99,7 +99,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
 
     const handleInstallPWA = (e) => {
         if (e) e.preventDefault();
-        
+
         // Support check for iOS/Safari
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -143,7 +143,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                 <nav className={`fixed z-50 w-full transition-all duration-300 ${isScrolled ? 'border-b border-slate-800 bg-slate-950/90 py-4 backdrop-blur-md' : 'bg-transparent py-6'}`}>
                     <div className="container mx-auto flex items-center justify-between gap-4 px-6 py-4 lg:gap-8 lg:px-12 lg:py-6">
                         <div className="flex cursor-pointer items-center gap-2 group shrink-0">
-                            <div className="flex items-center gap-1.5 sm:gap-2.5 bg-slate-900 rounded-lg sm:rounded-xl px-1.5 py-1 sm:px-2 sm:py-1.5 border border-slate-800 shadow-xl group-hover:scale-105 transition-transform duration-500">
+                            <div className="flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl px-1.5 py-1 sm:px-2 sm:py-1.5 group-hover:scale-105 transition-transform duration-500">
                                 <img src="/logo.png" alt="ATHLIX" className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg object-cover" />
                                 <span className="text-white font-black text-base sm:text-xl tracking-tight">Athlix</span>
                             </div>
@@ -227,13 +227,13 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                         href={route('login')}
                                         className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-3.5 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-800"
                                     >
-                                        <LogIn className="h-5 w-5 text-red-500" /> LOGIN CLUB
+                                        <LogIn className="h-5 w-5 text-red-500" /> LOGIN
                                     </Link>
                                     <button
                                         onClick={handleInstallPWA}
                                         className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-3.5 font-bold text-white transition-all hover:border-indigo-500 hover:bg-slate-800"
                                     >
-                                        <Smartphone className="h-5 w-5 text-indigo-400" /> DOWNLOAD PWA
+                                        <Smartphone className="h-5 w-5 text-indigo-400" /> UNDUH PWA
                                     </button>
                                 </div>
 
@@ -253,18 +253,34 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                         <Play className="h-5 w-5 text-red-500 transition-transform group-hover:scale-110" />
                                         LIHAT DEMO
                                     </a>
-                                    <Link
-                                        href={route('login')}
-                                        className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-4 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-800"
-                                    >
-                                        <LogIn className="h-5 w-5 text-red-500" /> LOGIN
-                                    </Link>
-                                    <button
-                                        onClick={handleInstallPWA}
-                                        className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-4 font-bold text-white transition-all hover:border-indigo-500 hover:bg-slate-800"
-                                    >
-                                        <Smartphone className="h-5 w-5 text-indigo-400" /> UNDUH PWA
-                                    </button>
+
+                                    <div className="relative" ref={moreMenuRef}>
+                                        <button
+                                            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                                            className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-6 py-4 font-bold text-white transition-all hover:border-red-500 hover:bg-slate-800"
+                                        >
+                                            LAINNYA <ChevronDown className={`h-4 w-4 transition-transform ${moreMenuOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {moreMenuOpen && (
+                                            <div className="absolute top-full right-0 mt-2 w-48 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl animate-fade-in-up">
+                                                <Link
+                                                    href={route('login')}
+                                                    className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                                                >
+                                                    <LogIn className="h-4 w-4 text-red-500" />
+                                                    LOGIN CLUB
+                                                </Link>
+                                                <button
+                                                    onClick={handleInstallPWA}
+                                                    className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                                                >
+                                                    <Smartphone className="h-4 w-4 text-indigo-400" />
+                                                    UNDUH PWA
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -466,11 +482,18 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                                     </div>
                                                 )}
 
-                                                <div className="flex items-baseline gap-1">
-                                                    <span className="text-4xl font-black text-white">
-                                                        {fmtCurrency(plan.price)}
-                                                    </span>
-                                                    <span className="text-sm font-medium text-slate-500">/bulan</span>
+                                                <div className="flex flex-col items-baseline">
+                                                    {plan.is_custom && (
+                                                        <span className="mb-1 text-[10px] font-black leading-none uppercase tracking-[0.2em] text-red-500">
+                                                            {plan.custom_label || 'Start From'}
+                                                        </span>
+                                                    )}
+                                                    <div className="flex items-baseline gap-1.5">
+                                                        <span className={`${plan.is_custom ? 'text-3xl' : 'text-4xl'} font-black tracking-tight text-white`}>
+                                                            {fmtCurrency(plan.price)}
+                                                        </span>
+                                                        {!plan.is_custom && <span className="text-sm font-medium text-slate-500 uppercase tracking-widest">/bulan</span>}
+                                                    </div>
                                                 </div>
 
                                                 {hasDiscount && (

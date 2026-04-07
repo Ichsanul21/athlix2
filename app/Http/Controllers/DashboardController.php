@@ -113,6 +113,7 @@ class DashboardController extends Controller
 
         $pendingRegistrationsCount = $user?->isSuperAdmin() ? DojoRegistration::where('status', 'pending')->count() : 0;
         $pendingSubscriptionRequestsCount = $user?->isSuperAdmin() ? DojoSubscriptionRequest::where('status', 'pending')->count() : 0;
+        $performanceStats = $this->calculateDojoPerformanceStats($selectedDojoId);
 
         return Inertia::render('Dashboard', [
             'stats'               => Inertia::defer(fn () => $stats),
@@ -125,6 +126,7 @@ class DashboardController extends Controller
             'dojoName'            => Inertia::defer(fn () => $isAllDojos ? 'Semua Dojo' : ($dojo?->name ?? 'Dojo Utama')),
             'dojos'               => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
             'selectedDojoId'      => Inertia::defer(fn () => $isAllDojos ? null : $selectedDojoId),
+            'clubPerformanceStats' => Inertia::defer(fn () => $performanceStats),
         ]);
     }
 

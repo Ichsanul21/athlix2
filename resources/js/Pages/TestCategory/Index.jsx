@@ -562,10 +562,10 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                         </Card>
                     ) : (
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardContent className="p-12 text-center">
+                            <CardContent className="p-12 text-center text-neutral-500">
                                 <ClipboardList size={48} className="mx-auto mb-4 text-neutral-300" />
-                                <p className="text-neutral-500 font-semibold">Belum ada kategori test.</p>
-                                <p className="text-sm text-neutral-400 mt-1">Tambahkan kategori pertama menggunakan form di atas.</p>
+                                <p className="font-bold">Belum ada data kategori test untuk club ini.</p>
+                                <p className="text-xs text-neutral-400 mt-1 italic">Silakan mulai dengan menambahkan kategori pertama pada form di atas.</p>
                             </CardContent>
                         </Card>
                     )}

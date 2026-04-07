@@ -24,7 +24,6 @@ class TestCategoryController extends Controller
         }
 
         $categories = ReportCategory::where('dojo_id', $selectedDojoId)
-            ->orWhereNull('dojo_id')
             ->with(['subCategories.tests'])
             ->orderBy('sort_order')
             ->get();

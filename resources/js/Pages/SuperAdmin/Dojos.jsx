@@ -233,6 +233,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                 onSuccess: () => {
                     setEditingId(null);
                     resetForm();
+                    setIsModalOpen(false);
                 },
             });
             return;
@@ -333,6 +334,24 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                 <X size={20} />
                             </button>
                         </div>
+
+                        {/* Error Feedback Section */}
+                        {Object.keys(form.errors).length > 0 && (
+                            <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-2 text-red-600 mb-2">
+                                    <X size={18} className="font-black" />
+                                    <h5 className="text-sm font-black uppercase tracking-tight">Ada Kesalahan Input</h5>
+                                </div>
+                                <ul className="space-y-1">
+                                    {Object.entries(form.errors).map(([field, msg]) => (
+                                        <li key={field} className="text-xs text-red-500 flex gap-2">
+                                            <span className="font-bold uppercase min-w-[120px] shrink-0">• {field.replace(/_/g, ' ')}:</span>
+                                            <span>{msg}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
 
                         {/* Section: Info Dojo */}
                         <div className="mb-6">
@@ -559,6 +578,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                     />
                                     Beri Izin Akses Aktif
                                 </label>
+                                {form.errors.is_active && <p className="text-xs text-athlix-red font-bold">{form.errors.is_active}</p>}
                                 <label className="flex items-center gap-2 text-sm font-semibold text-red-600 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -568,6 +588,7 @@ export default function Dojos({ auth, dojos = [], planPricing = {}, provinceTime
                                     />
                                     Blokir Paksa Akses SaaS Server
                                 </label>
+                                {form.errors.is_saas_blocked && <p className="text-xs text-athlix-red font-bold">{form.errors.is_saas_blocked}</p>}
                             </div>
                             {form.data.is_saas_blocked && (
                                 <Input

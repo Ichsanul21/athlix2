@@ -6,6 +6,7 @@ import { Input } from '@/Components/ui/input';
 import { Palette, Image as ImageIcon, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Modal from '@/Components/Modal';
 
 export default function Settings({ auth, dojo }) {
     const fileInputRef = useRef(null);

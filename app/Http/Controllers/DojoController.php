@@ -111,9 +111,9 @@ class DojoController extends Controller
             'monthly_saas_fee' => 'required|numeric|min:0',
             'billing_cycle_months' => 'required|integer|min:1|max:24',
             'subscription_started_at' => 'nullable|date',
-            'subscription_expires_at' => 'nullable|date|after_or_equal:subscription_started_at',
-            'grace_period_stage1_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
-            'grace_period_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
+            'subscription_expires_at' => 'nullable|date',
+            'grace_period_stage1_ends_at' => 'nullable|date',
+            'grace_period_ends_at' => 'nullable|date',
             'is_saas_blocked' => 'required|boolean',
             'saas_block_reason' => 'nullable|string|max:255',
         ]);
@@ -130,34 +130,21 @@ class DojoController extends Controller
 
         // Auto-compute subscription dates
         if (empty($validated['subscription_expires_at'])) {
-            // Default trial for new dojo is 14 days
             $start = \Illuminate\Support\Carbon::parse($validated['subscription_started_at']);
             $validated['subscription_expires_at'] = $start->addDays(14)->toDateString();
-            
-            // For trial, we might not need long grace periods, but we set them to same or slightly more
             $validated['grace_period_stage1_ends_at'] = $validated['subscription_expires_at'];
             $validated['grace_period_ends_at'] = $validated['subscription_expires_at'];
-        } else {
-            // If manually provided or billing cycle exists
-            $computed = \App\Models\Dojo::computeSubscriptionDates(
-                $validated['subscription_started_at'],
-                (int) ($validated['billing_cycle_months'] ?? 1)
-            );
-            
-            if (empty($validated['grace_period_stage1_ends_at'])) {
-                $validated['grace_period_stage1_ends_at'] = $computed['grace_period_stage1_ends_at'];
-            }
-            if (empty($validated['grace_period_ends_at'])) {
-                $validated['grace_period_ends_at'] = $computed['grace_period_ends_at'];
-            }
         }
 
-        if (! $validated['is_saas_blocked']) {
+        if (!isset($validated['is_saas_blocked']) || !$validated['is_saas_blocked']) {
             $validated['saas_block_reason'] = null;
             $validated['blocked_at'] = null;
         } else {
             $validated['blocked_at'] = now();
         }
+
+        $validated['is_active'] = (bool)($validated['is_active'] ?? true);
+        $validated['is_saas_blocked'] = (bool)($validated['is_saas_blocked'] ?? false);
 
         $dojo = Dojo::create($validated);
 
@@ -176,32 +163,7 @@ class DojoController extends Controller
             );
         }
 
-        // Setup default 3-level report hierarchy
-        $defaults = [
-            'Power' => [['sub' => 'Upper Body', 'tests' => [['name' => 'Standing Long Jump', 'unit' => 'repetition', 'min' => 0, 'max' => 100], ['name' => 'Medicine Ball Throw', 'unit' => 'repetition', 'min' => 0, 'max' => 100]]], ['sub' => 'Lower Body', 'tests' => [['name' => 'Box Jump', 'unit' => 'repetition', 'min' => 0, 'max' => 50]]]],
-            'Strength' => [['sub' => 'Upper Body', 'tests' => [['name' => 'Push Up', 'unit' => 'repetition', 'min' => 0, 'max' => 100, 'dur' => 60], ['name' => 'Pull Up', 'unit' => 'repetition', 'min' => 0, 'max' => 30]]], ['sub' => 'Lower Body', 'tests' => [['name' => 'Squat', 'unit' => 'repetition', 'min' => 0, 'max' => 100, 'dur' => 60]]]],
-            'Endurance' => [['sub' => 'Cardio', 'tests' => [['name' => 'Lari 12 Menit', 'unit' => 'repetition', 'min' => 0, 'max' => 3000]]]],
-            'Speed' => [['sub' => 'Sprint', 'tests' => [['name' => 'Sprint 30m', 'unit' => 'duration', 'min' => 10, 'max' => 3]]]],
-            'Agility' => [['sub' => 'Shuttle', 'tests' => [['name' => 'Shuttle Run', 'unit' => 'duration', 'min' => 20, 'max' => 8], ['name' => 'T-Test', 'unit' => 'duration', 'min' => 15, 'max' => 8]]]],
-            'Core' => [['sub' => 'Perut', 'tests' => [['name' => 'Sit Up', 'unit' => 'repetition', 'min' => 0, 'max' => 100, 'dur' => 60], ['name' => 'Plank Hold', 'unit' => 'duration', 'min' => 0, 'max' => 180]]]],
-            'Flexibility' => [['sub' => 'General', 'tests' => [['name' => 'Sit and Reach', 'unit' => 'repetition', 'min' => 0, 'max' => 50]]]],
-        ];
-
-        foreach ($defaults as $catName => $subItems) {
-            $cat = \App\Models\ReportCategory::create(['name' => $catName, 'dojo_id' => $dojo->id]);
-            foreach ($subItems as $si => $subItem) {
-                $sub = \App\Models\ReportSubCategory::create(['report_category_id' => $cat->id, 'name' => $subItem['sub'], 'sort_order' => $si]);
-                foreach ($subItem['tests'] as $ti => $test) {
-                    \App\Models\ReportTest::create([
-                        'report_sub_category_id' => $sub->id, 'name' => $test['name'],
-                        'unit' => $test['unit'], 'min_threshold' => $test['min'], 'max_threshold' => $test['max'],
-                        'max_duration_seconds' => $test['dur'] ?? null, 'sort_order' => $ti,
-                    ]);
-                }
-            }
-        }
-
-        return back()->with('success', 'Dojo berhasil ditambahkan beserta admin dan rapor tes bawaan.');
+        return back()->with('success', 'Dojo berhasil ditambahkan beserta admin.');
     }
 
     public function update(Request $request, Dojo $dojo)
@@ -227,19 +189,17 @@ class DojoController extends Controller
             'monthly_saas_fee' => 'required|numeric|min:0',
             'billing_cycle_months' => 'required|integer|min:1|max:24',
             'subscription_started_at' => 'nullable|date',
-            'subscription_expires_at' => 'nullable|date|after_or_equal:subscription_started_at',
-            'grace_period_stage1_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
-            'grace_period_ends_at' => 'nullable|date|after_or_equal:subscription_expires_at',
+            'subscription_expires_at' => 'nullable|date',
+            'grace_period_stage1_ends_at' => 'nullable|date',
+            'grace_period_ends_at' => 'nullable|date',
             'is_saas_blocked' => 'required|boolean',
             'saas_block_reason' => 'nullable|string|max:255',
         ]);
 
-        // Auto-resolve timezone from province code if available
         if (! empty($validated['province_code'])) {
             $validated['timezone'] = self::PROVINCE_TIMEZONES[$validated['province_code']] ?? $validated['timezone'];
         }
 
-        // Auto-compute subscription dates if started_at is set and expires is not manually set
         if (! empty($validated['subscription_started_at'])) {
             $computed = \App\Models\Dojo::computeSubscriptionDates(
                 $validated['subscription_started_at'],
@@ -256,12 +216,15 @@ class DojoController extends Controller
             }
         }
 
-        if (! $validated['is_saas_blocked']) {
+        if (!isset($validated['is_saas_blocked']) || !$validated['is_saas_blocked']) {
             $validated['saas_block_reason'] = null;
             $validated['blocked_at'] = null;
         } else {
             $validated['blocked_at'] = $dojo->blocked_at ?: now();
         }
+
+        $validated['is_active'] = (bool)($validated['is_active'] ?? true);
+        $validated['is_saas_blocked'] = (bool)($validated['is_saas_blocked'] ?? false);
 
         $dojo->update($validated);
 
@@ -291,7 +254,6 @@ class DojoController extends Controller
         DB::transaction(function () use ($subscriptionRequest) {
             $dojo = $subscriptionRequest->dojo;
             
-            // Get price from PLAN_PRICING
             $newPrice = self::PLAN_PRICING[$subscriptionRequest->requested_plan_name] ?? $dojo->monthly_saas_fee;
 
             $dojo->update([

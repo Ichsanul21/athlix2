@@ -10,6 +10,7 @@ import {
     CheckCircle2, Clock, User, X, FileText,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard({
     auth,
@@ -23,6 +24,7 @@ export default function Dashboard({
     selectedDojoId = null,
     pendingRegistrationsCount = 0,
     pendingSubscriptionRequestsCount = 0,
+    clubPerformanceStats = [],
 }) {
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const [scheduleModal, setScheduleModal] = useState(null);
@@ -152,6 +154,84 @@ export default function Dashboard({
                             );
                         })}
                     </div>
+
+                    {/* Chart Performa Club */}
+                    {clubPerformanceStats && clubPerformanceStats.length > 0 && (
+                        <div className="animate-fade-in-up fill-both" style={{ animationDelay: '150ms' }}>
+                            <div className="flex items-center justify-between mb-4 px-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-athlix-red"></div>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-neutral-500">Rekap Performa Atlet (Club)</h3>
+                                </div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Data dari seluruh atlet</div>
+                            </div>
+                            <Card className="border-neutral-200/80 dark:border-neutral-800 p-4 sm:p-6 overflow-hidden bg-white dark:bg-neutral-900/80">
+                                <div className="h-[400px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={clubPerformanceStats}
+                                            margin={{ top: 20, right: 30, left: 0, bottom: 40 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
+                                            <XAxis
+                                                dataKey="label"
+                                                angle={-45}
+                                                textAnchor="end"
+                                                interval={0}
+                                                height={80}
+                                                tick={{ fontSize: 10, fontWeight: 'bold', fill: '#888' }}
+                                            />
+                                            <YAxis
+                                                domain={[0, 100]}
+                                                ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+                                                tick={{ fontSize: 10, fill: '#888' }}
+                                                tickFormatter={(val) => `${val}`}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    borderRadius: '16px',
+                                                    border: 'none',
+                                                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                                                    fontSize: '12px',
+                                                    fontWeight: 'bold',
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                    backdropFilter: 'blur(4px)'
+                                                }}
+                                                cursor={{ fill: '#f5f5f5' }}
+                                            />
+                                            <Legend
+                                                verticalAlign="top"
+                                                align="right"
+                                                height={36}
+                                                iconType="circle"
+                                                formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">{value === 'min' ? 'Minimum' : value === 'avg' ? 'Rata-rata' : 'Maksimum'}</span>}
+                                            />
+                                            <Bar dataKey="min" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={20} />
+                                            <Bar dataKey="avg" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={20} />
+                                            <Bar dataKey="max" fill="#22c55e" radius={[6, 6, 0, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="mt-0 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+                                     <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
+                                         <div className="flex items-center gap-1.5">
+                                             <div className="w-3 h-3 rounded-full bg-ef4444" style={{ backgroundColor: '#ef4444' }}></div>
+                                             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Skor Terendah</span>
+                                         </div>
+                                         <div className="flex items-center gap-1.5">
+                                             <div className="w-3 h-3 rounded-full bg-3b82f6" style={{ backgroundColor: '#3b82f6' }}></div>
+                                             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Rerata Club</span>
+                                         </div>
+                                         <div className="flex items-center gap-1.5">
+                                             <div className="w-3 h-3 rounded-full bg-22c55e" style={{ backgroundColor: '#22c55e' }}></div>
+                                             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Skor Tertinggi</span>
+                                         </div>
+                                     </div>
+                                     <p className="text-[10px] italic text-neutral-400">Value Skor 0-100</p>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
 
                     {/* Main Content */}
                     <div className="grid gap-6 lg:grid-cols-3 animate-fade-in-up fill-both" style={{ animationDelay: '180ms' }}>
@@ -319,7 +399,7 @@ export default function Dashboard({
                                                 <Activity size={16} className="text-amber-500" />
                                             </div>
                                             <div>
-                                                <p className="text-[11px] text-neutral-500">Atlet Pantauan (BMI {'>'} 25)</p>
+                                                <p className="text-[11px] text-neutral-500">Atlet Pantauan (BMI &gt; 25)</p>
                                                 <p className="font-black text-sm">{stats.find(s => s.icon === 'activity')?.value ?? 0} atlet</p>
                                             </div>
                                         </div>

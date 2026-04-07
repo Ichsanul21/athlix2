@@ -12,6 +12,7 @@ class LandingPriceList extends Model
         'price' => 'decimal:2',
         'original_price' => 'decimal:2',
         'is_featured' => 'boolean',
+        'is_custom' => 'boolean',
         'sort_order' => 'integer',
     ];
 }

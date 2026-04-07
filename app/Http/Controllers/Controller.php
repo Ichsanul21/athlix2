@@ -90,4 +90,73 @@ abstract class Controller
 
         abort(403);
     }
+
+    protected function calculateDojoPerformanceStats(?int $dojoId): array
+    {
+        if (!$dojoId) {
+            return [];
+        }
+
+        $categories = \App\Models\ReportCategory::where('dojo_id', $dojoId)
+            ->orderBy('sort_order', 'asc')
+            ->get();
+
+        if ($categories->isEmpty()) {
+            return [];
+        }
+
+        $athleteIds = \App\Models\Athlete::where('dojo_id', $dojoId)->pluck('id');
+        if ($athleteIds->isEmpty()) {
+            return [];
+        }
+
+        // Get latest report for each athlete in this dojo
+        $latestReports = \App\Models\AthleteReport::whereIn('athlete_id', $athleteIds)
+            ->whereIn('id', function($query) use ($athleteIds) {
+                $query->selectRaw('MAX(id)')
+                    ->from('athlete_reports')
+                    ->whereIn('athlete_id', $athleteIds)
+                    ->groupBy('athlete_id');
+            })
+            ->get();
+
+        if ($latestReports->isEmpty()) {
+            return $categories->map(fn($cat) => [
+                'label' => $cat->name,
+                'min' => 0,
+                'max' => 0,
+                'avg' => 0,
+            ])->toArray();
+        }
+
+        $stats = [];
+        foreach ($categories as $cat) {
+            $scores = [];
+            foreach ($latestReports as $report) {
+                $snapshot = $report->dynamic_scores;
+                $score = $snapshot['categories'][$cat->id]['score'] ?? null;
+                if ($score !== null) {
+                    $scores[] = (float) $score;
+                }
+            }
+
+            if (!empty($scores)) {
+                $stats[] = [
+                    'label' => $cat->name,
+                    'min'   => (float) min($scores),
+                    'max'   => (float) max($scores),
+                    'avg'   => (float) round(array_sum($scores) / count($scores), 1),
+                ];
+            } else {
+                $stats[] = [
+                    'label' => $cat->name,
+                    'min'   => 0,
+                    'max'   => 0,
+                    'avg'   => 0,
+                ];
+            }
+        }
+
+        return $stats;
+    }
 }

@@ -3,7 +3,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Search, ChevronRight, FileText, ArrowLeft, Trophy, Activity, Radar, PieChart as PieChartIcon, Trash2, Pencil, Plus, X, Loader2, AlertTriangle, FilePlus2 } from 'lucide-react';
+import { Search, ChevronRight, FileText, ArrowLeft, Trophy, Activity, Radar, PieChart as PieChartIcon, Trash2, Pencil, Plus, X, Loader2, AlertTriangle, FilePlus2, Users } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar as RadarArea } from 'recharts';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -385,7 +385,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                      ) : (
                                          <div className="p-8 text-center text-neutral-400 text-sm italic py-12">
                                              <Users size={32} className="mx-auto mb-2 opacity-20" />
-                                             <p>Atlet tidak ditemukan.</p>
+                                             <p>Belum ada atlet terdaftar di club ini.</p>
                                          </div>
                                      )}
                                  </CardContent>
@@ -462,56 +462,66 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                         </CardContent>
                                     </Card>
 
-                                    {/* Charts Section */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Physical Condition Chart */}
-                                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                                            <CardHeader>
-                                                <CardTitle className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                                                    <PieChartIcon size={14} className="text-athlix-red" /> Kondisi Fisik
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="h-64 relative">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <PieChart>
-                                                        <Pie data={conditionData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" stroke="none">
-                                                            {conditionData.map((entry, index) => <Cell key={`report-condition-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                                        </Pie>
-                                                        <Tooltip />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-5">
-                                                    <span className="text-3xl font-black text-athlix-red">{conditionScore}%</span>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                     {/* Charts Section */}
+                                     {reportHistory.length > 0 ? (
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                             {/* Physical Condition Chart */}
+                                             <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                                 <CardHeader>
+                                                     <CardTitle className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                                         <PieChartIcon size={14} className="text-athlix-red" /> Kondisi Fisik
+                                                     </CardTitle>
+                                                 </CardHeader>
+                                                 <CardContent className="h-64 relative">
+                                                     <ResponsiveContainer width="100%" height="100%">
+                                                         <PieChart>
+                                                             <Pie data={conditionData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" stroke="none">
+                                                                 {conditionData.map((entry, index) => <Cell key={`report-condition-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                             </Pie>
+                                                             <Tooltip />
+                                                         </PieChart>
+                                                     </ResponsiveContainer>
+                                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-5">
+                                                         <span className="text-3xl font-black text-athlix-red">{conditionScore}%</span>
+                                                     </div>
+                                                 </CardContent>
+                                             </Card>
 
-                                        {/* Radar Ability Chart */}
-                                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                                            <CardHeader>
-                                                <CardTitle className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                                                    <Radar size={14} className="text-athlix-red" /> Skor Kemampuan
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="h-64 relative flex flex-col items-center justify-center">
-                                                <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
-                                                    <span className="text-7xl font-black text-athlix-red -mt-5">{averageScore}</span>
-                                                </div>
-                                                <ResponsiveContainer width="100%" height="85%" className="relative z-10">
-                                                    <RadarChart data={categorySeries}>
-                                                        <PolarGrid stroke="#88888833" />
-                                                        <PolarAngleAxis dataKey="label" tick={{ fontSize: 10 }} />
-                                                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                                                        <RadarArea dataKey="score" stroke="#DC2626" fill="#DC2626" fillOpacity={0.3} />
-                                                        <Tooltip />
-                                                    </RadarChart>
-                                                </ResponsiveContainer>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mt-2">
-                                                    Rata-rata: {averageScore} | Status: {abilityStatus}
-                                                </p>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
+                                             {/* Radar Ability Chart */}
+                                             <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                                 <CardHeader>
+                                                     <CardTitle className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                                         <Radar size={14} className="text-athlix-red" /> Skor Kemampuan
+                                                     </CardTitle>
+                                                 </CardHeader>
+                                                 <CardContent className="h-64 relative flex flex-col items-center justify-center">
+                                                     <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
+                                                         <span className="text-7xl font-black text-athlix-red -mt-5">{averageScore}</span>
+                                                     </div>
+                                                     <ResponsiveContainer width="100%" height="100%" className="relative z-10">
+                                                         <RadarChart data={categorySeries}>
+                                                             <PolarGrid stroke="#88888833" />
+                                                             <PolarAngleAxis dataKey="label" tick={{ fontSize: 10 }} />
+                                                             <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                                                             <RadarArea dataKey="score" stroke="#DC2626" fill="#DC2626" fillOpacity={0.3} />
+                                                             <Tooltip />
+                                                         </RadarChart>
+                                                     </ResponsiveContainer>
+                                                     <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mt-2">
+                                                         Rata-rata: {averageScore} | Status: {abilityStatus}
+                                                     </p>
+                                                 </CardContent>
+                                             </Card>
+                                         </div>
+                                     ) : (
+                                         <Card className="border-neutral-200/80 dark:border-neutral-800 border-dashed bg-neutral-50/30 dark:bg-neutral-900/10 mb-6 font-medium">
+                                             <CardContent className="p-12 text-center text-neutral-400">
+                                                 <Activity size={40} className="mx-auto mb-4 text-athlix-red/30 opacity-50" />
+                                                 <p className="font-bold uppercase tracking-widest text-xs text-neutral-500">Analisis Grafik Belum Tersedia</p>
+                                                 <p className="text-xs mt-1 italic">Grafik analisis kemampuan akan muncul setelah data rapor pertama diinput.</p>
+                                             </CardContent>
+                                         </Card>
+                                     )}
 
                                     {/* Detail Ability Scores */}
                                     <Card className="border-neutral-200/80 dark:border-neutral-800">
@@ -563,8 +573,12 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                                 );
                                             })}
                                             {reportCategories.length === 0 && (
-                                                <div className="text-center py-8">
-                                                    <p className="text-sm text-neutral-400">Belum ada kategori test.</p>
+                                                <div className="text-center py-12 px-6">
+                                                    <div className="w-16 h-16 mx-auto rounded-3xl bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center text-neutral-300 mb-4">
+                                                        <FileText size={32} />
+                                                    </div>
+                                                    <p className="text-neutral-500 font-bold">Belum ada data rapor tersedia untuk club ini.</p>
+                                                    <p className="text-xs text-neutral-400 mt-1 italic">Silakan hubungi Sensei atau Admin Club untuk menyusun kategori test Rapor.</p>
                                                 </div>
                                             )}
                                         </CardContent>

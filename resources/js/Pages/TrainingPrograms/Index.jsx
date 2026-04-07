@@ -17,6 +17,10 @@ import {
     ChevronRight,
     Tag,
     MapPin,
+    FileUp,
+    FileText,
+    Download,
+    Eye,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '@/Components/Modal';
@@ -25,8 +29,9 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { Skeleton } from '@/Components/ui/skeleton';
 import DbSelect from '@/Components/DbSelect';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
-export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [], isAllDojos = false, isSuperAdmin = false }) {
+export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [], isAllDojos = false, isSuperAdmin = false, clubPerformanceStats = [] }) {
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Sparring', 'Pendinginan', 'Evaluasi', 'Other/Lainnya'];
@@ -39,6 +44,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
 
     const filterDojoOptions = useMemo(
@@ -84,10 +90,27 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         force_overlap: false,
     });
 
+    const { data: ppaData, setData: setPpaData, post: postPpa, processing: ppaProcessing, errors: ppaErrors, reset: ppaReset } = useForm({
+        ppa_file: null,
+        dojo_id: selectedDojoId || '',
+    });
+
+    const [ppaPreview, setPpaPreview] = useState(null);
+
     useEffect(() => {
         setDojoId(selectedDojoId || '');
         setData('dojo_id', selectedDojoId || '');
+        setPpaData('dojo_id', selectedDojoId || '');
     }, [selectedDojoId]);
+
+    useEffect(() => {
+        const doc = dojos.find(d => String(d.id) === String(selectedDojoId));
+        if (doc?.ppa_file_path && doc.ppa_file_path.endsWith('.pdf')) {
+            setPpaPreview(`/storage/${doc.ppa_file_path}`);
+        } else {
+            setPpaPreview(null);
+        }
+    }, [selectedDojoId, dojos]);
 
     const handleFilterDojoChange = (next) => {
         const params = next ? { dojo_id: next } : {};
@@ -198,9 +221,18 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
     };
 
     const handleDelete = (id) => {
-        if (confirm('Apakah Anda yakin ingin menghapus program latihan ini?')) {
-            destroy(route('training-programs.destroy', id));
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDelete = () => {
+        if (deleteConfirmId) {
+            destroy(route('training-programs.destroy', deleteConfirmId));
+            setDeleteConfirmId(null);
         }
+    };
+
+    const cancelDelete = () => {
+        setDeleteConfirmId(null);
     };
 
     const typeColors = {
@@ -219,6 +251,17 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
         [titleOptions],
     );
     const coachSelectOptions = coachOptions;
+
+    const handlePpaUpload = (e) => {
+        e.preventDefault();
+        postPpa(route('training-programs.ppa-upload'), {
+            forceFormData: true,
+            onSuccess: () => {
+                ppaReset('ppa_file');
+                setPpaPreview(null);
+            },
+        });
+    };
 
     if (isLoading) {
         return (
@@ -295,7 +338,7 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-6 sm:gap-4 pt-6 sm:pt-2">
                         {days.map((day, dayIdx) => (
                             <div key={day} className="space-y-3 animate-fade-in-up fill-both" style={{ animationDelay: `${dayIdx * 60}ms` }}>
                                 <div className="flex items-center gap-2 px-2">
@@ -381,6 +424,242 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         ))}
                     </div>
 
+                    {/* Chart Performa Club */}
+                    {clubPerformanceStats && clubPerformanceStats.length > 0 && (
+                        <div className="mt-16 sm:mt-24 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
+                            <div className="flex items-center justify-between mb-4 px-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-athlix-red"></div>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-neutral-500">Rekap Performa Atlet (Club)</h3>
+                                </div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Data dari seluruh atlet</div>
+                            </div>
+                            <Card className="border-neutral-200/80 dark:border-neutral-800 p-3 sm:p-6 overflow-hidden">
+                                <div className="h-[350px] sm:h-[500px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={clubPerformanceStats}
+                                            margin={{ top: 20, right: 10, left: 0, bottom: 40 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
+                                            <XAxis
+                                                dataKey="label"
+                                                angle={-45}
+                                                textAnchor="end"
+                                                interval={0}
+                                                height={80}
+                                                tick={{ fontSize: 9, fontWeight: 'bold', fill: '#888' }}
+                                                dy={10}
+                                            />
+                                            <YAxis
+                                                domain={[0, 100]}
+                                                ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+                                                tick={{ fontSize: 9, fill: '#888' }}
+                                                tickFormatter={(val) => `${val}`}
+                                                width={35}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    borderRadius: '12px',
+                                                    border: 'none',
+                                                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                                                    fontSize: '11px',
+                                                    fontWeight: 'bold',
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                    backdropFilter: 'blur(4px)'
+                                                }}
+                                                cursor={{ fill: '#f5f5f5' }}
+                                            />
+                                            <Bar dataKey="min" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
+                                            <Bar dataKey="avg" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
+                                            <Bar dataKey="max" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="mt-0 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+                                     <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
+                                         <div className="flex items-center gap-1.5">
+                                             <div className="w-3 h-3 rounded-full bg-ef4444 shadow-sm shadow-red-500/20" style={{ backgroundColor: '#ef4444' }}></div>
+                                             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Skor Terendah</span>
+                                         </div>
+                                         <div className="flex items-center gap-1.5">
+                                             <div className="w-3 h-3 rounded-full bg-3b82f6 shadow-sm shadow-blue-500/20" style={{ backgroundColor: '#3b82f6' }}></div>
+                                             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Rerata Club</span>
+                                         </div>
+                                         <div className="flex items-center gap-1.5">
+                                             <div className="w-3 h-3 rounded-full bg-22c55e shadow-sm shadow-green-500/20" style={{ backgroundColor: '#22c55e' }}></div>
+                                             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Skor Tertinggi</span>
+                                         </div>
+                                     </div>
+                                     <p className="text-[10px] italic text-neutral-400">Value Skor 0-100</p>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* PPA Card Section */}
+                    {(!isAllDojos || isSuperAdmin) && (
+                        <div className="mt-16 sm:mt-24 animate-fade-in-up fill-both" style={{ animationDelay: '400ms' }}>
+                            <div className="flex items-center justify-between mb-4 px-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-athlix-red"></div>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-neutral-500">Program Peningkatan Atlet (PPA)</h3>
+                                </div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Jadwal & Strategi Performa</div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <Card className="lg:col-span-1 border-neutral-200/80 dark:border-neutral-800 p-6 flex flex-col justify-between overflow-hidden relative">
+                                    {dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path && (
+                                        <div className="absolute -right-8 -top-8 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -z-10"></div>
+                                    )}
+
+                                    <div className="space-y-6">
+                                        {/* Status Header */}
+                                        <div className={`p-4 rounded-2xl border transition-all duration-300 flex items-center gap-4 ${
+                                            dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path
+                                                ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400'
+                                                : 'bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/50 text-amber-700 dark:text-amber-400'
+                                        }`}>
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                                                dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path
+                                                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                                    : 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                                            }`}>
+                                                {dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path ? <Zap size={24} /> : <AlertCircle size={24} />}
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Status PPA</p>
+                                                <p className="font-bold text-sm tracking-tight">
+                                                    {dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path
+                                                        ? 'Sudah Diupload'
+                                                        : 'Belum Diupload'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* File Metadata if exists */}
+                                        {(() => {
+                                            const doc = dojos.find(d => String(d.id) === String(selectedDojoId));
+                                            if (!doc?.ppa_file_path) return null;
+                                            return (
+                                                <div className="space-y-3 animate-fade-in">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Nama File</span>
+                                                        <div className="flex items-center gap-2 text-sm font-bold truncate p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                                            <FileText size={14} className="text-athlix-red shrink-0" />
+                                                            <span className="truncate">{doc.ppa_file_name || doc.ppa_file_path.split('/').pop()}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Ukuran</span>
+                                                            <div className="text-xs font-bold px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                                                {doc.ppa_file_size ? `${(doc.ppa_file_size / 1024).toFixed(1)} KB` : '-'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Update</span>
+                                                            <div className="text-xs font-bold px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 truncate">
+                                                                {doc.ppa_uploaded_at ? new Date(doc.ppa_uploaded_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        <form onSubmit={handlePpaUpload} className="space-y-4 pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <InputLabel htmlFor="ppa_file" value="Unggah Update PPA" className="text-[10px] font-black uppercase tracking-widest text-neutral-400" />
+                                                    {ppaData.ppa_file && <span className="text-[10px] font-bold text-athlix-red italic animate-pulse sr-only">File Selected</span>}
+                                                </div>
+                                                <div className="mt-1 flex items-center justify-center w-full">
+                                                    <label htmlFor="ppa_file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-neutral-300 rounded-2xl cursor-pointer bg-neutral-50 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 transition-all hover:border-athlix-red group">
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <FileUp className="w-5 h-5 mb-2 text-neutral-400 group-hover:text-athlix-red transition-colors" />
+                                                            <p className="text-[10px] text-neutral-500 font-bold tracking-tight">Drop atau Klik Update</p>
+                                                        </div>
+                                                        <input
+                                                            id="ppa_file"
+                                                            type="file"
+                                                            className="hidden"
+                                                            accept=".pdf,.xlsx,.xls"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files[0];
+                                                                setPpaData('ppa_file', file);
+                                                                if (file && file.type === 'application/pdf') {
+                                                                    setPpaPreview(URL.createObjectURL(file));
+                                                                } else {
+                                                                    setPpaPreview(null);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                                {ppaData.ppa_file && (
+                                                    <div className="mt-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                                                        <span className="text-[10px] font-bold text-blue-600 truncate max-w-[200px]">{ppaData.ppa_file.name}</span>
+                                                        <button type="button" onClick={() => { setPpaData('ppa_file', null); setPpaPreview(null); }} className="text-blue-600 hover:text-blue-800"><X size={14}/></button>
+                                                    </div>
+                                                )}
+                                                <InputError message={ppaErrors.ppa_file} className="mt-2" />
+                                            </div>
+
+                                            <Button
+                                                type="submit"
+                                                className={`w-full h-11 transition-all rounded-xl font-black uppercase tracking-widest gap-2 ${
+                                                    ppaData.ppa_file ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                                                }`}
+                                                disabled={ppaProcessing || !ppaData.ppa_file}
+                                            >
+                                                <Plus size={16} />
+                                                {ppaProcessing ? 'Mengirim...' : 'Submit'}
+                                            </Button>
+                                        </form>
+                                    </div>
+
+                                    {dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path && (
+                                        <div className="pt-6 mt-6 border-t border-neutral-100 dark:border-neutral-800">
+                                            <a
+                                                href={`/storage/${dojos.find(d => String(d.id) === String(selectedDojoId))?.ppa_file_path}`}
+                                                target="_blank"
+                                                className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
+                                            >
+                                                <Download size={14} /> Download PPA
+                                            </a>
+                                        </div>
+                                    )}
+                                </Card>
+
+                                <Card className="lg:col-span-2 border-neutral-200/80 dark:border-neutral-800 overflow-hidden relative min-h-[400px]">
+                                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 -z-10">
+                                        <div className="text-center space-y-4 animate-pulse">
+                                            <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto">
+                                                <FileText size={40} className="text-neutral-300 dark:text-neutral-700" />
+                                            </div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Menyusun Pratinjau...</p>
+                                        </div>
+                                    </div>
+                                    {ppaPreview ? (
+                                        <iframe
+                                            src={ppaPreview}
+                                            className="w-full h-full border-none min-h-[500px] animate-fade-in"
+                                            title="PPA Preview"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                            <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                                <AlertCircle size={48} className="mx-auto text-neutral-400 mb-4" />
+                                                <p className="text-sm font-bold text-neutral-500 italic max-w-[250px]">PPA belum diunggah atau format tidak mendukung pratinjau langsung.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </div>
@@ -511,15 +790,15 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                             <TextInput type="time" value={item.end_time} onChange={(e) => updateAgendaItem(idx, 'end_time', e.target.value)} />
                                             {!agendaTitleTemplates.filter(t => t !== 'Other/Lainnya').includes(item.title) && item.title !== '' ? (
                                                 <div className="relative group sm:col-span-1">
-                                                    <TextInput 
+                                                    <TextInput
                                                         className="w-full text-sm pr-8"
                                                         placeholder="Custom Agenda..."
                                                         value={item.title === 'Other/Lainnya' ? '' : item.title}
                                                         onChange={(e) => updateAgendaItem(idx, 'title', e.target.value)}
                                                         autoFocus={item.title === 'Other/Lainnya'}
                                                     />
-                                                    <button 
-                                                        type="button" 
+                                                    <button
+                                                        type="button"
                                                         onClick={() => updateAgendaItem(idx, 'title', agendaTitleTemplates[0])}
                                                         className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-athlix-red"
                                                         title="Pilih dari template"
@@ -678,6 +957,50 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Modal Konfirmasi Hapus */}
+            <Modal show={!!deleteConfirmId} onClose={cancelDelete} maxWidth="sm">
+                <div className="p-6 space-y-5">
+                    <div className="flex items-start gap-4">
+                        <div className="shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <Trash2 size={22} className="text-red-600 dark:text-red-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-neutral-900 dark:text-neutral-100">
+                                Hapus Program
+                            </h3>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5 leading-relaxed">
+                                Apakah Anda yakin ingin menghapus program latihan ini? Tindakan ini tidak dapat dibatalkan.
+                            </p>
+                        </div>
+                        <button
+                            onClick={cancelDelete}
+                            className="shrink-0 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={cancelDelete}
+                            className="text-xs font-bold uppercase tracking-widest"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={confirmDelete}
+                            disabled={processing}
+                            className="text-xs font-black uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20 transition-all active:scale-95"
+                        >
+                            {processing ? 'Menghapus...' : 'Ya, Hapus'}
+                        </Button>
+                    </div>
+                </div>
             </Modal>
         </AdminLayout>
     );

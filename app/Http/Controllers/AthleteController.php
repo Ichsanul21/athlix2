@@ -476,7 +476,6 @@ class AthleteController extends Controller
 
             'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
             'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-                ->orWhereNull('dojo_id')
                 ->with(['subCategories.tests'])
                 ->orderBy('sort_order')
                 ->get(),
@@ -597,7 +596,6 @@ class AthleteController extends Controller
                 'performance' => $performance,
                 'reportHistory' => $reportHistory,
                 'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-                    ->orWhereNull('dojo_id')
                     ->with(['subCategories.tests'])
                     ->orderBy('sort_order')
                     ->get(),
@@ -611,6 +609,10 @@ class AthleteController extends Controller
             'selectedDojoId' => (int)$selectedDojoId,
             'selectedId' => null,
             'selectedAthlete' => null,
+            'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $selectedDojoId)
+                ->with(['subCategories.tests'])
+                ->orderBy('sort_order')
+                ->get(),
             'filters' => ['search' => $search]
         ]);
     }
@@ -635,7 +637,7 @@ class AthleteController extends Controller
 
         // Load the full hierarchy for this dojo
         $categories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-            ->orWhereNull('dojo_id')
+            ->where('id', '>', 0)
             ->with(['subCategories.tests'])
             ->orderBy('sort_order')
             ->get();
@@ -744,7 +746,7 @@ class AthleteController extends Controller
 
         // Load the full hierarchy for this dojo
         $categories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-            ->orWhereNull('dojo_id')
+            ->where('id', '>', 0)
             ->with(['subCategories.tests'])
             ->orderBy('sort_order')
             ->get();

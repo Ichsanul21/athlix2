@@ -10,7 +10,7 @@ import Modal from '@/Components/Modal';
 export default function PriceLists({ auth, priceLists = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const form = useForm({ title: '', description: '', price: '', original_price: '', currency: 'IDR', sort_order: 0, is_featured: false });
+    const form = useForm({ title: '', description: '', price: '', original_price: '', currency: 'IDR', sort_order: 0, is_featured: false, is_custom: false, custom_label: '' });
 
     const submit = () => {
         if (editingId) {
@@ -42,6 +42,8 @@ export default function PriceLists({ auth, priceLists = [] }) {
                 currency: item.currency || 'IDR',
                 sort_order: item.sort_order ?? 0,
                 is_featured: !!item.is_featured,
+                is_custom: !!item.is_custom,
+                custom_label: item.custom_label || '',
             });
         } else {
             setEditingId(null);
@@ -102,10 +104,19 @@ export default function PriceLists({ auth, priceLists = [] }) {
                                     <Input className="text-neutral-900" type="number" value={form.data.sort_order} onChange={(e) => form.setData('sort_order', e.target.value)} />
                                 </div>
                             )}
-                            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
-                                <input type="checkbox" className="rounded text-athlix-red focus:ring-athlix-red" checked={form.data.is_featured} onChange={(e) => form.setData('is_featured', e.target.checked)} />
-                                Jadikan paket unggulan / Recommended
-                            </label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
+                                    <input type="checkbox" className="rounded text-athlix-red focus:ring-athlix-red" checked={form.data.is_featured} onChange={(e) => form.setData('is_featured', e.target.checked)} />
+                                    Paket Unggulan
+                                </label>
+                                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
+                                    <input type="checkbox" className="rounded text-athlix-red focus:ring-athlix-red" checked={form.data.is_custom} onChange={(e) => form.setData('is_custom', e.target.checked)} />
+                                    Paket Custom
+                                </label>
+                            </div>
+                            {form.data.is_custom && (
+                                <Input className="text-neutral-900" placeholder="Label Custom (Contoh: Start From)" value={form.data.custom_label} onChange={(e) => form.setData('custom_label', e.target.value)} />
+                            )}
                         </div>
                         <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-neutral-100">
                             <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
@@ -137,7 +148,8 @@ export default function PriceLists({ auth, priceLists = [] }) {
                                                     </ul>
                                                 ) : '-'}
                                             </div>
-                                            <p className="text-sm font-black text-athlix-red mt-2 flex items-center gap-2">
+                                            <p className="text-sm font-black text-athlix-red mt-2 flex flex-wrap items-center gap-2">
+                                                {item.is_custom && <span className="text-[10px] font-bold text-neutral-500 uppercase">{item.custom_label || 'Start From'}</span>}
                                                 Rp {Number(item.price || 0).toLocaleString('id-ID')}
                                                 {item.original_price > 0 && (
                                                     <span className="text-xs font-normal text-neutral-400 line-through">Rp {Number(item.original_price).toLocaleString('id-ID')}</span>
