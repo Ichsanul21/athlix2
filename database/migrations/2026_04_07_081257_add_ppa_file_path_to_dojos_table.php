@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('dojos', function (Blueprint $table) {
-            $table->string('ppa_file_path')->nullable()->after('branding');
+            $table->string('ppa_file_path')->nullable()->after('grace_period_stage1_ends_at');
             $table->string('ppa_file_name')->nullable()->after('ppa_file_path');
             $table->bigInteger('ppa_file_size')->nullable()->after('ppa_file_name');
             $table->timestamp('ppa_uploaded_at')->nullable()->after('ppa_file_size');
