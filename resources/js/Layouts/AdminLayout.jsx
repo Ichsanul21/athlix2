@@ -106,76 +106,78 @@ export default function AdminLayout({ user, header, children }) {
 
             {/* Sidebar */}
             <aside className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-neutral-200/80 transition-all duration-500 ease-out ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
-                {/* Brand */}
-                <div className="flex items-center justify-between h-16 px-6 border-b border-neutral-200/80">
-                    <div className="flex items-center gap-3 animate-fade-in">
-                        <div className="relative">
-                            <img src={logoSrc} alt="ATHLIX Logo" className="w-9 h-9 rounded-xl shadow-md object-cover" />
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                <div className="flex flex-col h-full">
+                    {/* Brand */}
+                    <div className="flex-shrink-0 flex items-center justify-between h-16 px-6 border-b border-neutral-200/80">
+                        <div className="flex items-center gap-3 animate-fade-in">
+                            <div className="relative">
+                                <img src={logoSrc} alt="ATHLIX Logo" className="w-9 h-9 rounded-xl shadow-md object-cover" />
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                            <div>
+                                <span className="text-lg font-black tracking-tight text-athlix-red">ATHLIX</span>
+                                <span className="text-lg font-light text-neutral-300 ">.</span>
+                            </div>
                         </div>
-                        <div>
-                            <span className="text-lg font-black tracking-tight text-athlix-red">ATHLIX</span>
-                            <span className="text-lg font-light text-neutral-300 ">.</span>
-                        </div>
-                    </div>
-                    <button className="lg:hidden text-neutral-500 hover:text-athlix-black p-1 rounded-lg hover:bg-neutral-100 transition-colors" onClick={() => setSidebarOpen(false)}>
-                        <X size={20} />
-                    </button>
-                </div>
-
-                {/* Navigation */}
-                <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-11rem)]">
-                    {navigation.map((item, idx) => {
-                        const isActive = route().current(item.current);
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden fill-both ${
-                                    isActive
-                                    ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
-                                    : 'text-neutral-600  hover:bg-neutral-100 hover:text-athlix-black'
-                                }`}
-                                style={{ animationDelay: `${idx * 40}ms` }}
-                            >
-                                <item.icon className={`w-5 h-5 mr-3 transition-transform duration-300 ${isActive ? '' : 'group-hover:scale-110'}`} />
-                                {item.name}
-                                {isActive && (
-                                    <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
-                                )}
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                {/* Bottom Actions */}
-                <div className="absolute bottom-0 w-full bg-white border-t border-neutral-200/80">
-                    <div className="lg:hidden flex justify-center pt-3 pb-1">
-                        <LanguageSwitch />
+                        <button className="lg:hidden text-neutral-500 hover:text-athlix-black p-1 rounded-lg hover:bg-neutral-100 transition-colors" onClick={() => setSidebarOpen(false)}>
+                            <X size={20} />
+                        </button>
                     </div>
 
-                    <div className="p-3 pt-1 lg:pt-3 space-y-1">
-                        {aiNavigation.map((item) => {
+                    {/* Navigation */}
+                    <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+                        {navigation.map((item, idx) => {
                             const isActive = route().current(item.current);
                             return (
                                 <Link
                                     key={item.name}
                                     href={item.href}
-                                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ${
+                                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden fill-both ${
                                         isActive
-                                            ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
-                                            : 'text-neutral-600 hover:bg-neutral-100 hover:text-athlix-black'
+                                        ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
+                                        : 'text-neutral-600  hover:bg-neutral-100 hover:text-athlix-black'
                                     }`}
+                                    style={{ animationDelay: `${idx * 40}ms` }}
                                 >
-                                    <item.icon className="w-5 h-5 mr-3" />
+                                    <item.icon className={`w-5 h-5 mr-3 transition-transform duration-300 ${isActive ? '' : 'group-hover:scale-110'}`} />
                                     {item.name}
+                                    {isActive && (
+                                        <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                                    )}
                                 </Link>
                             );
                         })}
-                        <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 hover:text-athlix-red transition-all duration-300">
-                            <LogOut className="w-5 h-5 mr-3" />
-                            {t('common.sign_out', 'Sign Out')}
-                        </Link>
+                    </nav>
+
+                    {/* Bottom Actions */}
+                    <div className="flex-shrink-0 w-full bg-white border-t border-neutral-200/80">
+                        <div className="lg:hidden flex justify-center pt-3 pb-1">
+                            <LanguageSwitch />
+                        </div>
+
+                        <div className="p-3 pt-1 lg:pt-3 space-y-1">
+                            {aiNavigation.map((item) => {
+                                const isActive = route().current(item.current);
+                                return (
+                                    <Link
+                                        key={item.name}
+                                        href={item.href}
+                                        className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ${
+                                            isActive
+                                                ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20'
+                                                : 'text-neutral-600 hover:bg-neutral-100 hover:text-athlix-black'
+                                        }`}
+                                    >
+                                        <item.icon className="w-5 h-5 mr-3" />
+                                        {item.name}
+                                    </Link>
+                                );
+                            })}
+                            <Link href={route('logout')} method="post" as="button" className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-neutral-500  rounded-xl hover:bg-red-50 hover:text-athlix-red transition-all duration-300">
+                                <LogOut className="w-5 h-5 mr-3" />
+                                {t('common.sign_out', 'Sign Out')}
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </aside>

@@ -435,46 +435,48 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                 <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Data dari seluruh atlet</div>
                             </div>
                             <Card className="border-neutral-200/80 dark:border-neutral-800 p-3 sm:p-6 overflow-hidden">
-                                <div className="h-[350px] sm:h-[500px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart
-                                            data={clubPerformanceStats}
-                                            margin={{ top: 20, right: 10, left: 0, bottom: 40 }}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
-                                            <XAxis
-                                                dataKey="label"
-                                                angle={-45}
-                                                textAnchor="end"
-                                                interval={0}
-                                                height={80}
-                                                tick={{ fontSize: 9, fontWeight: 'bold', fill: '#888' }}
-                                                dy={10}
-                                            />
-                                            <YAxis
-                                                domain={[0, 100]}
-                                                ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
-                                                tick={{ fontSize: 9, fill: '#888' }}
-                                                tickFormatter={(val) => `${val}`}
-                                                width={35}
-                                            />
-                                            <Tooltip
-                                                contentStyle={{
-                                                    borderRadius: '12px',
-                                                    border: 'none',
-                                                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                                                    fontSize: '11px',
-                                                    fontWeight: 'bold',
-                                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                                    backdropFilter: 'blur(4px)'
-                                                }}
-                                                cursor={{ fill: '#f5f5f5' }}
-                                            />
-                                            <Bar dataKey="min" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
-                                            <Bar dataKey="avg" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
-                                            <Bar dataKey="max" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                <div className="w-full overflow-x-auto pb-4">
+                                    <div className="h-[350px] sm:h-[500px] min-w-[600px] sm:min-w-0">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart
+                                                data={clubPerformanceStats}
+                                                margin={{ top: 20, right: 10, left: 0, bottom: 40 }}
+                                            >
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
+                                                <XAxis
+                                                    dataKey="label"
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    interval={0}
+                                                    height={80}
+                                                    tick={{ fontSize: 9, fontWeight: 'bold', fill: '#888' }}
+                                                    dy={10}
+                                                />
+                                                <YAxis
+                                                    domain={[0, 100]}
+                                                    ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+                                                    tick={{ fontSize: 9, fill: '#888' }}
+                                                    tickFormatter={(val) => `${val}`}
+                                                    width={35}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                                                        fontSize: '11px',
+                                                        fontWeight: 'bold',
+                                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                        backdropFilter: 'blur(4px)'
+                                                    }}
+                                                    cursor={{ fill: '#f5f5f5' }}
+                                                />
+                                                <Bar dataKey="min" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
+                                                <Bar dataKey="avg" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
+                                                <Bar dataKey="max" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} fillOpacity={0.8} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
                                 <div className="mt-0 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
                                      <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
@@ -643,11 +645,14 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         </div>
                                     </div>
                                     {ppaPreview ? (
-                                        <iframe
-                                            src={ppaPreview}
-                                            className="w-full h-full border-none min-h-[500px] animate-fade-in"
-                                            title="PPA Preview"
-                                        />
+                                        <div className="w-full h-full min-h-[500px] overflow-auto touch-auto">
+                                            <iframe
+                                                src={ppaPreview}
+                                                className="w-full h-full border-none min-h-[600px] lg:min-h-[500px] animate-fade-in"
+                                                title="PPA Preview"
+                                                scrolling="auto"
+                                            />
+                                        </div>
                                     ) : (
                                         <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
                                             <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
