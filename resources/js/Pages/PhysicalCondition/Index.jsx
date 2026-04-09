@@ -210,7 +210,6 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                                 `}
                                                 style={{ animationDelay: `${idx * 30}ms` }}
                                             >
-                                                {/* Active indicator dot */}
                                                 {isSelected && (
                                                     <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[2px]">
                                                         <span className="block w-[6px] h-[6px] rounded-full bg-athlix-red shadow-[0_0_8px_rgba(230,30,50,0.6)]" />
@@ -260,37 +259,122 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                         <div className="lg:col-span-8 space-y-6 animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
                             {selectedAthlete ? (
                                 <>
-                                    {/* Attendance Psych Stats */}
+                                    {/* 1. Metrics: TB, BB, BMI */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                        {metrics.map((m, i) => (
+                                            <Card key={i} className="border-neutral-200/80 dark:border-neutral-800 card-hover animate-fade-in-up fill-both" style={{ animationDelay: `${150 + i * 60}ms` }}>
+                                                <CardContent className="p-4 space-y-3">
+                                                    <div className={`p-2 w-fit rounded-xl ${m.color} transition-transform duration-300 hover:scale-110`}>
+                                                        <m.icon size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold uppercase text-neutral-500 tracking-widest">{m.label}</p>
+                                                        <p className="text-lg font-black">{m.value}</p>
+                                                        <p className="text-xs text-neutral-400">{m.sub}</p>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+
+                                    {/* 2. Analisis Tren Fisik */}
+                                    <Card className="border-neutral-200/80 dark:border-neutral-800 animate-fade-in-up fill-both" style={{ animationDelay: '250ms' }}>
+                                        <CardHeader className="flex flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                                <TrendingUp size={16} className="text-athlix-red" />
+                                                Analisis Tren Fisik
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="min-h-[300px] flex flex-col justify-between">
+                                            {metricsHistory.length > 0 ? (
+                                                <>
+                                                    <div className="h-[250px] sm:h-[280px] min-w-0">
+                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
+                                                            <LineChart data={metricsHistory}>
+                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
+                                                                <XAxis dataKey="month_name" fontSize={10} axisLine={false} tickLine={false} />
+                                                                <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                                                                <Tooltip content={<CustomTooltip />} />
+                                                                <Line type="monotone" dataKey="average_weight" stroke="#E61E32" strokeWidth={3} dot={{ fill: '#E61E32', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
+                                                                <Line type="monotone" dataKey="average_bmi" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
+                                                            </LineChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                    <div className="flex justify-center gap-6 pt-4 text-xs font-bold uppercase text-neutral-500">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-[3px] bg-athlix-red rounded-full"></div> BB (kg)
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-[3px] bg-blue-500 rounded-full"></div> IMT
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 space-y-4">
+                                                    <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                                                        <TrendingUp size={28} className="text-neutral-300 dark:text-neutral-600" />
+                                                    </div>
+                                                    <div className="space-y-1 max-w-sm">
+                                                        <h4 className="text-sm font-bold text-neutral-700 dark:text-neutral-300">Belum Ada Riwayat Pengukuran</h4>
+                                                        <p className="text-xs text-neutral-500 leading-relaxed">
+                                                            Tren fisik akan ditampilkan setelah Anda melakukan input data tinggi dan berat badan secara berkala melalui fitur <strong>Rapor Kemampuan Atlet</strong>.
+                                                        </p>
+                                                    </div>
+                                                    {selectedAthlete?.latest_metrics?.weight && selectedAthlete?.latest_metrics?.height && (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                                            <Info size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                                                            <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-tight">
+                                                                Data TB & BB saat ini merupakan <strong>baseline awal</strong> dari form pendaftaran.
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 3. Detail Kondisi Atlet (IMT) */}
+                                    <Card className="border-neutral-200/80 dark:border-neutral-800 bg-green-500/5 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
+                                        <CardHeader>
+                                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kondisi Atlet (IMT)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                            <div className="space-y-1">
+                                                <p className="text-lg font-black text-green-600">{selectedAthlete.bmi_detail?.label || 'Belum Ada Data'}</p>
+                                                <p className="text-sm text-neutral-600">{selectedAthlete.bmi_detail?.note || 'Data IMT belum tersedia.'}</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 4. Mood & Fatigue Cards */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         {/* Mood Card */}
                                         <Card className="border-neutral-200/60 dark:border-neutral-800/60 bg-white dark:bg-neutral-900 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden relative group transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-0.5">
-                                            <CardContent className="p-0">
-                                                <div className="flex flex-col h-full">
-                                                    <div className="p-4 sm:p-5 flex justify-between items-start">
-                                                        <div className="space-y-1">
-                                                            <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
-                                                                <Smile size={14} className="text-indigo-500" />
-                                                                Akumulasi Mood
-                                                            </CardTitle>
-                                                            <div className="pt-2 flex items-baseline gap-1">
-                                                                <span className="text-3xl font-black text-indigo-600">{attendanceStats?.mood_after || '0'}</span>
-                                                                <span className="text-xs font-bold text-neutral-400">/ 10.0</span>
-                                                            </div>
-                                                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Skor Rerata Bulan Ini</p>
+                                            <CardContent className="p-0 flex flex-col h-full">
+                                                <div className="p-4 sm:p-5 flex justify-between items-start flex-shrink-0">
+                                                    <div className="space-y-1">
+                                                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                                                            <Smile size={14} className="text-indigo-500" />
+                                                            Akumulasi Mood
+                                                        </CardTitle>
+                                                        <div className="pt-2 flex items-baseline gap-1">
+                                                            <span className="text-3xl font-black text-indigo-600">{attendanceStats?.mood_after || '0'}</span>
+                                                            <span className="text-xs font-bold text-neutral-400">/ 10.0</span>
                                                         </div>
-                                                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 flex items-center justify-center border border-indigo-500/10 transition-transform group-hover:scale-110">
-                                                            <Smile size={24} className="text-indigo-500" />
-                                                        </div>
+                                                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Skor Rerata Bulan Ini</p>
                                                     </div>
-                                                    <div className="mt-auto grid grid-cols-2 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
-                                                        <div className="p-3 border-r border-neutral-100 dark:border-neutral-800 text-center">
-                                                            <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1">Pre-Mood</p>
-                                                            <p className="text-sm font-black text-neutral-700 dark:text-neutral-200">{attendanceStats?.mood_before || '0'}</p>
-                                                        </div>
-                                                        <div className="p-3 text-center">
-                                                            <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1">Post-Mood</p>
-                                                            <p className="text-sm font-black text-neutral-700 dark:text-neutral-200">{attendanceStats?.mood_after || '0'}</p>
-                                                        </div>
+                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 flex items-center justify-center border border-indigo-500/10 transition-transform group-hover:scale-110">
+                                                        <Smile size={24} className="text-indigo-500" />
+                                                    </div>
+                                                </div>
+                                                <div className="mt-auto grid grid-cols-2 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+                                                    <div className="p-3 border-r border-neutral-100 dark:border-neutral-800 text-center">
+                                                        <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1">Pre-Mood</p>
+                                                        <p className="text-sm font-black text-neutral-700 dark:text-neutral-200">{attendanceStats?.mood_before || '0'}</p>
+                                                    </div>
+                                                    <div className="p-3 text-center">
+                                                        <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1">Post-Mood</p>
+                                                        <p className="text-sm font-black text-neutral-700 dark:text-neutral-200">{attendanceStats?.mood_after || '0'}</p>
                                                     </div>
                                                 </div>
                                                 {!attendanceStats && (
@@ -306,33 +390,31 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
 
                                         {/* Fatigue Card */}
                                         <Card className="border-neutral-200/60 dark:border-neutral-800/60 bg-white dark:bg-neutral-900 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden relative group transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-0.5">
-                                            <CardContent className="p-0">
-                                                <div className="flex flex-col h-full">
-                                                    <div className="p-4 sm:p-5 flex justify-between items-start">
-                                                        <div className="space-y-1">
-                                                            <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
-                                                                <Zap size={14} className="text-orange-500 fill-orange-500/20" />
-                                                                Tingkat Kelelahan
-                                                            </CardTitle>
-                                                            <div className="pt-2 flex items-baseline gap-1">
-                                                                <span className="text-3xl font-black text-orange-600">{attendanceStats?.fatigue || '0'}</span>
-                                                                <span className="text-xs font-bold text-neutral-400">/ 10.0</span>
-                                                            </div>
-                                                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Beban Latihan Rerata</p>
+                                            <CardContent className="p-0 flex flex-col h-full">
+                                                <div className="p-4 sm:p-5 flex justify-between items-start flex-shrink-0">
+                                                    <div className="space-y-1">
+                                                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                                                            <Zap size={14} className="text-orange-500 fill-orange-500/20" />
+                                                            Tingkat Kelelahan
+                                                        </CardTitle>
+                                                        <div className="pt-2 flex items-baseline gap-1">
+                                                            <span className="text-3xl font-black text-orange-600">{attendanceStats?.fatigue || '0'}</span>
+                                                            <span className="text-xs font-bold text-neutral-400">/ 10.0</span>
                                                         </div>
-                                                        <div className="w-12 h-12 rounded-2xl bg-orange-500/5 dark:bg-orange-500/10 flex items-center justify-center border border-orange-500/10 transition-transform group-hover:scale-110">
-                                                            <Zap size={24} className="text-orange-500 fill-orange-500/30" />
-                                                        </div>
+                                                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Beban Latihan Rerata</p>
                                                     </div>
-                                                    <div className="mt-auto p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">
-                                                                {attendanceStats?.fatigue > 4 ? 'Intensitas Tinggi' : (attendanceStats?.fatigue > 2.5 ? 'Intensitas Moderat' : 'Intensitas Rendah')}
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-neutral-400 uppercase">{attendanceStats?.count || 0} Sesi Latihan</span>
+                                                    <div className="w-12 h-12 rounded-2xl bg-orange-500/5 dark:bg-orange-500/10 flex items-center justify-center border border-orange-500/10 transition-transform group-hover:scale-110">
+                                                        <Zap size={24} className="text-orange-500 fill-orange-500/30" />
                                                     </div>
+                                                </div>
+                                                <div className="mt-auto p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">
+                                                            {attendanceStats?.fatigue > 4 ? 'Intensitas Tinggi' : (attendanceStats?.fatigue > 2.5 ? 'Intensitas Moderat' : 'Intensitas Rendah')}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">{attendanceStats?.count || 0} Sesi Latihan</span>
                                                 </div>
                                                 {!attendanceStats && (
                                                     <div className="absolute inset-0 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-[1px] flex items-center justify-center p-4">
@@ -346,8 +428,8 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                         </Card>
                                     </div>
 
-                                    {/* Physical Condition Monthly Trend - LONG CARD */}
-                                    <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm overflow-hidden animate-fade-in-up fill-both" style={{ animationDelay: '150ms' }}>
+                                    {/* 5. Statistik Kondisi Fisik */}
+                                    <Card className="border-neutral-200/80 dark:border-neutral-800 shadow-sm overflow-hidden animate-fade-in-up fill-both" style={{ animationDelay: '350ms' }}>
                                         <CardHeader className="border-b border-neutral-50 dark:border-neutral-900 bg-neutral-50/50 dark:bg-neutral-900/30">
                                             <div className="flex items-center justify-between">
                                                 <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
@@ -425,91 +507,7 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                         </CardContent>
                                     </Card>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                                        {metrics.map((m, i) => (
-                                            <Card key={i} className="border-neutral-200/80 dark:border-neutral-800 card-hover animate-fade-in-up fill-both" style={{ animationDelay: `${250 + i * 60}ms` }}>
-                                                <CardContent className="p-4 space-y-3">
-                                                    <div className={`p-2 w-fit rounded-xl ${m.color} transition-transform duration-300 hover:scale-110`}>
-                                                        <m.icon size={18} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold uppercase text-neutral-500 tracking-widest">{m.label}</p>
-                                                        <p className="text-lg font-black">{m.value}</p>
-                                                        <p className="text-xs text-neutral-400">{m.sub}</p>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        ))}
-                                    </div>
-
-                                    {/* Trend Chart (Weight & BMI) */}
-                                    <Card className="border-neutral-200/80 dark:border-neutral-800 animate-fade-in-up fill-both" style={{ animationDelay: '350ms' }}>
-                                        <CardHeader className="flex flex-row items-center justify-between">
-                                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                                                <TrendingUp size={16} className="text-athlix-red" />
-                                                Analisis Tren Fisik
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="min-h-[300px] flex flex-col justify-between">
-                                            {metricsHistory.length > 0 ? (
-                                                <>
-                                                    <div className="h-[250px] sm:h-[280px] min-w-0">
-                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                                                            <LineChart data={metricsHistory}>
-                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888815" />
-                                                                <XAxis dataKey="month_name" fontSize={10} axisLine={false} tickLine={false} />
-                                                                <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                                                                <Tooltip content={<CustomTooltip />} />
-                                                                <Line type="monotone" dataKey="average_weight" stroke="#E61E32" strokeWidth={3} dot={{ fill: '#E61E32', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
-                                                                <Line type="monotone" dataKey="average_bmi" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
-                                                            </LineChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
-                                                    <div className="flex justify-center gap-6 pt-4 text-xs font-bold uppercase text-neutral-500">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-3 h-[3px] bg-athlix-red rounded-full"></div> BB (kg)
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-3 h-[3px] bg-blue-500 rounded-full"></div> IMT
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 space-y-4">
-                                                    <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                                                        <TrendingUp size={28} className="text-neutral-300 dark:text-neutral-600" />
-                                                    </div>
-                                                    <div className="space-y-1 max-w-sm">
-                                                        <h4 className="text-sm font-bold text-neutral-700 dark:text-neutral-300">Belum Ada Riwayat Pengukuran</h4>
-                                                        <p className="text-xs text-neutral-500 leading-relaxed">
-                                                            Tren fisik akan ditampilkan setelah Anda melakukan input data tinggi dan berat badan secara berkala melalui fitur <strong>Rapor Kemampuan Atlet</strong>.
-                                                        </p>
-                                                    </div>
-                                                    {selectedAthlete?.latest_metrics?.weight && selectedAthlete?.latest_metrics?.height && (
-                                                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                                                            <Info size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                                                            <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-tight">
-                                                                Data TB & BB saat ini merupakan <strong>baseline awal</strong> dari form pendaftaran.
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="border-neutral-200/80 dark:border-neutral-800 bg-green-500/5 animate-fade-in-up fill-both" style={{ animationDelay: '380ms' }}>
-                                        <CardHeader>
-                                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kondisi Atlet (IMT)</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="pt-0">
-                                            <div className="space-y-1">
-                                                <p className="text-lg font-black text-green-600">{selectedAthlete.bmi_detail?.label || 'Belum Ada Data'}</p>
-                                                <p className="text-sm text-neutral-600 ">{selectedAthlete.bmi_detail?.note || 'Data IMT belum tersedia.'}</p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
+                                    {/* 6. Gemini Card */}
                                     <Card className="border-neutral-200/80 dark:border-neutral-800 bg-athlix-red/5 dark:bg-athlix-red/5 animate-fade-in-up fill-both overflow-hidden relative" style={{ animationDelay: '400ms' }}>
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-athlix-red/5 rounded-full blur-3xl"></div>
                                         <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4 relative z-10">

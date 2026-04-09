@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ReportCategory;
 use App\Models\ReportSubCategory;
 use App\Models\ReportTest;
+use App\Models\TestLabel;
 use App\Models\Dojo;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,7 +24,19 @@ class TestCategoryController extends Controller
             $selectedDojoId = (int) $user->dojo_id;
         }
 
+        $selectedLabelId = (int) request('label_id', 0);
+
+        $labels = TestLabel::where('dojo_id', $selectedDojoId)
+            ->orderBy('name')
+            ->get();
+
+        if ($selectedLabelId === 0 && $labels->isNotEmpty()) {
+            $selectedLabelId = $labels->first()->id;
+        }
+
         $categories = ReportCategory::where('dojo_id', $selectedDojoId)
+            ->when($selectedLabelId > 0, fn($q) => $q->where('test_label_id', $selectedLabelId))
+            ->when($selectedLabelId === 0, fn($q) => $q->whereNull('test_label_id'))
             ->with(['subCategories.tests'])
             ->orderBy('sort_order')
             ->get();
@@ -31,6 +44,8 @@ class TestCategoryController extends Controller
         return Inertia::render('TestCategory/Index', [
             'dojos' => $dojos,
             'selectedDojoId' => $selectedDojoId,
+            'labels' => $labels,
+            'selectedLabelId' => $selectedLabelId,
             'categories' => $categories,
         ]);
     }
@@ -43,6 +58,7 @@ class TestCategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'dojo_id' => 'required|integer|exists:dojos,id',
+            'test_label_id' => 'required|integer|exists:test_labels,id',
         ]);
 
         $cat = ReportCategory::create($validated);
@@ -155,5 +171,41 @@ class TestCategoryController extends Controller
         $reportTest->delete();
 
         return back()->with('success', "Test \"{$name}\" berhasil dihapus.");
+    }
+    public function storeLabel(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user?->isCoachGroup()) abort(403);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'dojo_id' => 'required|integer|exists:dojos,id',
+        ]);
+
+        $label = TestLabel::create($validated);
+
+        return back()->with('success', "Label \"{$label->name}\" berhasil ditambahkan.");
+    }
+
+    public function updateLabel(Request $request, TestLabel $testLabel)
+    {
+        $user = auth()->user();
+        if (! $user?->isCoachGroup()) abort(403);
+
+        $validated = $request->validate(['name' => 'required|string|max:100']);
+        $testLabel->update($validated);
+
+        return back()->with('success', "Label \"{$testLabel->name}\" berhasil diperbarui.");
+    }
+
+    public function destroyLabel(TestLabel $testLabel)
+    {
+        $user = auth()->user();
+        if (! $user?->isCoachGroup()) abort(403);
+
+        $name = $testLabel->name;
+        $testLabel->delete();
+
+        return back()->with('success', "Label \"{$name}\" berhasil dihapus.");
     }
 }

@@ -20,6 +20,8 @@ export default function Index({
     selectedDojoId = null,
     flash,
 }) {
+    const saasPlan = auth?.dojo?.saas_plan_name ?? 'Basic';
+    const isProOrAdvance = ['Pro', 'Advance'].includes(saasPlan);
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const isLoading = growthData === undefined
         || attendanceData === undefined
@@ -81,44 +83,47 @@ export default function Index({
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card className="border-neutral-200/80">
-                            <CardContent className="p-4">
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Monitoring Kondisi</p>
-                                <div className="mt-2 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-2xl font-black text-athlix-red leading-none">{conditionThreshold.target_threshold}%</p>
-                                        <p className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Target Threshold</p>
+                    {isProOrAdvance && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card className="border-neutral-200/80">
+                                <CardContent className="p-4">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Monitoring Kondisi</p>
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-2xl font-black text-athlix-red leading-none">{conditionThreshold?.target_threshold ?? 0}%</p>
+                                            <p className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Target Threshold</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xl font-black">{conditionThreshold?.prima_count ?? 0} <span className="text-neutral-300 mx-1">/</span> <span className="text-amber-500">{conditionThreshold?.non_prima_count ?? 0}</span></p>
+                                            <p className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Prima / Tdk Prima</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xl font-black">{conditionThreshold.prima_count} <span className="text-neutral-300 mx-1">/</span> <span className="text-amber-500">{conditionThreshold.non_prima_count}</span></p>
-                                        <p className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Prima / Tdk Prima</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card className="border-neutral-200/80">
-                            <CardContent className="p-4">
-                                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Rata-rata Fisik</p>
-                                <p className="text-2xl font-black mt-1">{conditionThreshold.avg_condition}%</p>
-                                <p className="text-xs text-neutral-500 mt-1">Berbasis rapor kondisi terbaru per atlet.</p>
-                            </CardContent>
-                        </Card>
-                        <Card className="border-neutral-200/80 bg-red-50/50 dark:bg-athlix-red/5">
-                            <CardContent className="p-4">
-                                <p className="text-xs font-bold uppercase tracking-widest text-athlix-red flex items-center gap-1.5">
-                                    <ShieldAlert size={14} className="text-red-500" />
-                                    Atlet Perlu Atensi
-                                </p>
-                                <p className="text-2xl text-athlix-red font-black mt-1">{conditionThreshold.below_target_count}</p>
-                                <p className="text-xs text-red-600/80 dark:text-red-400 mt-1">
-                                    {conditionThreshold.critical_count} atlet ada di zona kritis (&lt;{conditionThreshold.critical_threshold}%).
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="border-neutral-200/80">
+                                <CardContent className="p-4">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Rata-rata Fisik</p>
+                                    <p className="text-2xl font-black mt-1">{conditionThreshold?.avg_condition ?? 0}%</p>
+                                    <p className="text-xs text-neutral-500 mt-1">Berbasis rapor kondisi terbaru per atlet.</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="border-neutral-200/80 bg-red-50/50 dark:bg-athlix-red/5">
+                                <CardContent className="p-4">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-athlix-red flex items-center gap-1.5">
+                                        <ShieldAlert size={14} className="text-red-500" />
+                                        Atlet Perlu Atensi
+                                    </p>
+                                    <p className="text-2xl text-athlix-red font-black mt-1">{conditionThreshold?.below_target_count ?? 0}</p>
+                                    <p className="text-xs text-red-600/80 dark:text-red-400 mt-1">
+                                        {conditionThreshold?.critical_count ?? 0} atlet ada di zona kritis (&lt;{conditionThreshold?.critical_threshold ?? 0}%).
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
 
-                    <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+                    <div className={`grid gap-6 grid-cols-1 ${isProOrAdvance ? 'md:grid-cols-2' : ''}`}>
+                        {isProOrAdvance && (
                         <Card className="border-neutral-200/80 dark:border-neutral-800 animate-fade-in-up fill-both">
                             <CardHeader>
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
@@ -147,6 +152,7 @@ export default function Index({
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
+                        )}
 
                         <Card className="border-neutral-200/80 dark:border-neutral-800 overflow-hidden animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
                             <CardHeader className="pb-2">
@@ -255,8 +261,9 @@ export default function Index({
                         </CardContent>
                     </Card>
 
-                    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-                        <Card className="border-neutral-200/80 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
+                    {isProOrAdvance && (
+                        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+                            <Card className="border-neutral-200/80 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
                             <CardHeader>
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
                                     <Users size={16} className="text-athlix-red" />
@@ -314,7 +321,8 @@ export default function Index({
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </AdminLayout>

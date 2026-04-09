@@ -32,6 +32,8 @@ import DbSelect from '@/Components/DbSelect';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId = null, senseis = [], isAllDojos = false, isSuperAdmin = false, clubPerformanceStats = [] }) {
+    const saasPlan = auth?.dojo?.saas_plan_name ?? 'Basic';
+    const isProOrAdvance = ['Pro', 'Advance'].includes(saasPlan);
     const isLoading = !weeklySchedule;
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const agendaTitleTemplates = ['Briefing', 'Pemanasan', 'Sparring', 'Pendinginan', 'Evaluasi', 'Other/Lainnya'];
@@ -294,153 +296,23 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
             <div className="py-6 space-y-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-4">
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
-                        <div>
-                            <p className="text-sm font-bold uppercase tracking-widest text-neutral-500">
-                                Program Mingguan
-                                {isAllDojos && (
-                                    <span className="text-xs font-normal normal-case tracking-normal text-neutral-400 ml-2">— Semua Club</span>
-                                )}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {isSuperAdmin && dojos.length > 0 && (
-                                <div className="flex items-center gap-1.5">
-                                    <DbSelect
-                                        inputId="filter-dojo"
-                                        className="min-w-[180px]"
-                                        options={filterDojoOptions}
-                                        value={selectedDojoId ? String(selectedDojoId) : ''}
-                                        placeholder="Semua Club"
-                                        onChange={handleFilterDojoChange}
-                                    />
-                                    {selectedDojoId && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleFilterDojoChange('')}
-                                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                                            title="Tampilkan semua club"
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                            <Button
-                                onClick={() => openModal()}
-                                className="h-10 px-6 rounded-xl font-black uppercase tracking-widest gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-athlix-red/20 transition-all active:scale-95"
-                                disabled={isSuperAdmin && dojos.length > 0 && !dojoId}
-                            >
-                                <Plus size={16} />
-                                <span className="hidden sm:inline">Tambah Program</span>
-                                <span className="sm:hidden">Tambah</span>
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-6 sm:gap-4 pt-6 sm:pt-2">
-                        {days.map((day, dayIdx) => (
-                            <div key={day} className="space-y-3 animate-fade-in-up fill-both" style={{ animationDelay: `${dayIdx * 60}ms` }}>
-                                <div className="flex items-center gap-2 px-2">
-                                    <div className="w-2 h-2 rounded-full bg-athlix-red animate-pulse"></div>
-                                    <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500">{day}</h3>
-                                </div>
-
-                                <div className="space-y-3">
-                                    {weeklySchedule[day] && weeklySchedule[day].length > 0 ? (
-                                        weeklySchedule[day].map((p) => {
-                                            return (
-                                                <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/40 transition-all duration-300 overflow-hidden relative card-hover`}>
-                                                    <div className={`h-1 w-full ${typeColors[p.type] || 'bg-blue-500'} transition-all duration-300 group-hover:h-1.5`}></div>
-
-                                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
-                                                        <button
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                openModal(p);
-                                                            }}
-                                                            className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-athlix-red shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
-                                                        >
-                                                            <Pencil size={12} />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                handleDelete(p.id);
-                                                            }}
-                                                            className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-red-600 shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                        </button>
-                                                    </div>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setDetailModal(p)}
-                                                        className="w-full text-left"
-                                                    >
-                                                        <CardContent className="p-3 sm:p-4 space-y-2.5">
-                                                            <div className="flex items-start justify-between gap-2 pr-10">
-                                                                <h4 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors">{p.title}</h4>
-                                                                <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shrink-0 ${typeColors[p.type] || 'bg-blue-500'}`}>
-                                                                    {p.type}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
-                                                                <Clock size={11} />
-                                                                {p.time}
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-                                                                <User size={11} className="text-athlix-red" />
-                                                                <span className="truncate">{p.coach}</span>
-                                                            </div>
-                                                            {isAllDojos && p.dojo_name && (
-                                                                <div className="flex items-center gap-1.5 text-xs text-blue-500">
-                                                                    <MapPin size={11} />
-                                                                    <span className="truncate">{p.dojo_name}</span>
-                                                                </div>
-                                                            )}
-                                                            {(p.agenda_items || []).length > 0 && (
-                                                                <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
-                                                                    <Tag size={10} />
-                                                                    {p.agenda_items.length} sesi agenda
-                                                                    <ChevronRight size={10} />
-                                                                </div>
-                                                            )}
-                                                        </CardContent>
-                                                    </button>
-                                                </Card>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="p-4 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 text-xs text-neutral-400 italic text-center bg-neutral-50/50 dark:bg-neutral-900/30">
-                                            Libur / Mandiri
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Chart Performa Club */}
-                    {clubPerformanceStats && clubPerformanceStats.length > 0 && (
-                        <div className="mt-16 sm:mt-24 animate-fade-in-up fill-both" style={{ animationDelay: '300ms' }}>
-                            <div className="flex items-center justify-between mb-4 px-2">
+                    {/* Chart Rekap Performa Club — paling atas */}
+                    {isProOrAdvance && clubPerformanceStats && clubPerformanceStats.length > 0 && (
+                        <div className="animate-fade-in-up fill-both" style={{ animationDelay: '100ms' }}>
+                            <div className="flex items-center justify-between mb-3 px-2">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-athlix-red"></div>
                                     <h3 className="text-sm font-black uppercase tracking-widest text-neutral-500">Rekap Performa Atlet (Club)</h3>
                                 </div>
                                 <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Data dari seluruh atlet</div>
                             </div>
-                            <Card className="border-neutral-200/80 dark:border-neutral-800 p-3 sm:p-6 overflow-hidden">
-                                <div className="w-full overflow-x-auto pb-4">
-                                    <div className="h-[350px] sm:h-[500px] min-w-[600px] sm:min-w-0">
+                            <Card className="border-neutral-200/80 dark:border-neutral-800 p-2 sm:p-4 overflow-hidden">
+                                <div className="w-full overflow-x-auto pb-2">
+                                    <div className="h-[250px] sm:h-[350px] min-w-[600px] sm:min-w-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart
                                                 data={clubPerformanceStats}
-                                                margin={{ top: 20, right: 10, left: 0, bottom: 40 }}
+                                                margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
                                             >
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
                                                 <XAxis
@@ -448,16 +320,16 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                                     angle={-45}
                                                     textAnchor="end"
                                                     interval={0}
-                                                    height={80}
+                                                    height={70}
                                                     tick={{ fontSize: 9, fontWeight: 'bold', fill: '#888' }}
                                                     dy={10}
                                                 />
                                                 <YAxis
                                                     domain={[0, 100]}
-                                                    ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+                                                    ticks={[0, 25, 50, 75, 100]}
                                                     tick={{ fontSize: 9, fill: '#888' }}
                                                     tickFormatter={(val) => `${val}`}
-                                                    width={35}
+                                                    width={30}
                                                 />
                                                 <Tooltip
                                                     contentStyle={{
@@ -499,8 +371,142 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                         </div>
                     )}
 
+                    {/* Section Program Mingguan — label + button + grid jadi satu blok */}
+                    <div className="space-y-4 pt-4 sm:pt-6 animate-fade-in-up fill-both" style={{ animationDelay: '200ms' }}>
+                        <div className="flex items-center justify-between px-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-athlix-red"></div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-neutral-500">
+                                    Program Mingguan
+                                    {isAllDojos && (
+                                        <span className="text-xs font-normal normal-case tracking-normal text-neutral-400 ml-2">— Semua Club</span>
+                                    )}
+                                </h3>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {isSuperAdmin && dojos.length > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                        <DbSelect
+                                            inputId="filter-dojo"
+                                            className="min-w-[180px]"
+                                            options={filterDojoOptions}
+                                            value={selectedDojoId ? String(selectedDojoId) : ''}
+                                            placeholder="Semua Club"
+                                            onChange={handleFilterDojoChange}
+                                        />
+                                        {selectedDojoId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFilterDojoChange('')}
+                                                className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                                title="Tampilkan semua club"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                <Button
+                                    onClick={() => openModal()}
+                                    className="h-10 px-6 rounded-xl font-black uppercase tracking-widest gap-2 bg-athlix-red hover:bg-red-700 text-white shadow-lg shadow-athlix-red/20 transition-all active:scale-95"
+                                    disabled={isSuperAdmin && dojos.length > 0 && !dojoId}
+                                >
+                                    <Plus size={16} />
+                                    <span className="hidden sm:inline">Tambah Program</span>
+                                    <span className="sm:hidden">Tambah</span>
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-6 sm:gap-4">
+                            {days.map((day, dayIdx) => (
+                                <div key={day} className="space-y-3 animate-fade-in-up fill-both" style={{ animationDelay: `${dayIdx * 60}ms` }}>
+                                    <div className="flex items-center gap-2 px-2">
+                                        <div className="w-2 h-2 rounded-full bg-athlix-red animate-pulse"></div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-neutral-500">{day}</h4>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {weeklySchedule[day] && weeklySchedule[day].length > 0 ? (
+                                            weeklySchedule[day].map((p) => {
+                                                return (
+                                                    <Card key={p.id} className={`border-neutral-200/80 dark:border-neutral-800 group hover:border-athlix-red/40 transition-all duration-300 overflow-hidden relative card-hover`}>
+                                                        <div className={`h-1 w-full ${typeColors[p.type] || 'bg-blue-500'} transition-all duration-300 group-hover:h-1.5`}></div>
+
+                                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    openModal(p);
+                                                                }}
+                                                                className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-athlix-red shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
+                                                            >
+                                                                <Pencil size={12} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    handleDelete(p.id);
+                                                                }}
+                                                                className="p-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 text-neutral-500 hover:text-red-600 shadow-sm border border-neutral-100 dark:border-neutral-800 transition-colors active:scale-95"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDetailModal(p)}
+                                                            className="w-full text-left"
+                                                        >
+                                                            <CardContent className="p-3 sm:p-4 space-y-2.5">
+                                                                <div className="flex items-start justify-between gap-2 pr-10">
+                                                                    <h5 className="text-xs font-bold leading-tight group-hover:text-athlix-red transition-colors">{p.title}</h5>
+                                                                    <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shrink-0 ${typeColors[p.type] || 'bg-blue-500'}`}>
+                                                                        {p.type}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
+                                                                    <Clock size={11} />
+                                                                    {p.time}
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                                                                    <User size={11} className="text-athlix-red" />
+                                                                    <span className="truncate">{p.coach}</span>
+                                                                </div>
+                                                                {isAllDojos && p.dojo_name && (
+                                                                    <div className="flex items-center gap-1.5 text-xs text-blue-500">
+                                                                        <MapPin size={11} />
+                                                                        <span className="truncate">{p.dojo_name}</span>
+                                                                    </div>
+                                                                )}
+                                                                {(p.agenda_items || []).length > 0 && (
+                                                                    <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+                                                                        <Tag size={10} />
+                                                                        {p.agenda_items.length} sesi agenda
+                                                                        <ChevronRight size={10} />
+                                                                    </div>
+                                                                )}
+                                                            </CardContent>
+                                                        </button>
+                                                    </Card>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="p-4 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 text-xs text-neutral-400 italic text-center bg-neutral-50/50 dark:bg-neutral-900/30">
+                                                Libur / Mandiri
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* PPA Card Section */}
-                    {(!isAllDojos || isSuperAdmin) && (
+                    {isProOrAdvance && (!isAllDojos || isSuperAdmin) && (
                         <div className="mt-16 sm:mt-24 animate-fade-in-up fill-both" style={{ animationDelay: '400ms' }}>
                             <div className="flex items-center justify-between mb-4 px-2">
                                 <div className="flex items-center gap-2">
@@ -704,7 +710,8 @@ export default function Index({ auth, weeklySchedule, dojos = [], selectedDojoId
                                         inputId="training-programs-dojo-form"
                                         className="mt-1"
                                         options={dojoOptions}
-                                        value={data.dojo_id || ''}
+                                        value={data.dojo_id || ''
+                                        }
                                         placeholder="Pilih Club"
                                         onChange={(next) => setData('dojo_id', next)}
                                     />

@@ -20,7 +20,7 @@ const resolveAbilityStatus = (scores) => {
     return average > 0 ? 'Perlu Pembinaan' : 'Belum Dinilai';
 };
 
-export default function Index({ auth, athletes = [], dojos = [], selectedDojoId, selectedId, selectedAthlete, performance, reportHistory = [], reportCategories = [], filters }) {
+export default function Index({ auth, athletes = [], dojos = [], selectedDojoId, selectedId, selectedAthlete, performance, reportHistory = [], reportCategories = [], testLabels = [], filters }) {
     const [search, setSearch] = useState(filters?.search || '');
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -122,14 +122,14 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
 
     const categorySeries = useMemo(() => {
         if (!reportCategories.length) return performance?.categories?.map((item) => ({ label: item?.label, score: Number(item?.score) })) || [];
-        return reportCategories.map((cat) => {
+        return reportCategories.filter(cat => activeReport ? String(cat.test_label_id) === String(activeReport.test_label_id) : true).map((cat) => {
             const catSnapshot = snapshot?.categories?.[cat?.id];
             return {
                 label: cat?.name,
                 score: Number(catSnapshot?.score ?? 0),
             };
         });
-    }, [reportCategories, snapshot, performance]);
+    }, [reportCategories, snapshot, performance, activeReport]);
 
     const conditionScore = useMemo(() => {
         if (activeReport) {
@@ -186,6 +186,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
         recorded_at: new Date().toISOString().slice(0, 10),
         latest_height: selectedAthlete?.latest_height || '',
         latest_weight: selectedAthlete?.latest_weight || '',
+        test_label_id: '',
     });
 
     const reportEditForm = useForm({
@@ -197,6 +198,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
         recorded_at: '',
         latest_height: '',
         latest_weight: '',
+        test_label_id: '',
     });
 
     const openEditReport = (report) => {
@@ -219,6 +221,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
             recorded_at: report?.recorded_at,
             latest_height: snap?.anthropometry?.height ?? selectedAthlete?.latest_height ?? '',
             latest_weight: snap?.anthropometry?.weight ?? selectedAthlete?.latest_weight ?? '',
+            test_label_id: report?.test_label_id || '',
         });
         setReportEditModalOpen(true);
     };
@@ -234,6 +237,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
             recorded_at: new Date().toISOString().slice(0, 10),
             latest_height: selectedAthlete?.latest_height || '',
             latest_weight: selectedAthlete?.latest_weight || '',
+            test_label_id: '',
         });
     };
 
@@ -459,8 +463,22 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-neutral-800/50 text-sm text-neutral-600 italic">
-                                                        "{activeReport?.notes || 'Tidak ada catatan.'}"
+                                                    <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-neutral-800/50 text-sm text-neutral-600 flex flex-col gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold uppercase text-[10px] text-neutral-400 tracking-wider shrink-0">Test Label:</span>
+                                                            {(() => {
+                                                                const lbl = testLabels.find(l => String(l.id) === String(activeReport?.test_label_id));
+                                                                return lbl ? (
+                                                                    <span className="px-2 py-0.5 rounded bg-athlix-red/5 text-athlix-red font-black border border-athlix-red/10">{lbl.name}</span>
+                                                                ) : (
+                                                                    <span className="text-neutral-400 italic font-medium">Umum (Tanpa Label)</span>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                        <div className="flex items-start gap-2 italic">
+                                                            <span className="font-bold uppercase text-[10px] text-neutral-400 tracking-wider shrink-0 mt-1 not-italic">Catatan:</span>
+                                                            <span>"{activeReport?.notes || 'Tidak ada catatan.'}"</span>
+                                                        </div>
                                                     </div>
                                                 </>
                                             ) : (
@@ -536,7 +554,9 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                             <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-3">
-                                            {reportCategories.map((cat) => {
+                                            {reportCategories
+                                                .filter(cat => activeReport ? String(cat.test_label_id) === String(activeReport.test_label_id) : true)
+                                                .map((cat) => {
                                                 const catSnapshot = snapshot?.categories?.[cat.id];
                                                 const catScore = Number(catSnapshot?.score ?? 0);
                                                 const scoreColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-athlix-red';
@@ -618,87 +638,95 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {reportCategories.map((cat) => {
-                            const subs = cat.sub_categories || [];
-                            const subScores = subs.map((sub) => {
-                                const tests = sub.tests || [];
-                                const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
-                                return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                            });
-                            const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
-                            const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
-                            return (
-                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
-                                        <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
-                                    </div>
-                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {subs.map((sub) => {
-                                            const tests = sub.tests || [];
-                                            const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
-                                            const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                                            const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                            return (
-                                                <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
-                                                        <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        {tests.map((test) => {
-                                                            const rawVal = reportEditForm.data.test_values[String(test.id)] ?? 0;
-                                                            const previewScore = calcTestScore(test, rawVal);
-                                                            const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
-                                                            const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
-                                                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                                            const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
-
-                                                            return (
-                                                                <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
-                                                                    <div className="flex items-center justify-between gap-2">
-                                                                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                                                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
-                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
-                                                                            {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
-                                                                        </div>
-                                                                        <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            step="0.1"
-                                                                            min="0"
-                                                                            className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0"
-                                                                            value={rawVal}
-                                                                            onChange={(e) => {
-                                                                                const curr = { ...reportEditForm.data.test_values };
-                                                                                curr[String(test.id)] = parseFloat(e.target.value) || 0;
-                                                                                reportEditForm.setData('test_values', curr);
-                                                                            }}
-                                                                        />
-                                                                        <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                                                                            <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
-                                                                        </div>
-                                                                        <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
-                                                                        {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Label Test *</label>
+                            <DbSelect
+                                inputId="edit-report-label-select"
+                                options={(testLabels || []).map(l => ({ value: String(l.id), label: l.name }))}
+                                value={reportEditForm.data.test_label_id}
+                                onChange={v => reportEditForm.setData('test_label_id', v)}
+                                placeholder="Pilih Label (Senior/Junior/dll)"
+                            />
+                        </div>
                     </div>
+
+                    {!reportEditForm.data.test_label_id ? (
+                        <div className="p-12 text-center bg-neutral-50 dark:bg-neutral-900 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-800">
+                            <p className="text-sm font-bold text-neutral-500">Pilih Label Test terlebih dahulu.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {reportCategories.filter(cat => String(cat.test_label_id) === String(reportEditForm.data.test_label_id)).map((cat) => {
+                                const subs = cat.sub_categories || [];
+                                const subScores = subs.map((sub) => {
+                                    const tests = sub.tests || [];
+                                    const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
+                                    return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                });
+                                const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
+                                const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
+                                return (
+                                    <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                        <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                            <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                            <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                        </div>
+                                        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                            {subs.map((sub) => {
+                                                const tests = sub.tests || [];
+                                                const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
+                                                const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                                const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                return (
+                                                    <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
+                                                            <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {tests.map((test) => {
+                                                                const rawVal = reportEditForm.data.test_values[String(test.id)] ?? 0;
+                                                                const previewScore = calcTestScore(test, rawVal);
+                                                                const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
+                                                                const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
+                                                                const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                                const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
+    
+                                                                return (
+                                                                    <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
+                                                                        <div className="flex items-center justify-between gap-2">
+                                                                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                                                <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
+                                                                                <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
+                                                                                {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
+                                                                            </div>
+                                                                            <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input type="number" step="0.1" min="0" className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0" value={rawVal} onChange={(e) => { const curr = { ...reportEditForm.data.test_values }; curr[String(test.id)] = parseFloat(e.target.value) || 0; reportEditForm.setData('test_values', curr); }} placeholder={`Masukkan ${unitLabel}`} />
+                                                                            <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                                                                <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                            </div>
+                                                                            <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
+                                                                            {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Nama Rapor
@@ -747,76 +775,96 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                             <p className="text-xs text-red-600/80 dark:text-red-400/80">{reportError}</p>
                         </div>
                     )}
-                    <div className="space-y-4">
-                        {reportCategories.map((cat) => {
-                            const subs = cat.sub_categories || [];
-                            const subScores = subs.map((sub) => {
-                                const tests = sub.tests || [];
-                                const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
-                                return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                            });
-                            const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
-                            const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
-                            return (
-                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
-                                        <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
-                                    </div>
-                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {subs.map((sub) => {
-                                            const tests = sub.tests || [];
-                                            const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
-                                            const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                                            const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                            return (
-                                                <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
-                                                        <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        {tests.map((test) => {
-                                                            const rawVal = reportForm.data.test_values[String(test.id)] ?? 0;
-                                                            const previewScore = calcTestScore(test, rawVal);
-                                                            const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
-                                                            const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
-                                                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                                            const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
-
-                                                            return (
-                                                                <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
-                                                                    <div className="flex items-center justify-between gap-2">
-                                                                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                                                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
-                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
-                                                                            {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
-                                                                        </div>
-                                                                        <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <input type="number" step="0.1" min="0" className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0" value={rawVal} onChange={(e) => { const curr = { ...reportForm.data.test_values }; curr[String(test.id)] = parseFloat(e.target.value) || 0; reportForm.setData('test_values', curr); }} placeholder={`Masukkan ${unitLabel}`} />
-                                                                        <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                                                                            <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
-                                                                        </div>
-                                                                        <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
-                                                                        {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Label Test *</label>
+                            <DbSelect
+                                inputId="report-label-select"
+                                options={(testLabels || []).map(l => ({ value: String(l.id), label: l.name }))}
+                                value={reportForm.data.test_label_id}
+                                onChange={v => reportForm.setData('test_label_id', v)}
+                                placeholder="Pilih Label (Senior/Junior/dll)"
+                            />
+                        </div>
                     </div>
+
+                    {!reportForm.data.test_label_id ? (
+                        <div className="flex flex-col items-center justify-center p-12 bg-neutral-50 dark:bg-neutral-900/50 rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 space-y-4">
+                            <Search size={32} className="text-neutral-400" />
+                            <p className="text-sm font-bold text-neutral-500">Pilih Label Test terlebih dahulu.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {reportCategories.filter(cat => String(cat.test_label_id) === String(reportForm.data.test_label_id)).map((cat) => {
+                                const subs = cat.sub_categories || [];
+                                const subScores = subs.map((sub) => {
+                                    const tests = sub.tests || [];
+                                    const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
+                                    return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                });
+                                const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
+                                const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
+                                return (
+                                    <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                        <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                            <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                            <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                        </div>
+                                        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                            {subs.map((sub) => {
+                                                const tests = sub.tests || [];
+                                                const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
+                                                const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                                const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                return (
+                                                    <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
+                                                            <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {tests.map((test) => {
+                                                                const rawVal = reportForm.data.test_values[String(test.id)] ?? 0;
+                                                                const previewScore = calcTestScore(test, rawVal);
+                                                                const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
+                                                                const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
+                                                                const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                                const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
+    
+                                                                return (
+                                                                    <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
+                                                                        <div className="flex items-center justify-between gap-2">
+                                                                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                                                <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
+                                                                                <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
+                                                                                {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
+                                                                            </div>
+                                                                            <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input type="number" step="0.1" min="0" className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0" value={rawVal} onChange={(e) => { const curr = { ...reportForm.data.test_values }; curr[String(test.id)] = parseFloat(e.target.value) || 0; reportForm.setData('test_values', curr); }} placeholder={`Masukkan ${unitLabel}`} />
+                                                                            <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                                                                <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                            </div>
+                                                                            <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
+                                                                            {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Nama Rapor

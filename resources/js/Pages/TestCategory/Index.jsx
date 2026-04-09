@@ -8,11 +8,14 @@ import { ClipboardList, Plus, Pencil, Trash2, X, Loader2, AlertTriangle, Info, A
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
-export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, categories = [] }) {
+export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, categories = [], labels = [], selectedLabelId }) {
     const isSuperAdmin = auth?.user?.role === 'super_admin';
 
     const [catFormProcessing, setCatFormProcessing] = useState(false);
-    const [catForm, setCatForm] = useState({ name: '' });
+    const [catForm, setCatForm] = useState({ name: '', test_label_id: selectedLabelId });
+
+    const [labelFormProcessing, setLabelFormProcessing] = useState(false);
+    const [labelForm, setLabelForm] = useState({ name: '' });
 
     // ── Portal & universal modal states ──
     const [portalRoot, setPortalRoot] = useState(null);
@@ -110,12 +113,36 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
 
     const submitCategory = (e) => {
         e.preventDefault();
+        if (!selectedLabelId) {
+            alert('Pilih label terlebih dahulu.');
+            return;
+        }
         setCatFormProcessing(true);
-        router.post(route('report-categories.store'), { ...catForm, dojo_id: selectedDojoId }, {
+        router.post(route('report-categories.store'), { ...catForm, dojo_id: selectedDojoId, test_label_id: selectedLabelId }, {
             preserveScroll: true,
-            onSuccess: () => setCatForm({ name: '' }),
+            onSuccess: () => setCatForm({ name: '', test_label_id: selectedLabelId }),
             onFinish: () => setCatFormProcessing(false),
         });
+    };
+
+    const submitLabel = (e) => {
+        e.preventDefault();
+        setLabelFormProcessing(true);
+        router.post(route('report-labels.store'), { ...labelForm, dojo_id: selectedDojoId }, {
+            preserveScroll: true,
+            onSuccess: () => setLabelForm({ name: '' }),
+            onFinish: () => setLabelFormProcessing(false),
+        });
+    };
+
+    const handleLabelChange = (labelId) => {
+        router.get(route('report-categories.index'), { dojo_id: selectedDojoId, label_id: labelId }, { preserveState: false });
+    };
+
+    const deleteLabel = async (labelId) => {
+        const ok = await showConfirm('Hapus Label', 'Hapus label ini? Semua kategori yang terhubung akan ikut terhapus!');
+        if (!ok) return;
+        router.delete(route('report-labels.destroy', labelId), { preserveScroll: true });
     };
 
     const deleteCategory = async (catId) => {
@@ -413,30 +440,108 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                         </CardContent>
                     </Card>
 
-                    {/* Add Category */}
-                    <Card className="border-neutral-200/80 dark:border-neutral-800">
-                        <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
-                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Tambah Kategori Baru</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 sm:p-6">
-                            <form onSubmit={submitCategory} className="flex items-end gap-3">
-                                <div className="flex-1 space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Nama Kategori</label>
-                                    <Input value={catForm.name} onChange={(e) => setCatForm({ ...catForm, name: e.target.value })} placeholder="Contoh: Power, Strength, Speed..." required />
-                                </div>
-                                <Button type="submit" disabled={catFormProcessing} className="shrink-0 gap-1.5">
-                                    {catFormProcessing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                                    <span className="hidden sm:inline">Tambah</span>
-                                </Button>
-                            </form>
-                        </CardContent>
-                    </Card>
-
-                    {/* Hierarchy */}
-                    {categories.length > 0 ? (
+                    {/* Add Label Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
                             <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Struktur Test (Kategori › Sub-Kategori › Test)</CardTitle>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Tambah Label Baru</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6">
+                                <form onSubmit={submitLabel} className="flex items-end gap-3">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Nama Label</label>
+                                        <Input value={labelForm.name} onChange={(e) => setLabelForm({ ...labelForm, name: e.target.value })} placeholder="Contoh: Senior, Junior, Beginner..." required />
+                                    </div>
+                                    <Button type="submit" disabled={labelFormProcessing} className="shrink-0 gap-1.5">
+                                        {labelFormProcessing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                        <span className="hidden sm:inline">Tambah</span>
+                                    </Button>
+                                </form>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Pilih Label / Kategori Test</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6 space-y-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Pilih Label Untuk Melihat Struktur</label>
+                                    <div className="flex gap-2">
+                                        <div className="flex-1">
+                                            <DbSelect
+                                                inputId="label-select"
+                                                options={labels.map(l => ({ value: String(l.id), label: l.name }))}
+                                                value={String(selectedLabelId || '')}
+                                                onChange={handleLabelChange}
+                                                placeholder="Pilih Label"
+                                            />
+                                        </div>
+                                        {selectedLabelId > 0 && (
+                                            <div className="flex gap-1">
+                                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 border-neutral-200 dark:border-neutral-700 hover:text-blue-600" onClick={async () => {
+                                                    const current = labels.find(l => l.id === selectedLabelId);
+                                                    const name = await showPrompt('Ubah Label', 'Ubah nama label:', current?.name);
+                                                    if (name && name !== current?.name) router.patch(route('report-labels.update', selectedLabelId), { name }, { preserveScroll: true });
+                                                }}>
+                                                    <Pencil size={16} />
+                                                </Button>
+                                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 border-neutral-200 dark:border-neutral-700 hover:text-red-600" onClick={() => deleteLabel(selectedLabelId)}>
+                                                    <Trash2 size={16} />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Add Category */}
+                    {labels.length > 0 && selectedLabelId > 0 && (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">
+                                    Tambah Kategori Baru untuk Label: <span className="text-neutral-900 dark:text-neutral-100">{labels.find(l => l.id === selectedLabelId)?.name}</span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6">
+                                <form onSubmit={submitCategory} className="flex items-end gap-3">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Nama Kategori</label>
+                                        <Input value={catForm.name} onChange={(e) => setCatForm({ ...catForm, name: e.target.value })} placeholder="Contoh: Power, Strength, Speed..." required />
+                                    </div>
+                                    <Button type="submit" disabled={catFormProcessing} className="shrink-0 gap-1.5">
+                                        {catFormProcessing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                        <span className="hidden sm:inline">Tambah</span>
+                                    </Button>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Hierarchy */}
+                    {labels.length === 0 ? (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardContent className="p-12 text-center text-neutral-500">
+                                <AlertCircle size={48} className="mx-auto mb-4 text-athlix-red/50" />
+                                <p className="font-bold text-neutral-900 dark:text-neutral-100">Belum ada label test yang dibuat.</p>
+                                <p className="text-xs text-neutral-400 mt-1">Anda harus menginput label dulu (contoh: Senior, Junior) sebelum bisa membuat kategori test.</p>
+                            </CardContent>
+                        </Card>
+                    ) : !selectedLabelId ? (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardContent className="p-12 text-center text-neutral-500">
+                                <Info size={48} className="mx-auto mb-4 text-blue-400/50" />
+                                <p className="font-bold">Silakan pilih label untuk melihat struktur test.</p>
+                            </CardContent>
+                        </Card>
+                    ) : categories.length > 0 ? (
+                        <Card className="border-neutral-200/80 dark:border-neutral-800">
+                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800 flex flex-row items-center justify-between">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">
+                                    Struktur Test Label: {labels.find(l => l.id === selectedLabelId)?.name}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 sm:p-6 space-y-4">
                                 {categories.map((cat) => (
@@ -564,7 +669,7 @@ export default function TestCategoryIndex({ auth, dojos = [], selectedDojoId, ca
                         <Card className="border-neutral-200/80 dark:border-neutral-800">
                             <CardContent className="p-12 text-center text-neutral-500">
                                 <ClipboardList size={48} className="mx-auto mb-4 text-neutral-300" />
-                                <p className="font-bold">Belum ada data kategori test untuk club ini.</p>
+                                <p className="font-bold">Belum ada data kategori test untuk label ini.</p>
                                 <p className="text-xs text-neutral-400 mt-1 italic">Silakan mulai dengan menambahkan kategori pertama pada form di atas.</p>
                             </CardContent>
                         </Card>

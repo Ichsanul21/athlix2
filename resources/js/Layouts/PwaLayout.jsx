@@ -15,6 +15,7 @@ import { useLanguage } from '@/Components/LanguageProvider';
 import LanguageSwitch from '@/Components/LanguageSwitch';
 import { registerWebNotificationDevice } from '@/lib/notificationDevice';
 import GlobalFlashModal from '@/Components/GlobalFlashModal';
+import BillingGraceModal from '@/Components/BillingGraceModal';
 
 export default function PwaLayout({ user, header, children }) {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -289,6 +290,7 @@ export default function PwaLayout({ user, header, children }) {
                 }} />
             )}
             <GlobalFlashModal />
+            <BillingGraceModal />
 
             {/* Install Banner */}
             {showInstallBanner && (

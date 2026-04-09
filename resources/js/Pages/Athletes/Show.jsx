@@ -6,8 +6,10 @@ import { Input } from '@/Components/ui/input';
 import { Skeleton } from '@/Components/ui/skeleton';
 import Modal from '@/Components/Modal';
 import DbSelect from '@/Components/DbSelect';
-import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, AlertTriangle } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { ArrowLeft, Trash2, FileText, FilePlus2, Trophy, Pencil, X, Loader2, User, Phone, Mail, FileCheck, AlertTriangle, FileUp, Download, Zap, AlertCircle, Search, Radar } from 'lucide-react';
+import InputLabel from '@/Components/InputLabel';
+import InputError from '@/Components/InputError';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar as RadarArea } from 'recharts';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -23,7 +25,9 @@ const resolveAbilityStatus = (scores) => {
     return average > 0 ? 'Perlu Pembinaan' : 'Belum Dinilai';
 };
 
-export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [], reportCategories = [], dojoAthletes = [] }) {
+export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [], reportCategories = [], testLabels = [], dojoAthletes = [] }) {
+    const saasPlan = auth?.dojo?.saas_plan_name ?? 'Basic';
+    const isProOrAdvance = ['Pro', 'Advance'].includes(saasPlan);
     const isLoading = !athlete || !performance;
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [achievementModalOpen, setAchievementModalOpen] = useState(false);
@@ -44,6 +48,30 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const [phoneChecking, setPhoneChecking] = useState(false);
     const [phoneError, setPhoneError] = useState('');
     const [portalRoot, setPortalRoot] = useState(null);
+
+    const { data: ppaData, setData: setPpaData, post: postPpa, processing: ppaProcessing, errors: ppaErrors, reset: ppaReset } = useForm({
+        ppa_file: null,
+    });
+    const [ppaPreview, setPpaPreview] = useState(null);
+
+    useEffect(() => {
+        if (athlete?.ppa_file_path && athlete.ppa_file_path.endsWith('.pdf')) {
+            setPpaPreview(`/storage/${athlete.ppa_file_path}`);
+        } else {
+            setPpaPreview(null);
+        }
+    }, [athlete]);
+
+    const handlePpaUpload = (e) => {
+        e.preventDefault();
+        postPpa(route('athletes.ppa-upload', athlete.id), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                ppaReset('ppa_file');
+            },
+        });
+    };
 
     const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', variant: 'danger' });
     const [alertModal, setAlertModal] = useState({ open: false, title: '', message: '' });
@@ -135,7 +163,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
 
     const categorySeries = useMemo(() => {
         if (!reportCategories.length) return performance?.categories?.map((item) => ({ label: item?.label, score: Number(item?.score) })) || [];
-        return reportCategories.map((cat) => {
+        return reportCategories.filter(cat => activeReport ? String(cat.test_label_id) === String(activeReport.test_label_id) : true).map((cat) => {
             const catSnapshot = snapshot?.categories?.[cat?.id];
             return {
                 label: cat?.name,
@@ -391,6 +419,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         recorded_at: new Date().toISOString().slice(0, 10),
         latest_height: athlete?.latest_height || '',
         latest_weight: athlete?.latest_weight || '',
+        test_label_id: '',
     });
 
     const reportEditForm = useForm({
@@ -402,6 +431,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         recorded_at: '',
         latest_height: '',
         latest_weight: '',
+        test_label_id: '',
     });
 
     const openEditReport = (report) => {
@@ -424,6 +454,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             recorded_at: report?.recorded_at,
             latest_height: snap?.anthropometry?.height ?? athlete?.latest_height ?? '',
             latest_weight: snap?.anthropometry?.weight ?? athlete?.latest_weight ?? '',
+            test_label_id: report?.test_label_id || '',
         });
         setReportEditModalOpen(true);
     };
@@ -449,6 +480,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
             recorded_at: new Date().toISOString().slice(0, 10),
             latest_height: athlete?.latest_height || '',
             latest_weight: athlete?.latest_weight || '',
+            test_label_id: '',
         });
     };
 
@@ -474,7 +506,6 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                 setReportModalOpen(false);
                 setReportError('');
 
-                // Otomatis pilih rapor yang baru saja dibuat (terbaru)
                 const newReports = page.props.reportHistory || [];
                 if (newReports.length > 0) {
                     const sorted = [...newReports].sort((a, b) =>
@@ -701,182 +732,366 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                         </CardContent>
                     </Card>
 
-                    <Card className="border-neutral-200/80 dark:border-neutral-800">
-                        <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Riwayat Rapor Kemampuan Atlet</CardTitle>
-                                {isSensei && (
-                                    <Button type="button" className="w-full sm:w-auto gap-2" onClick={() => { resetReportForm(); setReportModalOpen(true); }}>
-                                        <FilePlus2 size={14} /> Tambah Rapor
-                                    </Button>
-                                )}
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3 pt-4">
-                            {reportOptions.length > 0 ? (
-                                <>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <DbSelect inputId="report-history-select" options={reportOptions} value={String(selectedReportId || '')} onChange={(next) => setSelectedReportId(next)} placeholder="Pilih data rapor" />
-                                        </div>
-                                        {isSensei && selectedReportId && (
-                                            <div className="flex gap-2">
-                                                <Button type="button" variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => openEditReport(activeReport)}>
-                                                    <Pencil size={14} />
-                                                </Button>
-                                                <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={handleDeleteReport}>
-                                                    <Trash2 size={14} />
-                                                </Button>
-                                            </div>
+                    {isProOrAdvance && (
+                        <>
+                            <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                <CardHeader className="border-b border-neutral-100 dark:border-neutral-800">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Riwayat Rapor Kemampuan Atlet</CardTitle>
+                                        {isSensei && (
+                                            <Button type="button" className="w-full sm:w-auto gap-2" onClick={() => { resetReportForm(); setReportModalOpen(true); }}>
+                                                <FilePlus2 size={14} /> Tambah Rapor
+                                            </Button>
                                         )}
                                     </div>
-                                    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 text-xs text-neutral-600">
-                                        Catatan rapor: {activeReport?.notes || 'Belum ada catatan.'}
-                                    </div>
-                                </>
-                            ) : (
-                                <p className="text-sm text-neutral-500">Belum ada data rapor.{isSensei ? ' Tambahkan data pertama melalui tombol tambah rapor.' : ''}</p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Condition Atlet</CardTitle></CardHeader>
-                            <CardContent className="h-72 relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={conditionData} cx="50%" cy="50%" innerRadius={68} outerRadius={88} dataKey="value" stroke="none">
-                                            {conditionData.map((entry, index) => <Cell key={`condition-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-5">
-                                    <div className="text-4xl font-black text-athlix-red">{conditionScore}%</div>
-                                </div>
-                                <div className="pointer-events-none absolute bottom-5 left-0 w-full flex justify-center">
-                                    <div className="rounded-full bg-neutral-100 px-3 py-1 shadow-sm border border-neutral-200">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
-                                            IMT (BMI): <span className="text-athlix-red">{performance?.bmi || '-'}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-neutral-200/80 dark:border-neutral-800">
-                            <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Skor Kemampuan Atlet</CardTitle></CardHeader>
-                            <CardContent className="h-72 relative flex flex-col items-center justify-center">
-                                <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
-                                    <span className="text-7xl font-black text-athlix-red -mt-5">{averageScore}</span>
-                                </div>
-                                <ResponsiveContainer width="100%" height="85%" className="relative z-10">
-                                    <RadarChart data={categorySeries}>
-                                        <PolarGrid stroke="#88888833" />
-                                        <PolarAngleAxis dataKey="label" tick={{ fontSize: 10 }} />
-                                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                                        <Tooltip />
-                                        <Radar dataKey="score" stroke="#DC2626" fill="#DC2626" fillOpacity={0.3} />
-                                    </RadarChart>
-                                </ResponsiveContainer>
-                                <p className="text-xs text-center font-bold uppercase tracking-widest text-neutral-500 mt-2">
-                                    Rata-rata skor: {averageScore} | Status: {abilityStatus}
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <Card className="border-neutral-200/80 dark:border-neutral-800">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {reportCategories.map((cat) => {
-                                const catSnapshot = snapshot?.categories?.[cat.id];
-                                const catScore = Number(catSnapshot?.score ?? 0);
-                                const scoreColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-athlix-red';
-                                const subs = cat.sub_categories || [];
-
-                                return (
-                                    <div key={cat.id} className="space-y-3 border-b border-neutral-100 dark:border-neutral-800 pb-4 last:border-0 last:pb-0">
-                                        <div className="flex items-center justify-between text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`font-black text-sm ${scoreColor}`}>{catScore}<span className="text-neutral-400 text-[10px] font-bold">/100</span></span>
-                                            </div>
-                                        </div>
-                                        <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-500 ${catScore >= 80 ? 'bg-emerald-500' : catScore >= 50 ? 'bg-amber-500' : 'bg-athlix-red'}`} style={{ width: `${Math.max(0, Math.min(100, catScore))}%` }} />
-                                        </div>
-
-                                        <div className="space-y-2 mt-2 ml-4 pl-4 border-l-2 border-neutral-100 dark:border-neutral-800">
-                                            {subs.map((sub) => {
-                                                const subSnapshot = snapshot?.sub_categories?.[sub.id];
-                                                const subScore = Number(subSnapshot?.score ?? 0);
-                                                const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                                const subBg = subScore >= 80 ? 'bg-emerald-500' : subScore >= 50 ? 'bg-amber-500' : 'bg-red-500';
-
-                                                return (
-                                                    <div key={sub.id} className="p-2 sm:p-2.5 rounded-xl bg-neutral-50/50 dark:bg-neutral-900/30 space-y-1.5 border border-neutral-100 dark:border-neutral-800/50">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-500 truncate mr-2">{sub.name}</span>
-                                                            <span className={`text-[11px] font-black ${subColor}`}>{subScore}</span>
-                                                        </div>
-                                                        <div className="h-1 rounded-full bg-neutral-200/50 dark:bg-neutral-800/50 overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all duration-700 ${subBg}`} style={{ width: `${Math.max(0, Math.min(100, subScore))}%` }} />
-                                                        </div>
+                                </CardHeader>
+                                <CardContent className="space-y-3 pt-4">
+                                    {reportOptions.length > 0 ? (
+                                        <>
+                                            <div className="flex gap-2">
+                                                <div className="flex-1">
+                                                    <DbSelect inputId="report-history-select" options={reportOptions} value={String(selectedReportId || '')} onChange={(next) => setSelectedReportId(next)} placeholder="Pilih data rapor" />
+                                                </div>
+                                                {isSensei && selectedReportId && (
+                                                    <div className="flex gap-2">
+                                                        <Button type="button" variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => openEditReport(activeReport)}>
+                                                            <Pencil size={14} />
+                                                        </Button>
+                                                        <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={handleDeleteReport}>
+                                                            <Trash2 size={14} />
+                                                        </Button>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {categorySeries.length === 0 && (
-                                <div className="text-center py-8">
-                                    <p className="text-sm text-neutral-400">Belum ada kategori test. Konfigurasi melalui menu <strong>"Kategori Test"</strong> di sidebar.</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {isSensei && (
-                            <Card className="border-neutral-200/80 dark:border-neutral-800">
-                                <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Tambah Prestasi Atlet</CardTitle></CardHeader>
-                                <CardContent>
-                                    <Button type="button" className="w-full gap-2" onClick={() => setAchievementModalOpen(true)}>
-                                        <Trophy size={14} /> Tambah Prestasi (Popup)
-                                    </Button>
+                                                )}
+                                            </div>
+                                            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 text-xs text-neutral-600 flex flex-col gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold uppercase text-[10px] text-neutral-400 tracking-wider shrink-0">Test Label:</span>
+                                                    {(() => {
+                                                        const lbl = testLabels.find(l => String(l.id) === String(activeReport?.test_label_id));
+                                                        return lbl ? (
+                                                            <span className="px-2 py-0.5 rounded bg-athlix-red/5 text-athlix-red font-black border border-athlix-red/10">{lbl.name}</span>
+                                                        ) : (
+                                                            <span className="text-neutral-400 italic">Umum (Tanpa Label)</span>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                <div>
+                                                    <span className="font-bold uppercase text-[10px] text-neutral-400 tracking-wider shrink-0 mr-2">Catatan:</span>
+                                                    {activeReport?.notes || 'Belum ada catatan.'}
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <p className="text-sm text-neutral-500">Belum ada data rapor.{isSensei ? ' Tambahkan data pertama melalui tombol tambah rapor.' : ''}</p>
+                                    )}
                                 </CardContent>
                             </Card>
-                        )}
-                        <Card className={`border-neutral-200/80 dark:border-neutral-800 overflow-hidden ${!isSensei ? 'lg:col-span-2' : ''}`}>
-                            <CardHeader className="border-b border-neutral-100 dark:border-neutral-800"><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Riwayat Prestasi</CardTitle></CardHeader>
-                            <CardContent className="p-0">
-                                {achievementHistory.length > 0 ? achievementHistory.map((achievement) => (
-                                    <div key={achievement.id} className="px-4 py-3 text-sm space-y-1 border-b border-neutral-100 dark:border-neutral-800">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className="font-bold">{achievement.competition_name}</p>
-                                                <p className="text-xs text-neutral-500">{achievement.competition_date} | {achievement.competition_level}</p>
-                                            </div>
-                                            {isSensei && (
-                                                <button type="button" className="p-1 rounded text-red-500 hover:bg-red-50" onClick={() => deleteAchievement(achievement.id)}>
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            )}
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                    <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Condition Atlet</CardTitle></CardHeader>
+                                    <CardContent className="h-72 relative">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={conditionData} cx="50%" cy="50%" innerRadius={68} outerRadius={88} dataKey="value" stroke="none">
+                                                    {conditionData.map((entry, index) => <Cell key={`condition-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                </Pie>
+                                                <Tooltip />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-5">
+                                            <div className="text-4xl font-black text-athlix-red">{conditionScore}%</div>
                                         </div>
-                                        <p className="text-xs text-neutral-600">Hasil: {achievement.result_title || '-'} | Jenis: {achievement.competition_type}</p>
-                                        {achievement.certificate_url && <a href={achievement.certificate_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-athlix-red hover:underline"><FileText size={12} /> Lihat Sertifikat</a>}
+                                        <div className="pointer-events-none absolute bottom-5 left-0 w-full flex justify-center">
+                                            <div className="rounded-full bg-neutral-100 px-3 py-1 shadow-sm border border-neutral-200">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                                                    IMT (BMI): <span className="text-athlix-red">{performance?.bmi || '-'}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                    <CardHeader>
+                                        <CardTitle className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                            <Radar size={14} className="text-athlix-red" /> Skor Kemampuan
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="h-72 relative flex flex-col items-center justify-center">
+                                        <div className="absolute inset-0 z-0 opacity-10 flex items-center justify-center pointer-events-none pb-4">
+                                            <span className="text-7xl font-black text-athlix-red -mt-5">{averageScore}</span>
+                                        </div>
+                                        <ResponsiveContainer width="100%" height="100%" className="relative z-10">
+                                            <RadarChart data={categorySeries}>
+                                                <PolarGrid stroke="#88888833" />
+                                                <PolarAngleAxis dataKey="label" tick={{ fontSize: 10 }} />
+                                                <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                                                <RadarArea dataKey="score" stroke="#DC2626" fill="#DC2626" fillOpacity={0.3} />
+                                                <Tooltip />
+                                            </RadarChart>
+                                        </ResponsiveContainer>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mt-2">
+                                            Rata-rata: {averageScore} | Status: {abilityStatus}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                <CardHeader>
+                                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Detail Kemampuan Atlet</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {reportCategories.filter(cat => activeReport ? String(cat.test_label_id) === String(activeReport.test_label_id) : true).map((cat) => {
+                                        const catSnapshot = snapshot?.categories?.[cat.id];
+                                        const catScore = Number(catSnapshot?.score ?? 0);
+                                        const scoreColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-athlix-red';
+                                        const subs = cat.sub_categories || [];
+
+                                        return (
+                                            <div key={cat.id} className="space-y-3 border-b border-neutral-100 dark:border-neutral-800 pb-4 last:border-0 last:pb-0">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-black text-sm ${scoreColor}`}>{catScore}<span className="text-neutral-400 text-[10px] font-bold">/100</span></span>
+                                                    </div>
+                                                </div>
+                                                <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all duration-500 ${catScore >= 80 ? 'bg-emerald-500' : catScore >= 50 ? 'bg-amber-500' : 'bg-athlix-red'}`} style={{ width: `${Math.max(0, Math.min(100, catScore))}%` }} />
+                                                </div>
+
+                                                <div className="space-y-2 mt-2 ml-4 pl-4 border-l-2 border-neutral-100 dark:border-neutral-800">
+                                                    {subs.map((sub) => {
+                                                        const subSnapshot = snapshot?.sub_categories?.[sub.id];
+                                                        const subScore = Number(subSnapshot?.score ?? 0);
+                                                        const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                        const subBg = subScore >= 80 ? 'bg-emerald-500' : subScore >= 50 ? 'bg-amber-500' : 'bg-red-500';
+
+                                                        return (
+                                                            <div key={sub.id} className="p-2 sm:p-2.5 rounded-xl bg-neutral-50/50 dark:bg-neutral-900/30 space-y-1.5 border border-neutral-100 dark:border-neutral-800/50">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[10px] font-black uppercase tracking-tight text-neutral-500 truncate mr-2">{sub.name}</span>
+                                                                    <span className={`text-[11px] font-black ${subColor}`}>{subScore}</span>
+                                                                </div>
+                                                                <div className="h-1 rounded-full bg-neutral-200/50 dark:bg-neutral-800/50 overflow-hidden">
+                                                                    <div className={`h-full rounded-full transition-all duration-700 ${subBg}`} style={{ width: `${Math.max(0, Math.min(100, subScore))}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {categorySeries.length === 0 && (
+                                        <div className="text-center py-8">
+                                            <p className="text-sm text-neutral-400">Belum ada kategori test. Konfigurasi melalui menu <strong>"Kategori Test"</strong> di sidebar.</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {isSensei && (
+                                    <Card className="border-neutral-200/80 dark:border-neutral-800">
+                                        <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Tambah Prestasi Atlet</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <Button type="button" className="w-full gap-2" onClick={() => setAchievementModalOpen(true)}>
+                                                <Trophy size={14} /> Tambah Prestasi (Popup)
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                <Card className={`border-neutral-200/80 dark:border-neutral-800 overflow-hidden ${!isSensei ? 'lg:col-span-2' : ''}`}>
+                                    <CardHeader className="border-b border-neutral-100 dark:border-neutral-800"><CardTitle className="text-sm font-bold uppercase tracking-widest text-neutral-500">Riwayat Prestasi</CardTitle></CardHeader>
+                                    <CardContent className="p-0">
+                                        {achievementHistory.length > 0 ? achievementHistory.map((achievement) => (
+                                            <div key={achievement.id} className="px-4 py-3 text-sm space-y-1 border-b border-neutral-100 dark:border-neutral-800">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <p className="font-bold">{achievement.competition_name}</p>
+                                                        <p className="text-xs text-neutral-500">{achievement.competition_date} | {achievement.competition_level}</p>
+                                                    </div>
+                                                    {isSensei && (
+                                                        <button type="button" className="p-1 rounded text-red-500 hover:bg-red-50" onClick={() => deleteAchievement(achievement.id)}>
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-neutral-600">Hasil: {achievement.result_title || '-'} | Jenis: {achievement.competition_type}</p>
+                                                {achievement.certificate_url && <a href={achievement.certificate_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-athlix-red hover:underline"><FileText size={12} /> Lihat Sertifikat</a>}
+                                            </div>
+                                        )) : <div className="p-6 text-sm text-neutral-400 text-center">Belum ada data prestasi untuk atlet ini.</div>}
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {isProOrAdvance && (
+                                <div className="mt-8 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                                    <div className="flex items-center justify-between mb-4 px-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-athlix-red"></div>
+                                            <h3 className="text-sm font-black uppercase tracking-widest text-neutral-500">Program Peningkatan Atlet (PPA) Individu</h3>
+                                        </div>
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Jadwal & Strategi Performa Per Atlet</div>
                                     </div>
-                                )) : <div className="p-6 text-sm text-neutral-400 text-center">Belum ada data prestasi untuk atlet ini.</div>}
-                            </CardContent>
-                        </Card>
-                    </div>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        <Card className="lg:col-span-1 border-neutral-200/80 dark:border-neutral-800 p-6 flex flex-col justify-between overflow-hidden relative">
+                                            {athlete?.ppa_file_path && (
+                                                <div className="absolute -right-8 -top-8 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -z-10"></div>
+                                            )}
+
+                                            <div className="space-y-6">
+                                                <div className={`p-4 rounded-2xl border transition-all duration-300 flex items-center gap-4 ${
+                                                    athlete?.ppa_file_path
+                                                        ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400'
+                                                        : 'bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/50 text-amber-700 dark:text-amber-400'
+                                                }`}>
+                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                                                        athlete?.ppa_file_path
+                                                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                                            : 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                                                    }`}>
+                                                        {athlete?.ppa_file_path ? <Zap size={24} /> : <AlertCircle size={24} />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Status PPA</p>
+                                                        <p className="font-bold text-sm tracking-tight">
+                                                            {athlete?.ppa_file_path ? 'Sudah Diupload' : 'Belum Diupload'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {athlete?.ppa_file_path && (
+                                                    <div className="space-y-3 animate-fade-in">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Nama File</span>
+                                                            <div className="flex items-center gap-2 text-sm font-bold truncate p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                                                <FileText size={14} className="text-athlix-red shrink-0" />
+                                                                <span className="truncate">{athlete.ppa_file_name || athlete.ppa_file_path.split('/').pop()}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Ukuran</span>
+                                                                <div className="text-xs font-bold px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                                                    {athlete.ppa_file_size ? `${(athlete.ppa_file_size / 1024).toFixed(1)} KB` : '-'}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Update</span>
+                                                                <div className="text-xs font-bold px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 truncate">
+                                                                    {athlete.ppa_uploaded_at ? new Date(athlete.ppa_uploaded_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {isSensei && (
+                                                    <form onSubmit={handlePpaUpload} className="space-y-4 pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                                        <div>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <InputLabel htmlFor="ppa_file" value="Unggah Update PPA" className="text-[10px] font-black uppercase tracking-widest text-neutral-400" />
+                                                                {ppaData.ppa_file && <span className="text-[10px] font-bold text-athlix-red italic animate-pulse sr-only">File Selected</span>}
+                                                            </div>
+                                                            <div className="mt-1 flex items-center justify-center w-full">
+                                                                <label htmlFor="ppa_file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-neutral-300 rounded-2xl cursor-pointer bg-neutral-50 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 transition-all hover:border-athlix-red group">
+                                                                    <div className="flex flex-col items-center justify-center">
+                                                                        <FileUp className="w-5 h-5 mb-2 text-neutral-400 group-hover:text-athlix-red transition-colors" />
+                                                                        <p className="text-[10px] text-neutral-500 font-bold tracking-tight">Drop atau Klik Update</p>
+                                                                    </div>
+                                                                    <input
+                                                                        id="ppa_file"
+                                                                        type="file"
+                                                                        className="hidden"
+                                                                        accept=".pdf,.xlsx,.xls"
+                                                                        onChange={(e) => {
+                                                                            const file = e.target.files[0];
+                                                                            setPpaData('ppa_file', file);
+                                                                            if (file && file.type === 'application/pdf') {
+                                                                                setPpaPreview(URL.createObjectURL(file));
+                                                                            } else if (athlete?.ppa_file_path && athlete.ppa_file_path.endsWith('.pdf')) {
+                                                                                setPpaPreview(`/storage/${athlete.ppa_file_path}`);
+                                                                            } else {
+                                                                                setPpaPreview(null);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </label>
+                                                            </div>
+                                                            {ppaData.ppa_file && (
+                                                                <div className="mt-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                                                                    <span className="text-[10px] font-bold text-blue-600 truncate max-w-[200px]">{ppaData.ppa_file.name}</span>
+                                                                    <button type="button" onClick={() => { setPpaData('ppa_file', null); setPpaPreview(athlete?.ppa_file_path && athlete.ppa_file_path.endsWith('.pdf') ? `/storage/${athlete.ppa_file_path}` : null); }} className="text-blue-600 hover:text-blue-800"><X size={14}/></button>
+                                                                </div>
+                                                            )}
+                                                            <InputError message={ppaErrors.ppa_file} className="mt-2" />
+                                                        </div>
+
+                                                        <Button
+                                                            type="submit"
+                                                            className={`w-full h-11 transition-all rounded-xl font-black uppercase tracking-widest gap-2 ${
+                                                                ppaData.ppa_file ? 'bg-athlix-red text-white shadow-lg shadow-athlix-red/20' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed dark:bg-neutral-800'
+                                                            }`}
+                                                            disabled={ppaProcessing || !ppaData.ppa_file}
+                                                        >
+                                                            <FilePlus2 size={16} />
+                                                            {ppaProcessing ? 'Mengirim...' : 'Submit'}
+                                                        </Button>
+                                                    </form>
+                                                )}
+
+                                                {athlete?.ppa_file_path && (
+                                                    <div className="pt-6 mt-6 border-t border-neutral-100 dark:border-neutral-800">
+                                                        <a
+                                                            href={`/storage/${athlete?.ppa_file_path}`}
+                                                            target="_blank"
+                                                            className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
+                                                        >
+                                                            <Download size={14} /> Download PPA
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Card>
+
+                                        <Card className="lg:col-span-2 border-neutral-200/80 dark:border-neutral-800 overflow-hidden relative min-h-[400px]">
+                                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 -z-10">
+                                                <div className="text-center space-y-4 animate-pulse">
+                                                    <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto">
+                                                        <FileText size={40} className="text-neutral-300 dark:text-neutral-700" />
+                                                    </div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Menyusun Pratinjau...</p>
+                                                </div>
+                                            </div>
+                                            {ppaPreview ? (
+                                                <div className="w-full h-full min-h-[500px] overflow-auto touch-auto">
+                                                    <iframe
+                                                        src={ppaPreview}
+                                                        className="w-full h-full border-none min-h-[600px] lg:min-h-[500px] animate-fade-in"
+                                                        title="PPA Preview Individual"
+                                                        scrolling="auto"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                                    <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                                                        <AlertCircle size={48} className="mx-auto text-neutral-400 mb-4" />
+                                                        <p className="text-sm font-bold text-neutral-500 italic max-w-[250px]">PPA belum diunggah atau format tidak mendukung pratinjau langsung.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </Card>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -1121,99 +1336,117 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             <h3 className="text-lg font-black uppercase tracking-tight">Edit Rapor Kemampuan Atlet</h3>
                             <p className="text-xs text-neutral-500 mt-1">Perbarui nilai mentah (raw) per test.</p>
                         </div>
-                        <div className="w-56 shrink-0">
-                            <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Ganti Rapor</label>
-                            <DbSelect
-                                inputId="edit-report-select"
-                                options={reportOptions}
-                                value={String(reportEditForm.data.id)}
-                                onChange={(next) => {
-                                    const rep = sortedReports.find(r => String(r.id) === String(next));
-                                    if (rep) openEditReport(rep);
-                                }}
-                                placeholder="Pilih rapor"
-                            />
+                        <div className="w-56 shrink-0 space-y-3">
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Ganti Rapor</label>
+                                <DbSelect
+                                    inputId="edit-report-select"
+                                    options={reportOptions}
+                                    value={String(reportEditForm.data.id)}
+                                    onChange={(next) => {
+                                        const rep = sortedReports.find(r => String(r.id) === String(next));
+                                        if (rep) openEditReport(rep);
+                                    }}
+                                    placeholder="Pilih rapor"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Label Test *</label>
+                                <DbSelect
+                                    inputId="edit-report-label-select"
+                                    options={(testLabels || []).map(l => ({ value: String(l.id), label: l.name }))}
+                                    value={String(reportEditForm.data.test_label_id)}
+                                    onChange={v => reportEditForm.setData('test_label_id', v)}
+                                    placeholder="Pilih Label"
+                                />
+                            </div>
                         </div>
                     </div>
 
                     <div className="space-y-4">
-                        {reportCategories.map((cat) => {
-                            const subs = cat.sub_categories || [];
-                            const subScores = subs.map((sub) => {
-                                const tests = sub.tests || [];
-                                const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
-                                return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                            });
-                            const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
-                            const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
-                            return (
-                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
-                                        <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
-                                    </div>
-                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {subs.map((sub) => {
-                                            const tests = sub.tests || [];
-                                            const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
-                                            const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                                            const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                            return (
-                                                <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
-                                                        <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        {tests.map((test) => {
-                                                            const rawVal = reportEditForm.data.test_values[String(test.id)] ?? 0;
-                                                            const previewScore = calcTestScore(test, rawVal);
-                                                            const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
-                                                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                                            const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
+                        {!reportEditForm.data.test_label_id ? (
+                            <div className="p-12 text-center bg-neutral-50 dark:bg-neutral-900 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-800">
+                                <p className="text-sm font-bold text-neutral-500">Pilih Label Test terlebih dahulu.</p>
+                            </div>
+                        ) : (
+                            reportCategories.filter(cat => String(cat.test_label_id) === String(reportEditForm.data.test_label_id)).map((cat) => {
+                                const subs = cat.sub_categories || [];
+                                const subScores = subs.map((sub) => {
+                                    const tests = sub.tests || [];
+                                    const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
+                                    return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                });
+                                const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
+                                const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
+                                return (
+                                    <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                        <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                            <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                            <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                        </div>
+                                        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                            {subs.map((sub) => {
+                                                const tests = sub.tests || [];
+                                                const tScores = tests.map((t) => calcTestScore(t, reportEditForm.data.test_values[String(t.id)] ?? 0));
+                                                const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                                const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                return (
+                                                    <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
+                                                            <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {tests.map((test) => {
+                                                                const rawVal = reportEditForm.data.test_values[String(test.id)] ?? 0;
+                                                                const previewScore = calcTestScore(test, rawVal);
+                                                                const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
+                                                                const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                                const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
 
-                                                            return (
-                                                                <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
-                                                                    <div className="flex items-center justify-between gap-2">
-                                                                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                                                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
-                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
+                                                                return (
+                                                                    <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
+                                                                        <div className="flex items-center justify-between gap-2">
+                                                                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                                                <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
+                                                                                <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
+                                                                            </div>
+                                                                            <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
                                                                         </div>
-                                                                        <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            step="0.1"
-                                                                            min="0"
-                                                                            className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0"
-                                                                            value={rawVal}
-                                                                            onChange={(e) => {
-                                                                                const curr = { ...reportEditForm.data.test_values };
-                                                                                curr[String(test.id)] = parseFloat(e.target.value) || 0;
-                                                                                reportEditForm.setData('test_values', curr);
-                                                                            }}
-                                                                        />
-                                                                        <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                                                                            <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="number"
+                                                                                step="0.1"
+                                                                                min="0"
+                                                                                className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0"
+                                                                                value={rawVal}
+                                                                                onChange={(e) => {
+                                                                                    const curr = { ...reportEditForm.data.test_values };
+                                                                                    curr[String(test.id)] = parseFloat(e.target.value) || 0;
+                                                                                    reportEditForm.setData('test_values', curr);
+                                                                                }}
+                                                                            />
+                                                                            <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
                                                                         </div>
-                                                                        <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
-                                                                        {Number(test.max_threshold) < Number(test.min_threshold) && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                                                                <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                            </div>
+                                                                            <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
+                                                                            {Number(test.max_threshold) < Number(test.min_threshold) && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
@@ -1240,7 +1473,7 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                     </div>
                     <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-800">
                         <Button type="button" variant="outline" onClick={() => setReportEditModalOpen(false)} className="w-full sm:w-auto">Batal</Button>
-                        <Button type="submit" disabled={reportEditForm.processing} className="w-full sm:w-auto">
+                        <Button type="submit" disabled={reportEditForm.processing || !reportEditForm.data.test_label_id} className="w-full sm:w-auto">
                             {reportEditForm.processing && <Loader2 size={14} className="animate-spin mr-2" />} Simpan Perubahan
                         </Button>
                     </div>
@@ -1270,76 +1503,110 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             )}
                         </div>
                     )}
-                    <div className="space-y-4">
-                        {reportCategories.map((cat) => {
-                            const subs = cat.sub_categories || [];
-                            const subScores = subs.map((sub) => {
-                                const tests = sub.tests || [];
-                                const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
-                                return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                            });
-                            const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
-                            const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
-                            return (
-                                <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                    <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-                                        <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
-                                        <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
-                                    </div>
-                                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                                        {subs.map((sub) => {
-                                            const tests = sub.tests || [];
-                                            const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
-                                            const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
-                                            const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                            return (
-                                                <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
-                                                        <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        {tests.map((test) => {
-                                                            const rawVal = reportForm.data.test_values[String(test.id)] ?? 0;
-                                                            const previewScore = calcTestScore(test, rawVal);
-                                                            const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
-                                                            const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
-                                                            const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
-                                                            const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
-
-                                                            return (
-                                                                <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
-                                                                    <div className="flex items-center justify-between gap-2">
-                                                                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                                                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
-                                                                            <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
-                                                                            {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
-                                                                        </div>
-                                                                        <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <input type="number" step="0.1" min="0" className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0" value={rawVal} onChange={(e) => { const curr = { ...reportForm.data.test_values }; curr[String(test.id)] = parseFloat(e.target.value) || 0; reportForm.setData('test_values', curr); }} placeholder={`Masukkan ${unitLabel}`} />
-                                                                        <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                                                                            <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
-                                                                        </div>
-                                                                        <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
-                                                                        {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Label Test *</label>
+                            <DbSelect
+                                inputId="report-label-select"
+                                options={(testLabels || []).map(l => ({ value: String(l.id), label: l.name }))}
+                                value={reportForm.data.test_label_id}
+                                onChange={v => reportForm.setData('test_label_id', v)}
+                                placeholder="Pilih Label (Senior/Junior/dll)"
+                            />
+                            {reportForm.errors.test_label_id && <p className="text-xs text-athlix-red">{reportForm.errors.test_label_id}</p>}
+                        </div>
                     </div>
+
+                    {!reportForm.data.test_label_id ? (
+                        <div className="flex flex-col items-center justify-center p-12 bg-neutral-50 dark:bg-neutral-900/50 rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 space-y-4">
+                            <div className="p-4 rounded-full bg-neutral-100 dark:bg-neutral-800">
+                                <Search size={32} className="text-neutral-400" />
+                            </div>
+                            <div className="text-center space-y-1">
+                                <p className="text-sm font-bold text-neutral-600 dark:text-neutral-400">Pilih Label Test Terlebih Dahulu</p>
+                                <p className="text-xs text-neutral-400">Test akan muncul secara dinamis sesuai label yang Anda pilih.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {reportCategories.filter(cat => String(cat.test_label_id) === String(reportForm.data.test_label_id)).length === 0 ? (
+                                <div className="p-8 text-center bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                                    <AlertCircle size={32} className="mx-auto text-amber-500 mb-2" />
+                                    <p className="text-sm font-bold text-neutral-600 dark:text-neutral-400">Belum ada struktur test untuk label ini.</p>
+                                    <p className="text-xs text-neutral-400 mt-1">Silakan atur struktur test di menu Manajemen Test.</p>
+                                </div>
+                            ) : (
+                                reportCategories.filter(cat => String(cat.test_label_id) === String(reportForm.data.test_label_id)).map((cat) => {
+                                    const subs = cat.sub_categories || [];
+                                    const subScores = subs.map((sub) => {
+                                        const tests = sub.tests || [];
+                                        const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
+                                        return tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                    });
+                                    const catScore = subScores.length ? Math.round(subScores.reduce((a, b) => a + b, 0) / subScores.length) : 0;
+                                    const catColor = catScore >= 80 ? 'text-emerald-600' : catScore >= 50 ? 'text-amber-600' : 'text-red-600';
+                                    return (
+                                        <div key={cat.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                            <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 px-3 sm:px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                                <span className="text-sm font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-200">{cat.name}</span>
+                                                <span className={`text-lg font-black ${catColor}`}>{catScore}<span className="text-xs font-bold text-neutral-400">/100</span></span>
+                                            </div>
+                                            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                                {subs.map((sub) => {
+                                                    const tests = sub.tests || [];
+                                                    const tScores = tests.map((t) => calcTestScore(t, reportForm.data.test_values[String(t.id)] ?? 0));
+                                                    const subScore = tScores.length ? Math.round(tScores.reduce((a, b) => a + b, 0) / tScores.length) : 0;
+                                                    const subColor = subScore >= 80 ? 'text-emerald-600' : subScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                    return (
+                                                        <div key={sub.id} className="px-3 sm:px-4 py-3 space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">↳ {sub.name}</span>
+                                                                <span className={`text-sm font-bold ${subColor}`}>{subScore}<span className="text-[10px] text-neutral-400">/100</span></span>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {tests.map((test) => {
+                                                                    const rawVal = reportForm.data.test_values[String(test.id)] ?? 0;
+                                                                    const previewScore = calcTestScore(test, rawVal);
+                                                                    const unitLabel = test.unit === 'duration' ? 'detik' : test.unit === 'distance' ? 'cm' : 'kali';
+                                                                    const isLowerBetter = Number(test.max_threshold) < Number(test.min_threshold);
+                                                                    const scoreColor = previewScore >= 80 ? 'text-emerald-600' : previewScore >= 50 ? 'text-amber-600' : 'text-red-500';
+                                                                    const unitBadge = test.unit === 'duration' ? 'DURASI' : test.unit === 'distance' ? 'JARAK' : 'REP';
+
+                                                                    return (
+                                                                        <div key={test.id} className="rounded-lg bg-neutral-50/50 dark:bg-neutral-900/30 p-2.5 space-y-1.5">
+                                                                            <div className="flex items-center justify-between gap-2">
+                                                                                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                                                    <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{test.name}</span>
+                                                                                    <span className="text-[9px] font-bold uppercase bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-neutral-500 shrink-0">{unitBadge}</span>
+                                                                                    {test.max_duration_seconds ? <span className="text-[9px] text-neutral-400">maks {test.max_duration_seconds}s</span> : null}
+                                                                                </div>
+                                                                                <span className={`text-sm font-black ${scoreColor} shrink-0`}>{previewScore}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <input type="number" step="0.1" min="0" className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5 text-sm bg-white dark:bg-neutral-900 min-w-0" value={rawVal} onChange={(e) => { const curr = { ...reportForm.data.test_values }; curr[String(test.id)] = parseFloat(e.target.value) || 0; reportForm.setData('test_values', curr); }} placeholder={`Masukkan ${unitLabel}`} />
+                                                                                <span className="text-[10px] text-neutral-400 shrink-0 w-8">{unitLabel}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="flex-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                                                                    <div className={`h-full rounded-full transition-all duration-300 ${previewScore >= 80 ? 'bg-emerald-500' : previewScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${previewScore}%` }} />
+                                                                                </div>
+                                                                                <span className="text-[9px] text-neutral-400 shrink-0">{test.min_threshold}→{test.max_threshold}</span>
+                                                                                {isLowerBetter && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold shrink-0">↓</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-xs font-bold uppercase text-neutral-500 space-y-1">
                             Nama Rapor

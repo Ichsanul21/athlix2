@@ -9,6 +9,8 @@ use App\Models\AthleteReport;
 use App\Models\Belt;
 use App\Models\Dojo;
 use App\Models\User;
+use App\Models\TestLabel;
+use App\Models\ReportCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -435,6 +437,7 @@ class AthleteController extends Controller
                     'recorded_label' => $recordedAt?->translatedFormat('d M Y') ?? '-',
                     'name' => $report->name,
                     'dynamic_scores' => $report->dynamic_scores,
+                    'test_label_id' => $report->test_label_id,
                     'created_at' => (string) $report->created_at,
                     'created_label' => optional($report->created_at)?->translatedFormat('d M Y H:i'),
                 ];
@@ -476,7 +479,8 @@ class AthleteController extends Controller
             'dojoAthletes' => $dojoAthletes,
 
             'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
-            'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+            'testLabels' => TestLabel::where('dojo_id', $athlete->dojo_id)->orderBy('name')->get(),
+            'reportCategories' => ReportCategory::where('dojo_id', $athlete->dojo_id)
                 ->with(['subCategories.tests'])
                 ->orderBy('sort_order')
                 ->get(),
@@ -557,6 +561,7 @@ class AthleteController extends Controller
                         'recorded_label' => optional($report->recorded_at)->translatedFormat('d M Y') ?? '-',
                         'name' => $report->name,
                         'dynamic_scores' => $report->dynamic_scores,
+                    'test_label_id' => $report->test_label_id,
                         'created_at' => (string) $report->created_at,
                     ];
                 });
@@ -598,7 +603,8 @@ class AthleteController extends Controller
                 'selectedAthlete' => $athlete,
                 'performance' => $performance,
                 'reportHistory' => $reportHistory,
-                'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
+                'testLabels' => TestLabel::where('dojo_id', $athlete->dojo_id)->orderBy('name')->get(),
+                'reportCategories' => ReportCategory::where('dojo_id', $athlete->dojo_id)
                     ->with(['subCategories.tests'])
                     ->orderBy('sort_order')
                     ->get(),
@@ -612,7 +618,8 @@ class AthleteController extends Controller
             'selectedDojoId' => (int)$selectedDojoId,
             'selectedId' => null,
             'selectedAthlete' => null,
-            'reportCategories' => \App\Models\ReportCategory::where('dojo_id', $selectedDojoId)
+            'testLabels' => TestLabel::where('dojo_id', $selectedDojoId)->orderBy('name')->get(),
+            'reportCategories' => ReportCategory::where('dojo_id', $selectedDojoId)
                 ->with(['subCategories.tests'])
                 ->orderBy('sort_order')
                 ->get(),
@@ -637,11 +644,12 @@ class AthleteController extends Controller
             'recorded_at' => 'required|date',
             'latest_height' => 'nullable|numeric|min:50|max:260',
             'latest_weight' => 'nullable|numeric|min:5|max:300',
+            'test_label_id' => 'required|exists:test_labels,id',
         ]);
 
-        // Load the full hierarchy for this dojo
-        $categories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-            ->where('id', '>', 0)
+        // Load the full hierarchy for this specific label
+        $categories = ReportCategory::where('dojo_id', $athlete->dojo_id)
+            ->where('test_label_id', $validated['test_label_id'])
             ->with(['subCategories.tests'])
             ->orderBy('sort_order')
             ->get();
@@ -725,6 +733,7 @@ class AthleteController extends Controller
             'recorded_at' => $validated['recorded_at'],
             'dynamic_scores' => $snapshot,
             'athlete_id' => $athlete->id,
+            'test_label_id' => $validated['test_label_id'],
             'evaluator_id' => auth()->id(),
         ]);
 
@@ -748,11 +757,12 @@ class AthleteController extends Controller
             'recorded_at' => 'required|date',
             'latest_height' => 'nullable|numeric|min:50|max:260',
             'latest_weight' => 'nullable|numeric|min:5|max:300',
+            'test_label_id' => 'required|exists:test_labels,id',
         ]);
 
-        // Load the full hierarchy for this dojo
-        $categories = \App\Models\ReportCategory::where('dojo_id', $athlete->dojo_id)
-            ->where('id', '>', 0)
+        // Load the full hierarchy for this specific label
+        $categories = ReportCategory::where('dojo_id', $athlete->dojo_id)
+            ->where('test_label_id', $validated['test_label_id'])
             ->with(['subCategories.tests'])
             ->orderBy('sort_order')
             ->get();
@@ -835,6 +845,7 @@ class AthleteController extends Controller
             'notes' => $validated['notes'] ?? null,
             'recorded_at' => $validated['recorded_at'],
             'dynamic_scores' => $snapshot,
+            'test_label_id' => $validated['test_label_id'],
             'evaluator_id' => auth()->id(),
         ]);
 
@@ -1233,6 +1244,40 @@ class AthleteController extends Controller
         if ($bmi > 24.9) return 'Kelelahan';
         return 'Pemulihan';
     }
+    public function uploadPpa(Request $request, Athlete $athlete)
+    {
+        $this->ensureAthleteAccessible($athlete, auth()->user());
+
+        if (! auth()->user()?->isCoachGroup() && ! auth()->user()?->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'ppa_file' => 'required|file|mimes:pdf,xlsx,xls|max:10240',
+        ]);
+
+        if ($athlete->ppa_file_path) {
+            Storage::disk('public')->delete($athlete->ppa_file_path);
+        }
+
+        $file = $request->file('ppa_file');
+        $filePath = $file->store('ppa_files/athletes', 'public');
+
+        $athlete->update([
+            'ppa_file_path' => $filePath,
+            'ppa_file_name' => collect(explode('_', explode('/', rtrim($filePath))[count(explode('/', rtrim($filePath))) - 1], 2))->last() ?? $file->getClientOriginalName(), // try to strip hash if possible or just original
+            'ppa_file_size' => $file->getSize(),
+            'ppa_uploaded_at' => now(),
+        ]);
+
+        // Fix to store the exact clean original name
+        $athlete->update([
+            'ppa_file_name' => $file->getClientOriginalName()
+        ]);
+
+        return back()->with('success', 'File PPA Atlet berhasil diunggah.');
+    }
+
     public function checkPhoneAvailability(Request $request)
     {
         $phone = $this->normalizePhoneNumber((string) ($request->query('phone', '') ?? ''));

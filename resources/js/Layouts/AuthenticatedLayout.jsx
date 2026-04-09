@@ -7,6 +7,8 @@ import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { useLanguage } from '@/Components/LanguageProvider';
 
+import BillingGraceModal from '@/Components/BillingGraceModal';
+
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth?.user;
     const { t } = useLanguage();
@@ -174,6 +176,8 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
                 </header>
             )}
+
+            <BillingGraceModal />
 
             <main className="animate-fade-in-up">{children}</main>
         </div>

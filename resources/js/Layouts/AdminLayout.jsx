@@ -23,6 +23,7 @@ import {
     ClipboardList
 } from 'lucide-react';
 import GlobalFlashModal from '@/Components/GlobalFlashModal';
+import BillingGraceModal from '@/Components/BillingGraceModal';
 
 export default function AdminLayout({ user, header, children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -34,13 +35,16 @@ export default function AdminLayout({ user, header, children }) {
     const accentColor = dojoBranding?.accent_color || null;
 
     const role = user?.role;
+    const saasPlan = props?.auth?.dojo?.saas_plan_name ?? 'Basic';
+    const isProOrAdvance = ['Pro', 'Advance'].includes(saasPlan);
+
     const navigation = [
         ...(['super_admin', 'sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'].includes(role)
             ? [
                   { name: t('common.dashboard', 'Dashboard'), href: route('dashboard'), icon: LayoutDashboard, current: 'dashboard' },
                   { name: t('admin.db_athlete', 'Database Atlet'), href: route('athletes.index'), icon: Users, current: 'athletes.*' },
                   { name: t('admin.physical_condition', 'Kondisi Atlet'), href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
-                  { name: t('admin.rapor', 'Rapor'), href: route('reports.index'), icon: ClipboardList, current: 'reports.*' },
+                  ...(isProOrAdvance ? [{ name: t('admin.rapor', 'Rapor'), href: route('reports.index'), icon: ClipboardList, current: 'reports.*' }] : []),
                   { name: t('admin.training_program', 'Program Latihan'), href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
                   { name: t('admin.attendance', 'Absensi'), href: route('attendance.index'), icon: CalendarCheck, current: 'attendance.*' },
                   { name: t('admin.payment', 'Pembayaran'), href: route('finance.index'), icon: CreditCard, current: 'finance.*' },
@@ -50,7 +54,7 @@ export default function AdminLayout({ user, header, children }) {
             : []),
         ...(role === 'dojo_admin' || role === 'super_admin' || role === 'head_coach'
             ? [
-                  { name: t('admin.report_category', 'Kategori Test'), href: route('report-categories.index'), icon: ClipboardList, current: 'report-categories.*' },
+                  ...(isProOrAdvance ? [{ name: t('admin.report_category', 'Kategori Test'), href: route('report-categories.index'), icon: ClipboardList, current: 'report-categories.*' }] : []),
                   { name: t('admin.db_coach', 'Database Pelatih'), href: route('dojo-admin.sensei.index'), icon: Users, current: 'dojo-admin.sensei.*' },
                   { name: t('admin.system_settings', 'Pengaturan Dojo'), href: route('dojo-admin.settings.index'), icon: ShieldCheck, current: 'dojo-admin.settings.*' }
               ]
@@ -96,6 +100,7 @@ export default function AdminLayout({ user, header, children }) {
                 }} />
             )}
             <GlobalFlashModal />
+            <BillingGraceModal />
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
                 <div

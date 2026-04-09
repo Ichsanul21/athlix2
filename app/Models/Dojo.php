@@ -83,9 +83,15 @@ class Dojo extends Model
 
     public function canAccessSaas(?Carbon $now = null): bool
     {
+        $now = $now ?? now();
+        $isGraceStage1 = $this->subscription_expires_at 
+            && $this->grace_period_stage1_ends_at 
+            && $now->toDateString() > \Carbon\Carbon::parse($this->subscription_expires_at)->toDateString()
+            && $now->toDateString() <= \Carbon\Carbon::parse($this->grace_period_stage1_ends_at)->toDateString();
+
         return (bool) $this->is_active
             && ! (bool) $this->is_saas_blocked
-            && $this->hasActiveSubscription($now);
+            && ($this->hasActiveSubscription($now) || $isGraceStage1);
     }
 
     /**
@@ -130,8 +136,8 @@ class Dojo extends Model
     {
         $start = Carbon::parse($startedAt);
         $expiresAt = $start->copy()->addMonths($cycleMonths)->subDay();
-        $stage1 = $expiresAt->copy()->addDays(14);
-        $stage2 = $expiresAt->copy()->addDays(28);
+        $stage1 = $expiresAt->copy()->addDays(7);
+        $stage2 = $expiresAt->copy()->addDays(14);
 
         return [
             'subscription_expires_at' => $expiresAt->toDateString(),

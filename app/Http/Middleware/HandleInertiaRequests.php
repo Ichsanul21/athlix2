@@ -8,6 +8,8 @@ use App\Models\AthleteNotificationRead;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Inertia\Inertia;
+use App\Models\Dojo;
+use App\Models\BillingInvoice;
 use Tighten\Ziggy\Ziggy;
 
 class HandleInertiaRequests extends Middleware
@@ -91,6 +93,21 @@ class HandleInertiaRequests extends Middleware
                     return [
                         'logo_url' => $dojo->logo_path ? $resolveMediaUrl($dojo->logo_path) : null,
                         'accent_color' => $dojo->accent_color ?? '#dc2626',
+                    ];
+                }),
+                'dojo' => Inertia::defer(function () use ($request) {
+                    $user = $request->user();
+                    if (! $user || ! $user->dojo_id) {
+                        return null;
+                    }
+                    $dojo = \App\Models\Dojo::find($user->dojo_id);
+                    if (! $dojo) {
+                        return null;
+                    }
+                    return [
+                        'id' => $dojo->id,
+                        'name' => $dojo->name,
+                        'saas_plan_name' => $dojo->saas_plan_name ?? 'Basic',
                     ];
                 }),
             ],
@@ -185,6 +202,61 @@ class HandleInertiaRequests extends Middleware
                     'items' => $items,
                     'latest_popup' => $items->first(fn ($item) => $item['is_popup']),
                     'unread_count' => $items->where('is_read', false)->count(),
+                ];
+            }),
+            'billing' => Inertia::defer(function () use ($request) {
+                $user = $request->user();
+                if (!$user || $user->isSuperAdmin()) {
+                    return null;
+                }
+
+                $dojo = $user->dojo;
+                if (!$dojo) return null;
+
+                $statusLabel = $dojo->accessStatusLabel();
+                $clubStatus = [
+                    'is_grace' => $statusLabel === 'Grace Tahap 1 (Peringatan)',
+                    'is_expired' => in_array($statusLabel, ['Grace Tahap 2 (Terbatas)', 'Expired']),
+                    'remaining_days' => $dojo->remaining_days,
+                    'expires_at' => $dojo->subscription_expires_at?->toDateString(),
+                ];
+
+                $userBilling = [
+                    'has_unpaid' => false,
+                    'grace_invoices' => [],
+                ];
+
+                if ($user->isAtlet() || $user->isParent()) {
+                    $athleteIds = [];
+                    if ($user->isAtlet() && $user->athlete_id) {
+                        $athleteIds = [$user->athlete_id];
+                    } elseif ($user->isParent()) {
+                        $athleteIds = $user->guardianAthletes()->pluck('athletes.id')->toArray();
+                    }
+
+                    if (!empty($athleteIds)) {
+                        $unpaidInvoices = \App\Models\BillingInvoice::query()
+                            ->whereIn('athlete_id', $athleteIds)
+                            ->whereNull('paid_at')
+                            ->where('due_date', '<=', now())
+                            ->get();
+
+                        if ($unpaidInvoices->isNotEmpty()) {
+                            $userBilling['has_unpaid'] = true;
+                            $userBilling['grace_invoices'] = $unpaidInvoices->map(fn($inv) => [
+                                'id' => $inv->id,
+                                'title' => $inv->title,
+                                'due_date' => $inv->due_date?->toDateString(),
+                                'total' => $inv->total_due,
+                                'is_grace' => now()->diffInDays($inv->due_date, false) >= -7,
+                            ]);
+                        }
+                    }
+                }
+
+                return [
+                    'club' => $clubStatus,
+                    'user' => $userBilling,
                 ];
             }),
         ];

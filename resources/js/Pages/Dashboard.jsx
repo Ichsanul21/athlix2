@@ -165,13 +165,13 @@ export default function Dashboard({
                                 </div>
                                 <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Data dari seluruh atlet</div>
                             </div>
-                            <Card className="border-neutral-200/80 dark:border-neutral-800 p-4 sm:p-6 overflow-hidden bg-white dark:bg-neutral-900/80">
-                                <div className="w-full overflow-x-auto pb-4">
-                                    <div className="h-[350px] sm:h-[500px] min-w-[600px] sm:min-w-0">
+                            <Card className="border-neutral-200/80 dark:border-neutral-800 p-2 sm:p-4 overflow-hidden bg-white dark:bg-neutral-900/80">
+                                <div className="w-full overflow-x-auto pb-2">
+                                    <div className="h-[250px] sm:h-[350px] min-w-[600px] sm:min-w-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart
                                                 data={clubPerformanceStats}
-                                                margin={{ top: 20, right: 10, left: 0, bottom: 40 }}
+                                                margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
                                             >
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
                                                 <XAxis
@@ -179,16 +179,16 @@ export default function Dashboard({
                                                     angle={-45}
                                                     textAnchor="end"
                                                     interval={0}
-                                                    height={80}
+                                                    height={70}
                                                     tick={{ fontSize: 9, fontWeight: 'bold', fill: '#888' }}
                                                     dy={10}
                                                 />
                                                 <YAxis
                                                     domain={[0, 100]}
-                                                    ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+                                                    ticks={[0, 25, 50, 75, 100]}
                                                     tick={{ fontSize: 9, fill: '#888' }}
                                                     tickFormatter={(val) => `${val}`}
-                                                    width={35}
+                                                    width={30}
                                                 />
                                                 <Tooltip
                                                     contentStyle={{

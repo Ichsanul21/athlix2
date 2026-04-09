@@ -11,6 +11,7 @@ class ReportCategory extends Model
 {
     protected $fillable = [
         'dojo_id',
+        'test_label_id',
         'name',
         'sort_order',
     ];
@@ -18,6 +19,11 @@ class ReportCategory extends Model
     public function dojo(): BelongsTo
     {
         return $this->belongsTo(Dojo::class);
+    }
+
+    public function testLabel(): BelongsTo
+    {
+        return $this->belongsTo(TestLabel::class);
     }
 
     public function subCategories(): HasMany

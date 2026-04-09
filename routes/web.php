@@ -63,6 +63,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/athletes/{athlete}/reports', [AthleteController::class, 'storeReport'])->name('athletes.reports.store');
         Route::match(['put', 'patch', 'post'], '/athletes/{athlete}/reports/{report}', [AthleteController::class, 'updateReport'])->name('athletes.reports.update');
         Route::delete('/athletes/{athlete}/reports/{report}', [AthleteController::class, 'destroyReport'])->name('athletes.reports.destroy');
+        Route::post('/athletes/{athlete}/ppa-upload', [AthleteController::class, 'uploadPpa'])->name('athletes.ppa-upload');
 
         Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
         Route::post('/finance/generate', [FinanceController::class, 'generateMonthly'])->name('finance.generate');
@@ -165,6 +166,10 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/report-tests', [TestCategoryController::class, 'storeTest'])->name('report-tests.store');
         Route::patch('/report-tests/{reportTest}', [TestCategoryController::class, 'updateTest'])->name('report-tests.update');
         Route::delete('/report-tests/{reportTest}', [TestCategoryController::class, 'destroyTest'])->name('report-tests.destroy');
+
+        Route::post('/report-labels', [TestCategoryController::class, 'storeLabel'])->name('report-labels.store');
+        Route::patch('/report-labels/{testLabel}', [TestCategoryController::class, 'updateLabel'])->name('report-labels.update');
+        Route::delete('/report-labels/{testLabel}', [TestCategoryController::class, 'destroyLabel'])->name('report-labels.destroy');
     });
 
     Route::middleware('role:super_admin,sensei,head_coach,assistant,atlet')->group(function () {
