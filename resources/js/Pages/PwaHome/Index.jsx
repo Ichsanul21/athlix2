@@ -314,7 +314,7 @@ export default function Index({
                 <div className="grid grid-cols-2 gap-3">
                     {[
                         { label: 'Kehadiran', value: stats?.attendance || '0%', icon: TrendingUp, color: 'text-green-500 bg-green-500/10' },
-                        { label: 'Sabuk', value: stats?.belt || 'Putih', icon: Award, color: 'text-yellow-500 bg-yellow-500/10' },
+                        { label: 'Level', value: stats?.level || '-', icon: Award, color: 'text-yellow-500 bg-yellow-500/10' },
                         { label: 'Sisa Bayar', value: stats?.outstanding || 'Rp 0', icon: CreditCard, color: 'text-blue-500 bg-blue-500/10' },
                         { label: 'Latihan Hari Ini', value: stats?.total_sessions || '0', icon: Flame, color: 'text-orange-500 bg-orange-500/10' },
                     ].map((s) => (

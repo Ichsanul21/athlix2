@@ -232,7 +232,7 @@ export default function Index({ auth, athletes, dojos = [], selectedDojoId = nul
                                                             {a.full_name}
                                                         </p>
                                                         <p className={`text-xs uppercase font-bold transition-colors duration-300 ${isSelected ? 'text-athlix-red/60' : 'text-neutral-500'}`}>
-                                                            {a.belt?.name} | {a.age} Thn
+                                                        {a.level?.name} | {a.age} Thn
                                                         </p>
                                                     </div>
                                                 </div>

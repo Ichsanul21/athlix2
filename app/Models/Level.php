@@ -5,15 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Belt extends Model
+class Level extends Model
 {
-    /** @use HasFactory<\Database\Factories\BeltFactory> */
     use HasFactory;
 
     protected $guarded = [];
 
+    protected $table = 'levels';
+
+    public function dojo()
+    {
+        return $this->belongsTo(Dojo::class);
+    }
+
     public function athletes()
     {
-        return $this->hasMany(Athlete::class, 'current_belt_id');
+        return $this->hasMany(Athlete::class, 'level_id');
     }
 }

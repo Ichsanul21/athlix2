@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Athlete;
 use App\Models\Attendance;
-use App\Models\Belt;
+use App\Models\Level;
 use App\Models\Dojo;
 use App\Models\PhysicalMetric;
 use App\Models\TrainingProgram;
@@ -60,12 +60,12 @@ class StatisticsController extends Controller
                 ];
             });
 
-        // 3. Belt Distribution
-        $athleteBelts = (clone $athleteScope)->select('current_belt_id')->get();
-        $beltDistribution = Belt::all()->map(function($belt) use ($athleteBelts) {
+        // 3. Level Distribution
+        $athleteLevels = (clone $athleteScope)->select('level_id')->get();
+        $levelDistribution = Level::where('dojo_id', $selectedDojoId ?? $user->dojo_id)->orderBy('order_level')->get()->map(function($level) use ($athleteLevels) {
             return [
-                'name' => $belt->name,
-                'value' => $athleteBelts->where('current_belt_id', $belt->id)->count(),
+                'name' => $level->name,
+                'value' => $athleteLevels->where('level_id', $level->id)->count(),
             ];
         });
 
@@ -132,7 +132,7 @@ class StatisticsController extends Controller
         return Inertia::render('Statistics/Index', [
             'growthData' => Inertia::defer(fn () => $growthData),
             'attendanceData' => Inertia::defer(fn () => $attendanceData),
-            'beltDistribution' => Inertia::defer(fn () => $beltDistribution),
+            'levelDistribution' => Inertia::defer(fn () => $levelDistribution),
             'trainingProgramAnalytics' => Inertia::defer(fn () => $trainingProgramAnalytics),
             'conditionThreshold' => Inertia::defer(fn () => $conditionThreshold),
             'athletes' => Inertia::defer(fn () => (clone $athleteScope)->select('id', 'full_name')->orderBy('full_name')->get()),
@@ -153,7 +153,7 @@ class StatisticsController extends Controller
 
         $selectedDojoId = $this->resolveDojoId($user, $validated['dojo_id'] ?? null);
         $query = $this->scopeAthletesForUser(
-            Athlete::query()->with(['belt', 'dojo', 'physicalMetrics' => fn ($metricQuery) => $metricQuery->latest('recorded_at')]),
+            Athlete::query()->with(['level', 'dojo', 'physicalMetrics' => fn ($metricQuery) => $metricQuery->latest('recorded_at')]),
             $user
         );
 
@@ -172,7 +172,7 @@ class StatisticsController extends Controller
                 'kode_atlet' => $athlete->athlete_code,
                 'nama_atlet' => $athlete->full_name,
                 'dojo' => $athlete->dojo?->name ?? '-',
-                'sabuk' => $athlete->belt?->name ?? '-',
+                'sabuk' => $athlete->level?->name ?? '-',
                 'tinggi_cm' => $metric?->height ?? $athlete->latest_height,
                 'berat_kg' => $metric?->weight ?? $athlete->latest_weight,
                 'imt' => $metric?->bmi ?? '-',

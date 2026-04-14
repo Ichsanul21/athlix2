@@ -44,7 +44,7 @@ class PwaController extends Controller
 
         if ($targetAthleteId) {
             return Athlete::with([
-                'belt',
+                'level',
                 'dojo',
                 'attendances',
                 'financeRecords',
@@ -331,7 +331,7 @@ class PwaController extends Controller
         $athletes = $this->scopeAthletesForUser(Athlete::query(), $user)
             ->when($dojo?->id, fn ($query) => $query->where('dojo_id', $dojo->id))
             ->with([
-                'belt:id,name',
+                'level:id,name',
                 'latestReport' => fn ($query) => $query->select([
                     'athlete_reports.id',
                     'athlete_reports.athlete_id',
@@ -408,7 +408,7 @@ class PwaController extends Controller
                 'id' => $athlete->id,
                 'full_name' => $athlete->full_name,
                 'athlete_code' => $athlete->athlete_code,
-                'belt' => $athlete->belt?->name ?? '-',
+                'level' => $athlete->level?->name ?? '-',
                 'attendance_rate' => $attendanceRate,
                 'condition_percentage' => $conditionPercentage,
                 'ability_status' => $abilityStatus,
@@ -540,7 +540,7 @@ class PwaController extends Controller
 
         $stats = [
             'attendance' => $attendanceRate,
-            'belt' => $athlete->belt?->name ?? 'Putih',
+            'level' => $athlete->level?->name ?? '-',
             'outstanding' => 'Rp ' . number_format($outstanding, 0, ',', '.'),
             'total_sessions' => (string) $todayPrograms->count(),
         ];

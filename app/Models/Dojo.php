@@ -35,6 +35,16 @@ class Dojo extends Model
         return $this->hasMany(Athlete::class);
     }
 
+    public function levels()
+    {
+        return $this->hasMany(Level::class);
+    }
+
+    public function specializations()
+    {
+        return $this->hasMany(Specialization::class);
+    }
+
     public function users()
     {
         return $this->hasMany(User::class);

@@ -56,8 +56,8 @@ export default function Index({ auth, athlete }) {
                             <div className="w-10 h-10 rounded-xl bg-athlix-red/10 flex items-center justify-center text-athlix-red mb-2 transition-transform duration-300 hover:scale-110">
                                 <Award size={20} />
                             </div>
-                            <p className="text-xs text-neutral-500 uppercase font-black tracking-widest">Sabuk</p>
-                            <p className="font-bold text-sm leading-tight">{athlete.belt?.name || 'Putih'}</p>
+                            <p className="text-xs text-neutral-500 uppercase font-black tracking-widest">Level</p>
+                            <p className="font-bold text-sm leading-tight">{athlete.level?.name || athlete.level || '-'}</p>
                         </CardContent>
                     </Card>
                     <Card className="border-none bg-white dark:bg-neutral-900 shadow-sm card-hover">

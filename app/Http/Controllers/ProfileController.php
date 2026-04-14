@@ -30,7 +30,7 @@ class ProfileController extends Controller
         // Load athlete profile for atlet role
         if ($user?->athlete_id) {
             $athleteData = Athlete::with([
-                'belt:id,name',
+                'level:id,name',
                 'dojo:id,name',
                 'guardians' => fn ($q) => $q->withPivot(['relation_type', 'is_primary'])->orderByPivot('is_primary', 'desc'),
                 'latestReport',
@@ -50,7 +50,7 @@ class ProfileController extends Controller
         // Load parent data for parent role
         if ($user?->isParent()) {
             $linkedAthletes = $user->guardianAthletes()
-                ->with(['belt:id,name', 'dojo:id,name'])
+                ->with(['level:id,name', 'dojo:id,name'])
                 ->withPivot(['relation_type', 'is_primary'])
                 ->orderByPivot('is_primary', 'desc')
                 ->get()
@@ -58,7 +58,7 @@ class ProfileController extends Controller
                     'id'           => $a->id,
                     'full_name'    => $a->full_name,
                     'athlete_code' => $a->athlete_code,
-                    'belt'         => $a->belt?->name,
+                    'level'         => $a->level?->name,
                     'dojo'         => $a->dojo?->name,
                     'relation_type' => $a->pivot->relation_type,
                     'is_primary'   => (bool) $a->pivot->is_primary,

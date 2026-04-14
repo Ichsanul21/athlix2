@@ -6,7 +6,9 @@ use App\Models\Athlete;
 use App\Models\AthleteAchievement;
 use App\Models\AthleteGuardian;
 use App\Models\AthleteReport;
-use App\Models\Belt;
+use App\Models\Level;
+use App\Models\Specialization;
+
 use App\Models\Dojo;
 use App\Models\User;
 use App\Models\TestLabel;
@@ -26,7 +28,9 @@ class AthleteController extends Controller
         $user = auth()->user();
 
         $athleteQuery = Athlete::with([
-                'belt',
+                'level',
+                'specialization',
+
                 'physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
                 'latestReport',
             ]);
@@ -83,18 +87,16 @@ class AthleteController extends Controller
                     $athlete->latestReport?->agility,
                 ])->filter(fn ($value) => $value !== null)->all();
                 $athlete->ability_status = $this->resolveAbilityStatus(! empty($reportScores) ? $reportScores : $defaultAbilityScores);
-                $athlete->category = match ($athlete->specialization) {
-                    'kata' => 'Kata',
-                    'kumite' => 'Kumite',
-                    default => 'Kata & Kumite',
-                };
+                $athlete->category = $athlete->specialization?->name ?? 'Belum Ditentukan';
                 return $athlete;
             });
 
         return Inertia::render('Athletes/Index', [
             'athletes' => Inertia::defer(fn () => $athletes),
             'filters' => Inertia::defer(fn () => ['search' => $search]),
-            'belts' => Inertia::defer(fn () => Belt::all()),
+            'levels' => Inertia::defer(fn () => $user?->dojo_id ? Level::where('dojo_id', $user->dojo_id)->orderBy('order_level')->get() : []),
+            'specializations' => Inertia::defer(fn () => $user?->dojo_id ? Specialization::where('dojo_id', $user->dojo_id)->orderBy('name')->get() : []),
+
             'suggestedAthleteCode' => $this->generateAthleteCode(),
             'dojos' => Inertia::defer(fn () => $user?->isSuperAdmin() ? Dojo::orderBy('name')->get(['id', 'name']) : []),
         ]);
@@ -146,12 +148,13 @@ class AthleteController extends Controller
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             'athlete_code' => 'nullable|string|max:20|alpha_num|unique:athletes,athlete_code',
-            'current_belt_id' => 'required|exists:belts,id',
+            'level_id' => 'required|exists:levels,id',
+
             'dob' => 'required|date',
             'birth_place' => 'nullable|string|max:255',
             'phone_number' => 'required|string|max:20',
             'gender' => 'required|in:M,F',
-            'specialization' => 'required|in:kata,kumite,both',
+            'specialization_id' => 'required|exists:specializations,id',
             'latest_height' => 'nullable|numeric|min:50|max:260',
             'latest_weight' => 'nullable|numeric',
             'class_note' => 'nullable|string|max:255',
@@ -363,7 +366,8 @@ class AthleteController extends Controller
         }
 
         $athlete->load([
-            'belt',
+            'level',
+            'specialization',
             'dojo',
             'achievements',
             'attendances',
@@ -478,7 +482,8 @@ class AthleteController extends Controller
             'reportHistory' => $reportHistory,
             'dojoAthletes' => $dojoAthletes,
 
-            'belts' => \App\Models\Belt::orderBy('id')->get(['id', 'name']),
+            'levels' => Level::where('dojo_id', $athlete->dojo_id)->orderBy('order_level')->get(['id', 'name']),
+            'specializations' => Specialization::where('dojo_id', $athlete->dojo_id)->orderBy('name')->get(['id', 'name']),
             'testLabels' => TestLabel::where('dojo_id', $athlete->dojo_id)->orderBy('name')->get(),
             'reportCategories' => ReportCategory::where('dojo_id', $athlete->dojo_id)
                 ->with(['subCategories.tests'])
@@ -503,7 +508,7 @@ class AthleteController extends Controller
         $selectedAthleteId = $request->query('athlete_id');
         $search = trim((string) $request->query('search', ''));
 
-        $athleteQuery = Athlete::with(['belt', 'latestReport']);
+        $athleteQuery = Athlete::with(['level', 'specialization', 'latestReport']);
 
         if ($user->isSuperAdmin()) {
             if ($selectedDojoId) {
@@ -530,7 +535,8 @@ class AthleteController extends Controller
         }
 
         $athlete = $selectedAthleteId ? Athlete::with([
-            'belt',
+            'level',
+            'specialization',
             'dojo',
             'achievements',
             'attendances',
@@ -1070,12 +1076,12 @@ class AthleteController extends Controller
 
         $validated = $request->validate([
             'full_name'              => 'required|string|max:255',
-            'current_belt_id'        => 'required|exists:belts,id',
+            'level_id'        => 'required|exists:levels,id',
             'dob'                    => 'required|date',
             'birth_place'            => 'nullable|string|max:255',
             'phone_number'           => 'required|string|max:20',
             'gender'                 => 'required|in:M,F',
-            'specialization'         => 'required|in:kata,kumite,both',
+            'specialization_id'      => 'required|exists:specializations,id',
             'latest_height'          => 'nullable|numeric|min:50|max:260',
             'latest_weight'          => 'nullable|numeric',
             'class_note'             => 'nullable|string|max:255',

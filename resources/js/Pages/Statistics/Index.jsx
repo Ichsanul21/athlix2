@@ -13,7 +13,7 @@ export default function Index({
     auth,
     growthData,
     attendanceData,
-    beltDistribution,
+    levelDistribution,
     trainingProgramAnalytics,
     conditionThreshold,
     dojos = [],
@@ -25,7 +25,7 @@ export default function Index({
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
     const isLoading = growthData === undefined
         || attendanceData === undefined
-        || beltDistribution === undefined
+        || levelDistribution === undefined
         || trainingProgramAnalytics === undefined
         || conditionThreshold === undefined;
 
@@ -160,7 +160,7 @@ export default function Index({
                                     <div className="p-1.5 rounded-lg bg-yellow-500/10">
                                         <Award size={14} className="text-yellow-500" />
                                     </div>
-                                    Komposisi Sabuk
+                                    Komposisi Level
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pb-5 space-y-0">
@@ -168,7 +168,7 @@ export default function Index({
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
-                                                data={beltDistribution}
+                                                data={levelDistribution}
                                                 innerRadius={60}
                                                 outerRadius={82}
                                                 paddingAngle={3}
@@ -178,7 +178,7 @@ export default function Index({
                                                 animationDuration={800}
                                                 animationEasing="ease-out"
                                             >
-                                                {beltDistribution.map((entry, index) => (
+                                                {(levelDistribution || []).map((entry, index) => (
                                                     <Cell
                                                         key={`cell-${index}`}
                                                         fill={COLORS[index % COLORS.length]}
@@ -190,7 +190,7 @@ export default function Index({
                                                 content={({ active, payload }) => {
                                                     if (!active || !payload?.length) return null;
                                                     const data = payload[0].payload;
-                                                    const total = beltDistribution.reduce((a, b) => a + b.value, 0);
+                                                    const total = levelDistribution.reduce((a, b) => a + b.value, 0);
                                                     const pct = total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
                                                     return (
                                                         <div className="bg-neutral-900 dark:bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 shadow-2xl">
@@ -209,7 +209,7 @@ export default function Index({
                                     {/* Center Label */}
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                         <span className="text-3xl sm:text-4xl font-black text-neutral-800 dark:text-white leading-none">
-                                            {beltDistribution.reduce((a, b) => a + b.value, 0)}
+                                            {levelDistribution.reduce((a, b) => a + b.value, 0)}
                                         </span>
                                         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mt-1">Total Atlet</span>
                                     </div>
@@ -217,8 +217,8 @@ export default function Index({
 
                                 {/* Legend Grid */}
                                 <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-2">
-                                    {beltDistribution.map((entry, index) => {
-                                        const total = beltDistribution.reduce((a, b) => a + b.value, 0);
+                                    {(levelDistribution || []).map((entry, index) => {
+                                        const total = levelDistribution?.reduce((a, b) => a + b.value, 0) || 0;
                                         const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
                                         return (
                                             <div key={index} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors group cursor-default">
@@ -308,7 +308,7 @@ export default function Index({
                             <CardContent className="space-y-3">
                                 <p className="text-xs text-neutral-500">Blok PPA dinonaktifkan. Statistik fokus penuh pada program latihan.</p>
                                 <div className="space-y-2">
-                                    {trainingProgramAnalytics.by_type.length > 0 ? (
+                                    {trainingProgramAnalytics?.by_type?.length > 0 ? (
                                         trainingProgramAnalytics.by_type.map((item, index) => (
                                             <div key={`${item.type}-${index}`} className="rounded-xl border border-neutral-200 p-3 flex items-center justify-between">
                                                 <p className="text-sm font-bold capitalize">{item.type || '-'}</p>

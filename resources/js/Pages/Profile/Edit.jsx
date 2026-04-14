@@ -83,8 +83,8 @@ export default function Edit({ auth, mustVerifyEmail, status, profilePhotoUrl, a
                                             <p className="font-semibold">{athleteData.dojo?.name || '-'}</p>
                                         </div>
                                         <div className="text-sm">
-                                            <p className="text-neutral-500 text-xs">Sabuk Saat Ini</p>
-                                            <p className="font-semibold text-athlix-red uppercase">{athleteData.belt?.name || '-'}</p>
+                                            <p className="text-neutral-500 text-xs">Level Saat Ini</p>
+                                            <p className="font-semibold text-athlix-red uppercase">{athleteData.level?.name || '-'}</p>
                                         </div>
                                         <div className="text-sm">
                                             <p className="text-neutral-500 text-xs">Nomor Tanding</p>
@@ -112,7 +112,7 @@ export default function Edit({ auth, mustVerifyEmail, status, profilePhotoUrl, a
                                         {athleteData.linked_athletes.length > 0 ? athleteData.linked_athletes.map(linked => (
                                             <div key={linked.id} className="text-sm border-b border-neutral-100/50 last:border-0 pb-3 last:pb-0">
                                                 <p className="font-semibold">{linked.full_name} <span className="font-normal text-xs text-neutral-400">({linked.relation_type})</span></p>
-                                                <p className="text-xs text-athlix-red font-semibold">{linked.belt || '-'}</p>
+                                                <p className="text-xs text-athlix-red font-semibold">{linked.level || '-'}</p>
                                             </div>
                                         )) : (
                                             <p className="text-xs text-neutral-500">Belum ada atlet yang ditautkan ke akun ini.</p>

@@ -14,9 +14,19 @@ class Athlete extends Model
 
     protected $guarded = [];
 
+    public function level(): BelongsTo
+    {
+        return $this->belongsTo(Level::class, 'level_id');
+    }
+
     public function belt(): BelongsTo
     {
-        return $this->belongsTo(Belt::class, 'current_belt_id');
+        return $this->level();
+    }
+
+    public function specialization(): BelongsTo
+    {
+        return $this->belongsTo(Specialization::class, 'specialization_id');
     }
 
     public function dojo(): BelongsTo

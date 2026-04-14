@@ -170,6 +170,15 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/report-labels', [TestCategoryController::class, 'storeLabel'])->name('report-labels.store');
         Route::patch('/report-labels/{testLabel}', [TestCategoryController::class, 'updateLabel'])->name('report-labels.update');
         Route::delete('/report-labels/{testLabel}', [TestCategoryController::class, 'destroyLabel'])->name('report-labels.destroy');
+
+        // ── Level & Specialization Management ──
+        Route::get('/master-data', [\App\Http\Controllers\DojoMasterDataController::class, 'index'])->name('master-data.index');
+        Route::post('/levels', [\App\Http\Controllers\DojoMasterDataController::class, 'storeLevel'])->name('levels.store');
+        Route::patch('/levels/{level}', [\App\Http\Controllers\DojoMasterDataController::class, 'updateLevel'])->name('levels.update');
+        Route::delete('/levels/{level}', [\App\Http\Controllers\DojoMasterDataController::class, 'destroyLevel'])->name('levels.destroy');
+        Route::post('/specializations', [\App\Http\Controllers\DojoMasterDataController::class, 'storeSpecialization'])->name('specializations.store');
+        Route::patch('/specializations/{specialization}', [\App\Http\Controllers\DojoMasterDataController::class, 'updateSpecialization'])->name('specializations.update');
+        Route::delete('/specializations/{specialization}', [\App\Http\Controllers\DojoMasterDataController::class, 'destroySpecialization'])->name('specializations.destroy');
     });
 
     Route::middleware('role:super_admin,sensei,head_coach,assistant,atlet')->group(function () {

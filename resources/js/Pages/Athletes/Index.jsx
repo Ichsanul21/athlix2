@@ -9,7 +9,7 @@ import DbSelect from '@/Components/DbSelect';
 import Modal from '@/Components/Modal';
 import { useState, useEffect, useCallback } from 'react';
 
-export default function Index({ auth, athletes, flash, filters, belts, suggestedAthleteCode, dojos = [] }) {
+export default function Index({ auth, athletes, flash, filters, levels = [], specializations = [], suggestedAthleteCode, dojos = [] }) {
     const [search, setSearch] = useState(filters?.search || '');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [provinces, setProvinces] = useState([]);
@@ -70,18 +70,19 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
         setLoadingVill(false);
     }, []);
 
-    const initialBeltId = belts?.[0]?.id ?? '';
+    const initialLevelId = levels?.[0]?.id ?? '';
+    const initialSpecId = specializations?.[0]?.id ?? '';
     const initialDojoId = dojos?.[0]?.id ?? '';
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         full_name: '',
         athlete_code: suggestedAthleteCode || '',
-        current_belt_id: initialBeltId,
+        level_id: initialLevelId,
         dojo_id: initialDojoId,
         birth_place: '',
         phone_number: '',
         dob: '',
         gender: 'M',
-        specialization: 'both',
+        specialization_id: initialSpecId,
         parent_name: '',
         parent_phone_number: '',
         parent_email: '',
@@ -171,8 +172,8 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
     }, [guardianPhoneInfo, setData]);
 
     useEffect(() => {
-        if (belts?.length > 0 && !data.current_belt_id) setData('current_belt_id', belts[0].id);
-    }, [belts, data.current_belt_id, setData]);
+        if (levels?.length > 0 && !data.level_id) setData('level_id', levels[0].id);
+    }, [levels, data.level_id, setData]);
 
     useEffect(() => {
         if (dojos?.length > 0 && !data.dojo_id) setData('dojo_id', dojos[0].id);
@@ -304,7 +305,7 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                     <tr>
                                         <th className="px-4 py-4">Foto</th>
                                         <th className="px-6 py-4">Nama Atlet</th>
-                                        <th className="px-6 py-4">Nomor Tanding</th>
+                                        <th className="px-6 py-4">Level / Spesialisasi</th>
                                         <th className="px-6 py-4">Keterangan Kelas</th>
                                         <th className="px-6 py-4">Tanggal Lahir</th>
                                         <th className="px-6 py-4">Kondisi Fisik</th>
@@ -333,7 +334,10 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-neutral-500">
-                                                {athlete.category || 'Belum Ditentukan'}
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-neutral-700">{athlete.level?.name || 'Belum Ditentukan'}</span>
+                                                    <span className="text-xs">{athlete.category || 'Spesialisasi Kosong'}</span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-neutral-500">
                                                 {athlete.class_note || '-'}
@@ -573,28 +577,26 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
                                 )}
 
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Belt Level</label>
+                                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Level Atlet</label>
                                     <DbSelect
-                                        inputId="athlete-create-belt"
-                                        options={belts.map((belt) => ({ value: String(belt.id), label: belt.name }))}
-                                        value={data.current_belt_id}
-                                        placeholder="Pilih Belt"
-                                        onChange={(next) => setData('current_belt_id', next)}
+                                        inputId="athlete-create-level"
+                                        options={levels.map((level) => ({ value: String(level.id), label: level.name }))}
+                                        value={data.level_id}
+                                        placeholder="Pilih Level"
+                                        onChange={(next) => setData('level_id', next)}
                                     />
+                                    {errors.level_id && <p className="text-xs text-athlix-red">{errors.level_id}</p>}
                                 </div>
 
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Spesialisasi</label>
                                     <DbSelect
                                         inputId="athlete-specialization"
-                                        value={data.specialization}
-                                        options={[
-                                            { value: 'kata', label: 'Kata' },
-                                            { value: 'kumite', label: 'Kumite' },
-                                            { value: 'both', label: 'Kata & Kumite' }
-                                        ]}
-                                        onChange={(val) => setData('specialization', val)}
+                                        value={data.specialization_id}
+                                        options={specializations.map((spec) => ({ value: String(spec.id), label: spec.name }))}
+                                        onChange={(val) => setData('specialization_id', val)}
                                     />
+                                    {errors.specialization_id && <p className="text-xs text-athlix-red">{errors.specialization_id}</p>}
                                 </div>
 
                                 <div className="sm:col-span-2 space-y-1">
@@ -779,9 +781,9 @@ export default function Index({ auth, athletes, flash, filters, belts, suggested
 
                                 <div className="sm:col-span-2 space-y-3 pt-2">
                                     <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800">
-                                        <input 
-                                            type="checkbox" 
-                                            id="parent_address_same" 
+                                        <input
+                                            type="checkbox"
+                                            id="parent_address_same"
                                             checked={data.parent_address_same_as_athlete}
                                             onChange={(e) => {
                                                 const checked = e.target.checked;

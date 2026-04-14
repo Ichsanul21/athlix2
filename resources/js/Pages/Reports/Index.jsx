@@ -369,7 +369,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                                                  {a.full_name}
                                                              </p>
                                                              <p className={`text-xs uppercase font-bold transition-colors duration-300 ${isSelected ? 'text-athlix-red/60' : 'text-neutral-500'}`}>
-                                                                 {a.belt?.name} | {a.age} Thn
+                                                                 {a.level?.name} | {a.age} Thn
                                                              </p>
                                                          </div>
                                                      </div>
@@ -411,7 +411,7 @@ export default function Index({ auth, athletes = [], dojos = [], selectedDojoId,
                                                 </div>
                                                 <div>
                                                     <h3 className="font-black text-xl tracking-tight">{selectedAthlete.full_name}</h3>
-                                                    <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest">{selectedAthlete.belt?.name} | {selectedAthlete.athlete_code}</p>
+                                                    <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest">{selectedAthlete.level?.name} | {selectedAthlete.athlete_code}</p>
                                                 </div>
                                             </div>
                                             <Link href={route('athletes.show', selectedAthlete.id)} className="text-xs font-bold uppercase tracking-widest text-athlix-black dark:text-neutral-100 hover:text-athlix-red transition-colors flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">

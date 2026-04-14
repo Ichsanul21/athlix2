@@ -25,7 +25,7 @@ class PhysicalConditionController extends Controller
         }
 
         $allAthletes = $athleteQuery
-            ->with(['belt', 'physicalMetrics' => function($q) {
+            ->with(['level', 'physicalMetrics' => function($q) {
                 $q->orderBy('recorded_at', 'asc');
             }])
             ->get();

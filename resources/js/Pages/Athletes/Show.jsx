@@ -25,7 +25,7 @@ const resolveAbilityStatus = (scores) => {
     return average > 0 ? 'Perlu Pembinaan' : 'Belum Dinilai';
 };
 
-export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], belts = [], reportCategories = [], testLabels = [], dojoAthletes = [] }) {
+export default function Show({ auth, athlete, performance, achievementHistory = [], latestReport, reportHistory = [], levels = [], specializations = [], reportCategories = [], testLabels = [], dojoAthletes = [] }) {
     const saasPlan = auth?.dojo?.saas_plan_name ?? 'Basic';
     const isProOrAdvance = ['Pro', 'Advance'].includes(saasPlan);
     const isLoading = !athlete || !performance;
@@ -284,12 +284,12 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
     const primaryGuardian = athlete?.primary_guardian;
     const editForm = useForm({
         full_name: athlete?.full_name || '',
-        current_belt_id: athlete?.current_belt_id || athlete?.belt?.id || '',
+        level_id: athlete?.level_id || athlete?.level?.id || '',
         dob: athlete?.dob || '',
         birth_place: athlete?.birth_place || '',
         phone_number: athlete?.phone_number || '',
         gender: athlete?.gender || 'M',
-        specialization: athlete?.specialization || 'both',
+        specialization_id: athlete?.specialization_id || '',
         latest_height: athlete?.latest_height || '',
         latest_weight: athlete?.latest_weight || '',
         class_note: athlete?.class_note || '',
@@ -324,12 +324,12 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
         if (athlete && editModalOpen) {
             editForm.setData({
                 full_name: athlete.full_name || '',
-                current_belt_id: athlete.current_belt_id || athlete.belt?.id || '',
+                level_id: athlete.level_id || athlete.level?.id || '',
                 dob: athlete.dob || '',
                 birth_place: athlete.birth_place || '',
                 phone_number: athlete.phone_number || '',
                 gender: athlete.gender || 'M',
-                specialization: athlete.specialization || 'both',
+                specialization_id: athlete.specialization_id || '',
                 latest_height: athlete.latest_height || '',
                 latest_weight: athlete.latest_weight || '',
                 class_note: athlete.class_note || '',
@@ -672,7 +672,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                         <p className="text-xs font-black uppercase tracking-widest text-neutral-500">Biodata Athlet</p>
                                         <p className="font-black text-lg">{athlete.full_name} <span className="text-sm font-mono text-neutral-500">({athlete.athlete_code})</span></p>
                                         <p className="text-sm text-neutral-500">Dojo: <span className="font-semibold text-neutral-700 dark:text-neutral-300">{athlete.dojo?.name || '-'}</span> | Kelas: <span className="font-semibold">{athlete.class_note || 'UMUM'}</span></p>
-                                        <p className="text-sm text-neutral-500">Belt: <span className="font-semibold text-athlix-red">{athlete.belt?.name || '-'}</span> | Gender: {athlete.gender === 'M' ? 'Laki-laki' : 'Perempuan'}</p>
+                                        <p className="text-sm text-neutral-500">Level: <span className="font-semibold text-athlix-red">{athlete.level?.name || '-'}</span> | Spec: <span className="font-semibold">{athlete.specialization?.name || '-'}</span></p>
+                                        <p className="text-sm text-neutral-500">Gender: {athlete.gender === 'M' ? 'Laki-laki' : 'Perempuan'}</p>
                                         {athlete.phone_number && (
                                             <p className="text-xs text-neutral-400 flex items-center gap-1"><Phone size={11} /> {athlete.phone_number}</p>
                                         )}
@@ -1129,9 +1130,9 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                                 {editForm.errors.phone_number && <p className="text-xs text-athlix-red">{editForm.errors.phone_number}</p>}
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Belt *</label>
-                                <DbSelect inputId="edit-belt" options={(belts || []).map(b => ({ value: String(b.id), label: b.name }))} value={editForm.data.current_belt_id ? String(editForm.data.current_belt_id) : ''} onChange={v => editForm.setData('current_belt_id', v)} placeholder="Pilih Belt" />
-                                {editForm.errors.current_belt_id && <p className="text-xs text-athlix-red">{editForm.errors.current_belt_id}</p>}
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Level *</label>
+                                <DbSelect inputId="edit-level" options={(levels || []).map(l => ({ value: String(l.id), label: l.name }))} value={editForm.data.level_id ? String(editForm.data.level_id) : ''} onChange={v => editForm.setData('level_id', v)} placeholder="Pilih Level" />
+                                {editForm.errors.level_id && <p className="text-xs text-athlix-red">{editForm.errors.level_id}</p>}
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tanggal Lahir *</label>
@@ -1147,7 +1148,8 @@ export default function Show({ auth, athlete, performance, achievementHistory = 
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Spesialisasi *</label>
-                                <DbSelect inputId="edit-spec" value={editForm.data.specialization} options={[{ value: 'kata', label: 'Kata' }, { value: 'kumite', label: 'Kumite' }, { value: 'both', label: 'Kata & Kumite' }]} onChange={v => editForm.setData('specialization', v)} />
+                                <DbSelect inputId="edit-spec" value={String(editForm.data.specialization_id)} options={(specializations || []).map(s => ({ value: String(s.id), label: s.name }))} onChange={v => editForm.setData('specialization_id', v)} placeholder="Pilih Spesialisasi" />
+                                {editForm.errors.specialization_id && <p className="text-xs text-athlix-red">{editForm.errors.specialization_id}</p>}
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tinggi (cm)</label>
