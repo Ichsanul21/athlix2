@@ -150,9 +150,9 @@ class DynamicBillingService
 
         $scored = $defaults->map(function (BillingDefault $default) use ($athlete) {
             $score = 0;
-            if ($default->belt_id && (int) $default->belt_id === (int) $athlete->current_belt_id) {
+            if ($default->level_id && (int) $default->level_id === (int) ($athlete->level_id ?? $athlete->current_belt_id)) {
                 $score += 50;
-            } elseif ($default->belt_id) {
+            } elseif ($default->level_id) {
                 $score -= 30;
             }
 
@@ -164,7 +164,7 @@ class DynamicBillingService
                 $score -= 20;
             }
 
-            if (! $default->belt_id && $defaultClass === '') {
+            if (! $default->level_id && $defaultClass === '') {
                 $score += 10;
             }
 

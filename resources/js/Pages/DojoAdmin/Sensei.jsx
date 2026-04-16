@@ -29,6 +29,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
         password: '',
         profile_photo: null,
         dojo_id: selectedDojoId || '',
+        role: 'sensei',
     });
 
     useEffect(() => {
@@ -71,6 +72,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                 password: '',
                 profile_photo: null,
                 dojo_id: dojoId || '',
+                role: sensei.role || 'sensei',
             });
         } else {
             setEditingId(null);
@@ -326,6 +328,21 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                             </label>
                             <Input className="text-sm" type="password" placeholder="Minimal 8 karakter" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
                             {form.errors.password && <p className="text-xs text-red-500 mt-1">{form.errors.password}</p>}
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1 block">Role / Jabatan</label>
+                            <DbSelect
+                                inputId="sensei-role-select"
+                                options={[
+                                    { value: 'sensei', label: 'Pelatih' },
+                                    { value: 'head_coach', label: 'Head Coach' },
+                                    { value: 'assistant', label: 'Asisten' },
+                                ]}
+                                value={form.data.role}
+                                placeholder="Pilih Role"
+                                onChange={(val) => form.setData('role', val)}
+                            />
+                            {form.errors.role && <p className="text-xs text-red-500 mt-1">{form.errors.role}</p>}
                         </div>
                         <div className="sm:col-span-2 space-y-1">
                             <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Profil</label>

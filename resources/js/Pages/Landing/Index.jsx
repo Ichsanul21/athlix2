@@ -161,7 +161,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                             <a href="#galeri" className="transition-colors hover:text-red-500 whitespace-nowrap">GALERI</a>
                             <div className="shrink-0"><LanguageSwitch compact /></div>
                             <Link href={route('login')} className="rounded-md bg-red-600 px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm text-white shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] transition-all hover:-translate-y-0.5 hover:bg-red-700 whitespace-nowrap">
-                                LOGIN CLUB
+                                LOGIN
                             </Link>
                         </div>
 
@@ -179,7 +179,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                             <a href="#galeri" className="border-b border-slate-800 py-2 font-bold tracking-wider text-slate-300" onClick={() => setMobileMenuOpen(false)}>GALERI</a>
                             <div className="py-2"><LanguageSwitch compact={false} /></div>
                             <Link href={route('login')} className="mt-2 rounded-md bg-red-600 px-4 py-3 text-center font-bold tracking-wider text-white">
-                                LOGIN CLUB
+                                LOGIN
                             </Link>
                         </div>
                     )}
@@ -269,7 +269,7 @@ export default function Index({ articles = [], galleries = [], priceLists = [], 
                                                     className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
                                                 >
                                                     <LogIn className="h-4 w-4 text-red-500" />
-                                                    LOGIN CLUB
+                                                    LOGIN
                                                 </Link>
                                                 <button
                                                     onClick={handleInstallPWA}

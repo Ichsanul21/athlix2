@@ -34,7 +34,7 @@ class FinanceController extends Controller
 
         $records = FinanceRecord::query()
             ->with([
-                'athlete.belt',
+                'athlete.level',
                 'athlete.physicalMetrics' => fn ($query) => $query->latest('recorded_at'),
                 'adjustments.sourceAthlete',
             ])
@@ -94,7 +94,7 @@ class FinanceController extends Controller
             // PERBAIKAN: Sort by created_at DESC agar data yang baru saja ditambahkan selalu di atas (index 0 = aktif)
             $billingDefaults = BillingDefault::query()
                 ->where('tenant_id', $tenantId)
-                ->with('belt:id,name')
+                ->with('level:id,name')
                 ->latest('created_at')
                 ->get();
 
@@ -110,7 +110,7 @@ class FinanceController extends Controller
         } elseif ($isAllDojos) {
             // PERBAIKAN: Sort by created_at DESC (sama seperti di atas)
             $billingDefaults = BillingDefault::query()
-                ->with(['belt:id,name', 'tenant:id,name'])
+                ->with(['level:id,name', 'tenant:id,name'])
                 ->latest('created_at')
                 ->get();
 

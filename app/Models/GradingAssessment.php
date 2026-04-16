@@ -33,8 +33,13 @@ class GradingAssessment extends Model
         return $this->belongsTo(User::class, 'assessor_id');
     }
 
+    public function targetLevel(): BelongsTo
+    {
+        return $this->belongsTo(Level::class, 'level_target_id');
+    }
+
     public function targetBelt(): BelongsTo
     {
-        return $this->belongsTo(Belt::class, 'belt_target_id');
+        return $this->targetLevel();
     }
 }

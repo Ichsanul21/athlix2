@@ -30,7 +30,7 @@ class AttendanceController extends Controller
         }
 
         $attendances = Attendance::query()
-            ->with('athlete.belt')
+            ->with('athlete.level')
             ->whereIn('athlete_id', $athleteQuery->select('id'))
             ->whereDate('recorded_at', now()->toDateString())
             ->latest('recorded_at')

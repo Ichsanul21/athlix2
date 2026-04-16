@@ -22,8 +22,13 @@ class BillingDefault extends Model
         ];
     }
 
+    public function level(): BelongsTo
+    {
+        return $this->belongsTo(Level::class, 'level_id');
+    }
+
     public function belt(): BelongsTo
     {
-        return $this->belongsTo(Belt::class);
+        return $this->level();
     }
 }

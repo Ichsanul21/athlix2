@@ -71,7 +71,7 @@ class DynamicBillingController extends Controller
 
         $validated = $request->validate([
             'tenant_id' => 'nullable|integer|exists:dojos,id',
-            'belt_id' => 'nullable|integer|exists:belts,id',
+            'level_id' => 'nullable|integer|exists:levels,id',
             'class_note' => 'nullable|string|max:255',
             'monthly_fee' => 'required|numeric|min:0',
             'effective_from' => 'nullable|date',
@@ -96,7 +96,7 @@ class DynamicBillingController extends Controller
 
         $item = BillingDefault::query()->create([
             'tenant_id' => $tenantId,
-            'belt_id' => $validated['belt_id'] ?? null,
+            'level_id' => $validated['level_id'] ?? null,
             'class_note' => $validated['class_note'] ?? null,
             'monthly_fee' => round((float) $validated['monthly_fee'], 2),
             // PERBAIKAN: Jika effective_from tidak dikirim, otomatis pakai now()

@@ -152,7 +152,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::post('/dojo-admin/sensei', [DojoAdminController::class, 'storeSensei'])->name('dojo-admin.sensei.store');
         Route::patch('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'updateSensei'])->name('dojo-admin.sensei.update');
         Route::delete('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'destroySensei'])->name('dojo-admin.sensei.destroy');
-        Route::post('/dojo-admin/assignments/{sensei}', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.assignments.update');
+        Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
         Route::post('/dojo-admin/request-plan-change', [DojoAdminController::class, 'requestPlanChange'])->name('dojo-admin.request-plan-change');
 
         // ── Test Category Management ──

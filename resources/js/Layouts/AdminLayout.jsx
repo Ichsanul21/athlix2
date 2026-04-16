@@ -36,7 +36,7 @@ export default function AdminLayout({ user, header, children }) {
 
     const role = user?.role;
     const saasPlan = props?.auth?.dojo?.saas_plan_name ?? 'Basic';
-    const isProOrAdvance = ['Pro', 'Advance'].includes(saasPlan);
+    const isProOrAdvance = role === 'super_admin' || ['Pro', 'Advance'].includes(saasPlan);
 
     const navigation = [
         ...(['super_admin', 'sensei', 'dojo_admin', 'head_coach', 'assistant', 'medical_staff'].includes(role)

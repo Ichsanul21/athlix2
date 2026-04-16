@@ -1,5 +1,6 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, router, useForm } from '@inertiajs/react';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { CreditCard, ArrowUpRight, ArrowDownLeft, Search, MessageCircle, Check, HandCoins, Settings2, X } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
@@ -128,27 +129,19 @@ export default function Index({
         return fromUser > 0 ? fromUser : 0;
     };
 
-    const parseApiError = async (response, fallbackMessage) => {
-        const payload = await response.json().catch(() => ({}));
+    const parseApiError = (error, fallbackMessage) => {
+        const payload = error.response?.data || {};
         if (payload?.errors) {
             const firstErrorKey = Object.keys(payload.errors)[0];
             if (firstErrorKey && payload.errors[firstErrorKey]?.[0]) {
                 return payload.errors[firstErrorKey][0];
             }
         }
-        return payload?.message || fallbackMessage;
+        return payload?.message || error.message || fallbackMessage;
     };
 
-    const csrfToken = typeof document !== 'undefined'
-        ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        : null;
+    // Axios handles CSRF automatically via the XSRF-TOKEN cookie in Laravel.
 
-    const jsonHeaders = (includeBody = false) => ({
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(includeBody ? { 'Content-Type': 'application/json' } : {}),
-        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-    });
 
     const fetchDynamicBillingData = async () => {
         if (!canManageDynamicBilling) return;
@@ -159,17 +152,12 @@ export default function Index({
         setDynamicError('');
         try {
             const [defaultsResponse, overridesResponse] = await Promise.all([
-                fetch(`${DYNAMIC_BILLING_BASE}/defaults?tenant_id=${tenantId}`, { headers: jsonHeaders(), credentials: 'same-origin' }),
-                fetch(`${DYNAMIC_BILLING_BASE}/overrides?tenant_id=${tenantId}`, { headers: jsonHeaders(), credentials: 'same-origin' }),
+                axios.get(`${DYNAMIC_BILLING_BASE}/defaults`, { params: { tenant_id: tenantId } }),
+                axios.get(`${DYNAMIC_BILLING_BASE}/overrides`, { params: { tenant_id: tenantId } }),
             ]);
 
-            if (!defaultsResponse.ok || !overridesResponse.ok) {
-                setDynamicError('Gagal memuat data dynamic billing.');
-                return;
-            }
-
-            const defaultsPayload = await defaultsResponse.json();
-            const overridesPayload = await overridesResponse.json();
+            const defaultsPayload = defaultsResponse.data;
+            const overridesPayload = overridesResponse.data;
 
             // PERBAIKAN: Sort sendiri di frontend berdasarkan created_at DESC supaya
             // tidak bergantung pada sorting endpoint API yang mungkin belum diperbaiki
@@ -216,32 +204,22 @@ export default function Index({
         setDynamicSuccess('');
 
         try {
-            const response = await fetch(`${DYNAMIC_BILLING_BASE}/overrides`, {
-                method: 'POST',
-                headers: jsonHeaders(true),
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    tenant_id: tenantId,
-                    athlete_id: Number(overrideForm.athlete_id),
-                    override_mode: overrideForm.override_mode,
-                    override_value: Number(overrideForm.override_value),
-                    reason: overrideForm.reason || null,
-                    valid_from: overrideForm.valid_from || null,
-                    valid_to: overrideForm.valid_to || null,
-                }),
+            const response = await axios.post(`${DYNAMIC_BILLING_BASE}/overrides`, {
+                tenant_id: tenantId,
+                athlete_id: Number(overrideForm.athlete_id),
+                override_mode: overrideForm.override_mode,
+                override_value: Number(overrideForm.override_value),
+                reason: overrideForm.reason || null,
+                valid_from: overrideForm.valid_from || null,
+                valid_to: overrideForm.valid_to || null,
             });
-
-            if (!response.ok) {
-                const message = await parseApiError(response, 'Gagal menyimpan athlete override.');
-                setDynamicError(message);
-                return;
-            }
 
             setDynamicSuccess('Override billing atlet berhasil disimpan.');
             setOverrideForm({ athlete_id: '', override_mode: 'discount_amount', override_value: '', reason: '', valid_from: '', valid_to: '' });
             await fetchDynamicBillingData();
         } catch (error) {
-            setDynamicError('Terjadi gangguan saat menyimpan override billing.');
+            const message = parseApiError(error, 'Terjadi gangguan saat menyimpan override billing.');
+            setDynamicError(message);
         } finally {
             setDynamicLoading(false);
         }
@@ -304,28 +282,18 @@ export default function Index({
         setDynamicSuccess('');
 
         try {
-            const response = await fetch(`${DYNAMIC_BILLING_BASE}/defaults`, {
-                method: 'POST',
-                headers: jsonHeaders(true),
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    tenant_id: tenantId,
-                    monthly_fee: Number(defaultForm.monthly_fee),
-                    class_note: defaultForm.class_note || null,
-                }),
+            const response = await axios.post(`${DYNAMIC_BILLING_BASE}/defaults`, {
+                tenant_id: tenantId,
+                monthly_fee: Number(defaultForm.monthly_fee),
+                class_note: defaultForm.class_note || null,
             });
-
-            if (!response.ok) {
-                const message = await parseApiError(response, 'Gagal menyimpan default billing.');
-                setDynamicError(message);
-                return;
-            }
 
             setDynamicSuccess('Default billing bulanan berhasil disimpan.');
             setDefaultForm({ monthly_fee: '', class_note: '' });
             await fetchDynamicBillingData();
         } catch (error) {
-            setDynamicError('Terjadi gangguan saat menyimpan default billing.');
+            const message = parseApiError(error, 'Terjadi gangguan saat menyimpan default billing.');
+            setDynamicError(message);
         } finally {
             setDynamicLoading(false);
         }

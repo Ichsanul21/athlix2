@@ -129,6 +129,7 @@ class DojoAdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'nullable|string|max:20',
+            'role' => 'required|in:sensei,head_coach,assistant',
             'password' => 'required|string|min:8',
             'profile_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'dojo_id' => $user?->isSuperAdmin() ? 'required|exists:dojos,id' : 'nullable',
@@ -139,7 +140,6 @@ class DojoAdminController extends Controller
         }
 
         $validated['dojo_id'] = $dojoId;
-        $validated['role'] = 'sensei';
 
         if ($request->hasFile('profile_photo')) {
             $validated['profile_photo_path'] = $request->file('profile_photo')->store('profiles', 'public');
@@ -157,13 +157,14 @@ class DojoAdminController extends Controller
         $user = auth()->user();
         $dojoId = $user?->dojo_id;
 
-        if ($sensei->role !== 'sensei' || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $dojoId)) {
+        if (!in_array($sensei->role, ['sensei', 'head_coach', 'assistant']) || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $dojoId)) {
             abort(403);
         }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $sensei->id,
+            'role' => 'required|in:sensei,head_coach,assistant',
             'phone_number' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:8',
             'profile_photo' => [
@@ -199,7 +200,7 @@ class DojoAdminController extends Controller
         $user = auth()->user();
         $dojoId = $user?->dojo_id;
 
-        if ($sensei->role !== 'sensei' || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $dojoId)) {
+        if (!in_array($sensei->role, ['sensei', 'head_coach', 'assistant']) || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $dojoId)) {
             abort(403);
         }
 
@@ -217,7 +218,7 @@ class DojoAdminController extends Controller
         $user = auth()->user();
         $dojoId = $sensei->dojo_id;
 
-        if ($sensei->role !== 'sensei' || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $user?->dojo_id)) {
+        if (!in_array($sensei->role, ['sensei', 'head_coach', 'assistant']) || (! $user?->isSuperAdmin() && $sensei->dojo_id !== $user?->dojo_id)) {
             abort(403);
         }
 
