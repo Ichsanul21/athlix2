@@ -344,6 +344,7 @@ export default function Sensei({ auth, senseis = [], athletes = [], dojo, dojos 
                             />
                             {form.errors.role && <p className="text-xs text-red-500 mt-1">{form.errors.role}</p>}
                         </div>
+
                         <div className="sm:col-span-2 space-y-1">
                             <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Foto Profil</label>
                             <FileInput

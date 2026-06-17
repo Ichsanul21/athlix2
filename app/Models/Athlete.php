@@ -39,6 +39,11 @@ class Athlete extends Model
         return $this->hasMany(PhysicalMetric::class);
     }
 
+    public function latestPhysicalMetric()
+    {
+        return $this->hasOne(PhysicalMetric::class)->latestOfMany('recorded_at');
+    }
+
     public function reports()
     {
         return $this->hasMany(AthleteReport::class);

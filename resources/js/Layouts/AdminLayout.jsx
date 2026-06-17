@@ -20,7 +20,8 @@ import {
     HandCoins,
     ShieldCheck,
     Smartphone,
-    ClipboardList
+    ClipboardList,
+    CalendarRange
 } from 'lucide-react';
 import GlobalFlashModal from '@/Components/GlobalFlashModal';
 import BillingGraceModal from '@/Components/BillingGraceModal';
@@ -46,7 +47,8 @@ export default function AdminLayout({ user, header, children }) {
                   { name: t('admin.physical_condition', 'Kondisi Atlet'), href: route('physical-condition.index'), icon: Activity, current: 'physical-condition.*' },
                   ...(isProOrAdvance ? [{ name: t('admin.rapor', 'Rapor'), href: route('reports.index'), icon: ClipboardList, current: 'reports.*' }] : []),
                   { name: t('admin.training_program', 'Program Latihan'), href: route('training-programs.index'), icon: Dumbbell, current: 'training-programs.*' },
-                  { name: t('admin.attendance', 'Absensi'), href: route('attendance.index'), icon: CalendarCheck, current: 'attendance.*' },
+                  { name: t('admin.attendance', 'Absensi'), href: route('attendance.index'), icon: CalendarCheck, current: 'attendance.index' },
+                  { name: 'Rekap Absensi', href: route('attendance.recap'), icon: CalendarRange, current: 'attendance.recap' },
                   { name: t('admin.payment', 'Pembayaran'), href: route('finance.index'), icon: CreditCard, current: 'finance.*' },
                   { name: t('admin.statistics', 'Statistik'), href: route('statistics.index'), icon: BarChart3, current: 'statistics.*' },
                   { name: t('admin.athlete_notification', 'Notifikasi Atlet'), href: route('senpai-notifications.index'), icon: BellRing, current: 'senpai-notifications.*' },

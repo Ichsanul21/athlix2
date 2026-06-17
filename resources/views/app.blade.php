@@ -20,6 +20,14 @@
         @routes
         @viteReactRefresh
         @vite(['resources/js/app.jsx', "resources/js/Pages/{$page['component']}.jsx"])
+        
+        <!-- Midtrans Snap JS -->
+        <script 
+            type="text/javascript" 
+            src="{{ config('services.midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" 
+            data-client-key="{{ config('services.midtrans.client_key') }}"
+        ></script>
+
         @inertiaHead
     </head>
     <body class="font-sans antialiased bg-slate-950">

@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Belt;
+use App\Models\Level;
 use Illuminate\Database\Seeder;
 
 class BeltSeeder extends Seeder
@@ -19,7 +19,7 @@ class BeltSeeder extends Seeder
         ];
 
         foreach ($belts as $belt) {
-            Belt::query()->updateOrCreate(
+            Level::query()->updateOrCreate(
                 ['order_level' => $belt['order_level']],
                 $belt
             );

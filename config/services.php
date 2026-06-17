@@ -45,4 +45,11 @@ return [
         'country_code' => env('WHATSAPP_COUNTRY_CODE', '62'),
     ],
 
+    'midtrans' => [
+        'merchant_id' => env('MIDTRANS_MERCHANT_ID', 'G065622069'),
+        'client_key' => env('MIDTRANS_CLIENT_KEY', 'SB-Mid-client-3_Df4e8IB3Ci6BbJ'),
+        'server_key' => env('MIDTRANS_SERVER_KEY', 'SB-Mid-server-wYaFGkrVmuSrwuvWn4V1M24f'),
+        'is_production' => (bool) env('MIDTRANS_IS_PRODUCTION', false),
+    ],
+
 ];

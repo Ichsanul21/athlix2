@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Skeleton } from '@/Components/ui/skeleton';
 import DbSelect from '@/Components/DbSelect';
-import { QrCode, RefreshCw, CalendarCheck2, CheckCircle2, UserRound, MessageSquare, X } from 'lucide-react';
+import { QrCode, RefreshCw, CalendarCheck2, CheckCircle2, UserRound, MessageSquare, X, MapPin } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Modal from '@/Components/Modal';
 
 export default function Index({ auth, attendances, dojoQr, flash, dojos = [], selectedDojoId = null }) {
     const isLoading = attendances === undefined || dojoQr === undefined;
@@ -17,6 +18,7 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
     const [senseiFeedback, setSenseiFeedback] = useState('');
     const [senseiMood, setSenseiMood] = useState('normal');
     const [dojoId, setDojoId] = useState(selectedDojoId || '');
+    const [mapModal, setMapModal] = useState({ show: false, lat: null, lng: null, title: '' });
 
     useEffect(() => {
         setQrState(dojoQr || null);
@@ -184,6 +186,48 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
                                             <p className="italic">
                                                 Notes: {attendance.check_in_feedback || "tidak ada notes"}
                                             </p>
+
+                                            {/* Geolocation link */}
+                                            {attendance.check_in_lat && attendance.check_in_lng && (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${attendance.check_in_lat},${attendance.check_in_lng}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setMapModal({
+                                                            show: true,
+                                                            lat: attendance.check_in_lat,
+                                                            lng: attendance.check_in_lng,
+                                                            title: `Lokasi Check-in: ${attendance.athlete?.full_name || '-'}`
+                                                        });
+                                                    }}
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 transition-colors cursor-pointer"
+                                                >
+                                                    <MapPin size={11} />
+                                                    Lihat Lokasi Check-in
+                                                </a>
+                                            )}
+                                            {attendance.check_out_lat && attendance.check_out_lng && (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${attendance.check_out_lat},${attendance.check_out_lng}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setMapModal({
+                                                            show: true,
+                                                            lat: attendance.check_out_lat,
+                                                            lng: attendance.check_out_lng,
+                                                            title: `Lokasi Check-out: ${attendance.athlete?.full_name || '-'}`
+                                                        });
+                                                    }}
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 transition-colors cursor-pointer ml-1"
+                                                >
+                                                    <MapPin size={11} />
+                                                    Lihat Lokasi Check-out
+                                                </a>
+                                            )}
                                         </div>
 
                                         {/* BARIS 3: Tombol Feedback */}
@@ -253,6 +297,55 @@ export default function Index({ auth, attendances, dojoQr, flash, dojos = [], se
                 </div>,
                 document.body
             )}
+
+            {/* Map Modal */}
+            <Modal
+                show={mapModal.show}
+                onClose={() => setMapModal(prev => ({ ...prev, show: false }))}
+                maxWidth="lg"
+                centered
+            >
+                <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="text-athlix-red" size={20} />
+                            <h3 className="font-bold text-neutral-800 dark:text-neutral-100 text-base">{mapModal.title}</h3>
+                        </div>
+                        <button
+                            onClick={() => setMapModal(prev => ({ ...prev, show: false }))}
+                            className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                    {mapModal.lat && mapModal.lng && (
+                        <div className="space-y-4">
+                            <div className="w-full aspect-video rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+                                <iframe
+                                    title="Location Map"
+                                    width="100%"
+                                    height="100%"
+                                    style={{ border: 0 }}
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://maps.google.com/maps?q=${mapModal.lat},${mapModal.lng}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between gap-3 text-xs text-neutral-500">
+                                <span>Koordinat: {mapModal.lat}, {mapModal.lng}</span>
+                                <a
+                                    href={`https://www.google.com/maps?q=${mapModal.lat},${mapModal.lng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-athlix-red hover:underline font-bold"
+                                >
+                                    Buka di Google Maps
+                                </a>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Modal>
         </AdminLayout>
     );
 }

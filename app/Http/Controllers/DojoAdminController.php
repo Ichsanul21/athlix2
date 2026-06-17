@@ -25,6 +25,7 @@ class DojoAdminController extends Controller
 
         return Inertia::render('DojoAdmin/Settings', [
             'dojo' => Inertia::defer(fn () => Dojo::find($dojoId)),
+            'priceLists' => Inertia::defer(fn () => \App\Models\LandingPriceList::orderBy('sort_order')->get()),
         ]);
     }
 
@@ -94,6 +95,7 @@ class DojoAdminController extends Controller
                     'phone_number'        => $sensei->phone_number,
                     'profile_photo_path'  => $sensei->profile_photo_path,
                     'dojo_name'           => $sensei->dojo?->name,
+                    'athlete_id'          => $sensei->athlete_id,
                     'athlete_ids'         => $sensei->senseiAthletes->pluck('id')->values(),
                     'athletes'            => $sensei->senseiAthletes->map(fn ($a) => [
                         'id'           => $a->id,

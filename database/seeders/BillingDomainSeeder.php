@@ -70,7 +70,7 @@ class BillingDomainSeeder extends Seeder
         foreach ($defaults as $item) {
             BillingDefault::query()->create([
                 'tenant_id' => $dojo->id,
-                'belt_id' => null,
+                'level_id' => null, 
                 'class_note' => $item['class_note'],
                 'monthly_fee' => $item['monthly_fee'],
                 'effective_from' => $periodStart->toDateString(),
@@ -239,7 +239,7 @@ class BillingDomainSeeder extends Seeder
             default => 260000,
         };
 
-        if ($athlete->specialization === 'both') {
+        if ($athlete->specialization_id == 3) {
             $amount += 15000;
         }
 

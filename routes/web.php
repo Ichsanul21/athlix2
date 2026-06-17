@@ -19,6 +19,7 @@ use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperAdminSystemSettingController;
 use App\Http\Controllers\PasswordChangeController;
 use App\Http\Controllers\RegionController;
+use App\Http\Controllers\SaasPaymentController;
 use App\Http\Controllers\TrainingProgramController;
 use App\Http\Controllers\TestCategoryController;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,9 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::get('/attendance/dojo-qr', [AttendanceController::class, 'dojoQr'])->name('attendance.dojo-qr');
         Route::post('/attendance', [AttendanceController::class, 'store'])->name('attendance.store');
         Route::patch('/attendance/{attendance}/sensei-feedback', [AttendanceController::class, 'senseiFeedback'])->name('attendance.sensei-feedback');
+        Route::get('/attendance/recap', [AttendanceController::class, 'recap'])->name('attendance.recap');
+        Route::get('/attendance/recap/export-pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.recap.export-pdf');
+        Route::get('/attendance/recap/export-excel', [AttendanceController::class, 'exportExcel'])->name('attendance.recap.export-excel');
 
         Route::get('/athletes', [AthleteController::class, 'index'])->name('athletes.index');
         Route::get('/athletes/check-guardian-phone', [AthleteController::class, 'checkGuardianPhone'])->name('athletes.check-guardian-phone');
@@ -154,6 +158,8 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::delete('/dojo-admin/sensei/{sensei}', [DojoAdminController::class, 'destroySensei'])->name('dojo-admin.sensei.destroy');
         Route::patch('/dojo-admin/sensei/{sensei}/assignments', [DojoAdminController::class, 'updateAssignments'])->name('dojo-admin.sensei.assignments');
         Route::post('/dojo-admin/request-plan-change', [DojoAdminController::class, 'requestPlanChange'])->name('dojo-admin.request-plan-change');
+        Route::post('/dojo-admin/saas/renew', [SaasPaymentController::class, 'createRenewalOrder'])->name('saas.payment.renew');
+        Route::get('/dojo-admin/saas/order/{order}', [SaasPaymentController::class, 'checkOrderStatus'])->name('saas.payment.status');
 
         // ── Test Category Management ──
         Route::get('/report-categories', [TestCategoryController::class, 'index'])->name('report-categories.index');
@@ -209,7 +215,7 @@ Route::middleware(['auth', 'verified', 'tenant.access', 'force.password'])->grou
         Route::get('/settings', [PwaController::class, 'settings'])->name('profile.settings');
     });
 
-    Route::middleware('role:atlet,parent')->group(function () {
+    Route::middleware('role:atlet,parent,sensei,head_coach,assistant')->group(function () {
         Route::get('/scan', [PwaController::class, 'scan'])->name('scan.index');
     });
 

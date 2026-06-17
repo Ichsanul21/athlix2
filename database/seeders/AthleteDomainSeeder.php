@@ -8,6 +8,7 @@ use App\Models\AthleteGuardian;
 use App\Models\AthleteReport;
 use App\Models\Belt;
 use App\Models\Dojo;
+use App\Models\Level;
 use App\Models\PhysicalMetric;
 use App\Models\User;
 use Carbon\Carbon;
@@ -18,10 +19,54 @@ use Illuminate\Support\Str;
 
 class AthleteDomainSeeder extends Seeder
 {
-    public function run(): void
+        public function run(): void
     {
+        // 1. Ambil Dojo pertama yang ada di database untuk dijadikan "pemilik" data spesialisasi default
+        // Karena database mewajibkan dojo_id merujuk ke dojo yang valid (Foreign Key), 
+        // kita tidak bisa menggunakan angka sembarang (seperti 0).
+        $defaultDojo = Dojo::query()->first();
+
+        // Jika belum ada dojo sama sekali, hentikan proses agar tidak error
+        if (!$defaultDojo) {
+            $this->command->error('Gagal menjalankan seeder: Tidak ada data Dojo di database. Jalankan seeder Dojo terlebih dahulu.');
+            return;
+        }
+
+        $ownerDojoId = $defaultDojo->id;
+
+        DB::table('specializations')->updateOrInsert(
+            ['id' => 1],
+            [
+                'name' => 'kata',
+                'dojo_id' => $ownerDojoId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        );
+
+        DB::table('specializations')->updateOrInsert(
+            ['id' => 2],
+            [
+                'name' => 'kumite',
+                'dojo_id' => $ownerDojoId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        );
+
+        DB::table('specializations')->updateOrInsert(
+            ['id' => 3],
+            [
+                'name' => 'both',
+                'dojo_id' => $ownerDojoId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        );
+
+        // Lanjutkan proses seeding sisanya
         $dojos = Dojo::query()->orderBy('id')->get();
-        $belts = Belt::query()->orderBy('order_level')->get()->keyBy('order_level');
+        $belts = Level::query()->orderBy('order_level')->get()->keyBy('order_level');
 
         $dojos->each(function (Dojo $dojo, int $dojoIndex) use ($belts) {
             $this->seedDojoAthletes($dojo, $dojoIndex, $belts);
@@ -55,7 +100,7 @@ class AthleteDomainSeeder extends Seeder
 
             $athlete = Athlete::query()->create([
                 'dojo_id'          => $dojo->id,
-                'current_belt_id'  => $belts[$beltOrder]?->id,
+                'level_id'         => $belts[$beltOrder]?->id,
                 'athlete_code'     => $athleteCode,
                 'full_name'        => $fullName,
                 'birth_place'      => $this->resolveBirthPlace($globalIndex),
@@ -68,7 +113,7 @@ class AthleteDomainSeeder extends Seeder
                 'gender'           => $gender,
                 'latest_weight'    => $weight,
                 'latest_height'    => $height,
-                'specialization'   => $this->resolveSpecialization($globalIndex),
+                'specialization_id' => $this->getSpecializationId($this->resolveSpecialization($globalIndex)),
                 'class_note'       => $this->resolveClassNote($age, $weight),
             ]);
 
@@ -93,6 +138,16 @@ class AthleteDomainSeeder extends Seeder
         }
 
         $this->seedParentGuardianLinks($dojo, $athletes, $dojoIndex);
+    }
+
+    private function getSpecializationId(string $specializationName): int
+    {
+        return match ($specializationName) {
+            'kata'    => 1,
+            'kumite'  => 2,
+            'both'    => 3,
+            default   => 1,
+        };
     }
 
     private function seedAthleteReports(Athlete $athlete, ?int $evaluatorId): void

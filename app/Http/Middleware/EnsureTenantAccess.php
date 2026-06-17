@@ -29,6 +29,22 @@ class EnsureTenantAccess
             return $next($request);
         }
 
+        if ($user->role === 'dojo_admin') {
+            $allowedRoutes = [
+                'dojo-admin.settings.index',
+                'dojo-admin.settings.update',
+                'saas.payment.renew',
+                'saas.payment.status',
+                'logout',
+            ];
+            if ($request->routeIs($allowedRoutes)) {
+                return $next($request);
+            }
+            
+            return redirect()->route('dojo-admin.settings.index')
+                ->with('warning', 'Masa aktif langganan club Anda telah berakhir. Silakan lakukan pembayaran perpanjangan untuk memulihkan akses penuh.');
+        }
+
         $status = $dojo->accessStatusLabel();
         
         $message = "Maaf, akses dashboard telah ditutup. Masa berlangganan atau paket uji coba (Trial) klub Anda telah berakhir. Silakan lakukan pembayaran paket atau hubungi Admin Athlix untuk mengaktifkan kembali fitur pengelolaan klub Anda.";

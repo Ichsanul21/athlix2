@@ -7,6 +7,7 @@ use App\Models\AthleteHealthPreference;
 use App\Models\Belt;
 use App\Models\CoachSessionNote;
 use App\Models\GradingAssessment;
+use App\Models\Level;
 use App\Models\MedicalLog;
 use App\Models\MenstrualCycleLog;
 use App\Models\StrengthConditioningMetric;
@@ -16,10 +17,10 @@ use Illuminate\Database\Seeder;
 
 class SportsScienceDomainSeeder extends Seeder
 {
-    public function run(): void
+        public function run(): void
     {
         $athletes = Athlete::query()->orderBy('id')->get();
-        $blackBeltId = Belt::query()->where('order_level', 6)->value('id');
+        $blackBeltId = Level::query()->where('order_level', 6)->value('id');
 
         $assessorByDojo = User::query()
             ->whereIn('role', ['head_coach', 'sensei', 'assistant'])
@@ -49,7 +50,7 @@ class SportsScienceDomainSeeder extends Seeder
                 'tenant_id' => $tenantId,
                 'athlete_id' => $athlete->id,
                 'assessor_id' => $assessor?->id,
-                'belt_target_id' => $blackBeltId,
+                'level_target_id' => $blackBeltId,
                 'assessed_at' => now()->subDays(14),
                 'kihon_score' => max(50, min(100, $finalScore - 2)),
                 'kata_score' => max(50, min(100, $finalScore - 1)),

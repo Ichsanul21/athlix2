@@ -7,6 +7,7 @@ use App\Models\Athlete;
 use App\Models\Dojo;
 use App\Models\FinanceRecord;
 use App\Models\TrainingProgram;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -83,18 +84,25 @@ class AttendanceController extends Controller
     {
         $user = auth()->user();
         $validated = $request->validate([
-            'athlete_code' => 'required|string',
-            'dojo_payload' => 'required|string',
-            'action' => 'nullable|in:checkin,checkout',
-            'check_in_feedback' => 'nullable|string|max:1000',
-            'check_in_mood' => 'nullable|string|max:30',
-            'check_in_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-            'athlete_feedback' => 'nullable|string|max:1000',
-            'athlete_mood' => 'nullable|string|max:30',
+            'athlete_code'     => 'required|string',
+            'dojo_payload'     => 'required|string',
+            'action'           => 'nullable|in:checkin,checkout',
+            'check_in_feedback'  => 'nullable|string|max:1000',
+            'check_in_mood'      => 'nullable|string|max:30',
+            'check_in_document'  => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'athlete_feedback'   => 'nullable|string|max:1000',
+            'athlete_mood'       => 'nullable|string|max:30',
+            // Geolocation fields
+            'check_in_lat'   => 'nullable|numeric|between:-90,90',
+            'check_in_lng'   => 'nullable|numeric|between:-180,180',
+            'check_out_lat'  => 'nullable|numeric|between:-90,90',
+            'check_out_lng'  => 'nullable|numeric|between:-180,180',
         ]);
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
-        if ($user?->isAtlet()) {
+        if ($user?->athlete_id && (int) $user->athlete_id === (int) $athlete->id) {
+            // Self check-in is allowed
+        } elseif ($user?->isAtlet()) {
             if ((int) $user->athlete_id !== (int) $athlete->id) {
                 throw ValidationException::withMessages([
                     'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
@@ -149,16 +157,18 @@ class AttendanceController extends Controller
     public function submitPostTrainingFeedback(Request $request)
     {
         $validated = $request->validate([
-            'athlete_code' => 'required|string',
-            'mood_rating' => 'required|integer|min:1|max:10',
-            'load_rating' => 'required|integer|min:1|max:10',
+            'athlete_code'   => 'required|string',
+            'mood_rating'    => 'required|integer|min:1|max:10',
+            'load_rating'    => 'required|integer|min:1|max:10',
             'pre_mood_rating' => 'nullable|integer|min:1|max:10',
-            'notes' => 'nullable|string|max:1000',
+            'notes'          => 'nullable|string|max:1000',
         ]);
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
         $user = auth()->user();
-        if ($user?->isMurid()) {
+        if ($user?->athlete_id && (int) $user->athlete_id === (int) $athlete->id) {
+            // Self feedback is allowed
+        } elseif ($user?->isMurid()) {
             if ((int) $user->athlete_id !== (int) $athlete->id) {
                 throw ValidationException::withMessages([
                     'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
@@ -212,12 +222,12 @@ class AttendanceController extends Controller
         }
 
         $validated = $request->validate([
-            'sensei_feedback' => 'nullable|string|max:1000',
+            'sensei_feedback'        => 'nullable|string|max:1000',
             'sensei_mood_assessment' => 'nullable|string|max:30',
         ]);
 
         $attendance->update([
-            'sensei_feedback' => $validated['sensei_feedback'] ?? null,
+            'sensei_feedback'        => $validated['sensei_feedback'] ?? null,
             'sensei_mood_assessment' => $validated['sensei_mood_assessment'] ?? null,
         ]);
 
@@ -227,9 +237,9 @@ class AttendanceController extends Controller
     public function markStatus(Request $request)
     {
         $validated = $request->validate([
-            'athlete_code' => 'required|string',
-            'status' => 'required|in:sick,excused',
-            'absence_reason' => 'nullable|string|max:1000',
+            'athlete_code'    => 'required|string',
+            'status'          => 'required|in:sick,excused',
+            'absence_reason'  => 'nullable|string|max:1000',
             'absence_document' => [
                 'required',
                 'file',
@@ -240,7 +250,9 @@ class AttendanceController extends Controller
 
         $athlete = $this->resolveAthleteByCode($validated['athlete_code']);
         $user = auth()->user();
-        if ($user?->isMurid()) {
+        if ($user?->athlete_id && (int) $user->athlete_id === (int) $athlete->id) {
+            // Self status change is allowed
+        } elseif ($user?->isMurid()) {
             if ((int) $user->athlete_id !== (int) $athlete->id) {
                 throw ValidationException::withMessages([
                     'athlete_code' => 'Kode atlet tidak sesuai dengan akun ini.',
@@ -272,10 +284,10 @@ class AttendanceController extends Controller
         $newDocumentMime = $request->file('absence_document')->getClientMimeType();
         if (! $attendance) {
             Attendance::create([
-                'athlete_id' => $athlete->id,
-                'status' => $validated['status'],
-                'recorded_at' => now(),
-                'absence_reason' => $validated['absence_reason'] ?? null,
+                'athlete_id'            => $athlete->id,
+                'status'                => $validated['status'],
+                'recorded_at'           => now(),
+                'absence_reason'        => $validated['absence_reason'] ?? null,
                 'absence_document_path' => $newDocumentPath,
                 'absence_document_mime' => $newDocumentMime,
             ]);
@@ -285,10 +297,10 @@ class AttendanceController extends Controller
             }
 
             $attendance->update([
-                'status' => $validated['status'],
-                'absence_reason' => $validated['absence_reason'] ?? null,
-                'check_in_at' => null,
-                'check_out_at' => null,
+                'status'                => $validated['status'],
+                'absence_reason'        => $validated['absence_reason'] ?? null,
+                'check_in_at'           => null,
+                'check_out_at'          => null,
                 'absence_document_path' => $newDocumentPath,
                 'absence_document_mime' => $newDocumentMime,
             ]);
@@ -298,6 +310,231 @@ class AttendanceController extends Controller
 
         return back()->with('success', 'Status absensi berhasil dikirim sebagai ' . $label . '.');
     }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // REKAP ABSENSI
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function recap(Request $request)
+    {
+        $user          = auth()->user();
+        $month         = (int) $request->get('month', now()->month);
+        $year          = (int) $request->get('year', now()->year);
+        $dojoId        = $request->get('dojo_id') ? (int) $request->get('dojo_id') : null;
+        $athleteSearch = $request->get('search', '');
+
+        $resolvedDojoId = $this->resolveDojoId($user, $dojoId);
+
+        $athleteQuery = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->with('dojo:id,name', 'level:id,name')
+            ->when($resolvedDojoId, fn ($q) => $q->where('dojo_id', $resolvedDojoId))
+            ->when($athleteSearch, fn ($q) => $q->where(function ($sub) use ($athleteSearch) {
+                $sub->where('full_name', 'like', "%{$athleteSearch}%")
+                    ->orWhere('athlete_code', 'like', "%{$athleteSearch}%");
+            }))
+            ->orderBy('full_name');
+
+        $athletes = $athleteQuery->get(['id', 'full_name', 'athlete_code', 'dojo_id', 'level_id']);
+
+        $athleteIds = $athletes->pluck('id');
+
+        // Hitung jumlah hari kerja dalam bulan ini (sesuai jadwal dojo)
+        $daysInMonth = Carbon::createFromDate($year, $month)->daysInMonth;
+
+        // Ambil semua absensi bulan ini
+        $attendances = Attendance::query()
+            ->whereIn('athlete_id', $athleteIds)
+            ->whereYear('recorded_at', $year)
+            ->whereMonth('recorded_at', $month)
+            ->get(['id', 'athlete_id', 'status', 'recorded_at', 'check_in_at', 'check_out_at', 'check_in_lat', 'check_in_lng']);
+
+        $grouped = $attendances->groupBy('athlete_id');
+
+        $recap = $athletes->map(function (Athlete $athlete) use ($grouped, $daysInMonth) {
+            $records = $grouped->get($athlete->id, collect());
+            $present  = $records->where('status', 'present')->count();
+            $sick     = $records->where('status', 'sick')->count();
+            $excused  = $records->where('status', 'excused')->count();
+            $absent   = $records->where('status', 'absent')->count();
+            $total    = $records->count();
+            $rate     = $daysInMonth > 0 ? round(($present / $daysInMonth) * 100, 1) : 0;
+
+            // Lokasi terbaru yang tersimpan
+            $lastWithLocation = $records
+                ->whereNotNull('check_in_lat')
+                ->whereNotNull('check_in_lng')
+                ->sortByDesc('recorded_at')
+                ->first();
+
+            return [
+                'id'            => $athlete->id,
+                'full_name'     => $athlete->full_name,
+                'athlete_code'  => $athlete->athlete_code,
+                'dojo_name'     => $athlete->dojo?->name ?? '-',
+                'level_name'    => $athlete->level?->name ?? '-',
+                'present'       => $present,
+                'sick'          => $sick,
+                'excused'       => $excused,
+                'absent'        => $absent,
+                'total'         => $total,
+                'days_in_month' => $daysInMonth,
+                'rate'          => $rate,
+                'last_lat'      => $lastWithLocation?->check_in_lat,
+                'last_lng'      => $lastWithLocation?->check_in_lng,
+                'last_checkin'  => $lastWithLocation
+                    ? Carbon::parse($lastWithLocation->recorded_at)->translatedFormat('d M Y')
+                    : null,
+            ];
+        })->values();
+
+        return Inertia::render('Attendance/Recap', [
+            'recap'     => Inertia::defer(fn () => $recap),
+            'dojos'     => Inertia::defer(fn () => $user?->isSuperAdmin()
+                ? Dojo::orderBy('name')->get(['id', 'name'])
+                : []
+            ),
+            'filters'   => [
+                'month'   => $month,
+                'year'    => $year,
+                'dojo_id' => $resolvedDojoId,
+                'search'  => $athleteSearch,
+            ],
+        ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $user    = auth()->user();
+        $month   = (int) $request->get('month', now()->month);
+        $year    = (int) $request->get('year', now()->year);
+        $dojoId  = $request->get('dojo_id') ? (int) $request->get('dojo_id') : null;
+        $search  = $request->get('search', '');
+
+        $resolvedDojoId = $this->resolveDojoId($user, $dojoId);
+
+        $athletes = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->with('dojo:id,name', 'level:id,name')
+            ->when($resolvedDojoId, fn ($q) => $q->where('dojo_id', $resolvedDojoId))
+            ->when($search, fn ($q) => $q->where(function ($sub) use ($search) {
+                $sub->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('athlete_code', 'like', "%{$search}%");
+            }))
+            ->orderBy('full_name')
+            ->get(['id', 'full_name', 'athlete_code', 'dojo_id', 'level_id']);
+
+        $athleteIds  = $athletes->pluck('id');
+        $daysInMonth = Carbon::createFromDate($year, $month)->daysInMonth;
+
+        $attendances = Attendance::query()
+            ->whereIn('athlete_id', $athleteIds)
+            ->whereYear('recorded_at', $year)
+            ->whereMonth('recorded_at', $month)
+            ->get(['athlete_id', 'status', 'recorded_at']);
+
+        $grouped = $attendances->groupBy('athlete_id');
+
+        $recap = $athletes->map(function (Athlete $athlete) use ($grouped, $daysInMonth) {
+            $records = $grouped->get($athlete->id, collect());
+            $present = $records->where('status', 'present')->count();
+            $sick    = $records->where('status', 'sick')->count();
+            $excused = $records->where('status', 'excused')->count();
+            $absent  = $records->where('status', 'absent')->count();
+            $rate    = $daysInMonth > 0 ? round(($present / $daysInMonth) * 100, 1) : 0;
+
+            return [
+                'full_name'    => $athlete->full_name,
+                'athlete_code' => $athlete->athlete_code,
+                'dojo_name'    => $athlete->dojo?->name ?? '-',
+                'level_name'   => $athlete->level?->name ?? '-',
+                'present'      => $present,
+                'sick'         => $sick,
+                'excused'      => $excused,
+                'absent'       => $absent,
+                'rate'         => $rate,
+            ];
+        })->values();
+
+        $monthName = Carbon::createFromDate($year, $month)->translatedFormat('F Y');
+        $dojoName  = $resolvedDojoId ? (Dojo::find($resolvedDojoId)?->name ?? 'Semua Dojo') : 'Semua Dojo';
+
+        $pdf = Pdf::loadView('attendance.recap-pdf', compact('recap', 'monthName', 'dojoName', 'year', 'month'))
+            ->setPaper('a4', 'landscape');
+
+        $filename = 'rekap-absensi-' . $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT) . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $user   = auth()->user();
+        $month  = (int) $request->get('month', now()->month);
+        $year   = (int) $request->get('year', now()->year);
+        $dojoId = $request->get('dojo_id') ? (int) $request->get('dojo_id') : null;
+        $search = $request->get('search', '');
+
+        $resolvedDojoId = $this->resolveDojoId($user, $dojoId);
+
+        $athletes = $this->scopeAthletesForUser(Athlete::query(), $user)
+            ->with('dojo:id,name', 'level:id,name')
+            ->when($resolvedDojoId, fn ($q) => $q->where('dojo_id', $resolvedDojoId))
+            ->when($search, fn ($q) => $q->where(function ($sub) use ($search) {
+                $sub->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('athlete_code', 'like', "%{$search}%");
+            }))
+            ->orderBy('full_name')
+            ->get(['id', 'full_name', 'athlete_code', 'dojo_id', 'level_id']);
+
+        $athleteIds  = $athletes->pluck('id');
+        $daysInMonth = Carbon::createFromDate($year, $month)->daysInMonth;
+
+        $attendances = Attendance::query()
+            ->whereIn('athlete_id', $athleteIds)
+            ->whereYear('recorded_at', $year)
+            ->whereMonth('recorded_at', $month)
+            ->get(['athlete_id', 'status', 'recorded_at', 'check_in_at', 'check_out_at', 'check_in_lat', 'check_in_lng']);
+
+        $grouped = $attendances->groupBy('athlete_id');
+
+        $data = $athletes->map(function (Athlete $athlete) use ($grouped, $daysInMonth) {
+            $records = $grouped->get($athlete->id, collect());
+            $present = $records->where('status', 'present')->count();
+            $sick    = $records->where('status', 'sick')->count();
+            $excused = $records->where('status', 'excused')->count();
+            $absent  = $records->where('status', 'absent')->count();
+            $rate    = $daysInMonth > 0 ? round(($present / $daysInMonth) * 100, 1) : 0;
+
+            $lastWithLocation = $records
+                ->whereNotNull('check_in_lat')
+                ->sortByDesc('recorded_at')
+                ->first();
+
+            return [
+                'Nama'         => $athlete->full_name,
+                'Kode'         => $athlete->athlete_code,
+                'Dojo'         => $athlete->dojo?->name ?? '-',
+                'Level'        => $athlete->level?->name ?? '-',
+                'Hadir'        => $present,
+                'Sakit'        => $sick,
+                'Izin'         => $excused,
+                'Alpa'         => $absent,
+                'Total Sesi'   => $records->count(),
+                'Persen (%)'   => $rate,
+                'Lat (Lokasi)' => $lastWithLocation?->check_in_lat,
+                'Lng (Lokasi)' => $lastWithLocation?->check_in_lng,
+            ];
+        })->values()->toArray();
+
+        return response()->json([
+            'data'  => $data,
+            'month' => $month,
+            'year'  => $year,
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // PRIVATE HELPERS
+    // ────────────────────────────────────────────────────────────────────────
 
     private function recordAttendance(Athlete $athlete, string $action = 'checkin', array $payload = []): Attendance
     {
@@ -322,21 +559,25 @@ class AttendanceController extends Controller
 
             if (! $attendance) {
                 $attendance = Attendance::create([
-                    'athlete_id' => $athlete->id,
-                    'status' => 'present',
-                    'recorded_at' => now(),
-                    'check_in_at' => now(),
-                    'check_in_feedback' => $payload['check_in_feedback'] ?? null,
-                    'check_in_mood' => $payload['check_in_mood'] ?? null,
+                    'athlete_id'             => $athlete->id,
+                    'status'                 => 'present',
+                    'recorded_at'            => now(),
+                    'check_in_at'            => now(),
+                    'check_in_lat'           => isset($payload['check_in_lat']) ? (float) $payload['check_in_lat'] : null,
+                    'check_in_lng'           => isset($payload['check_in_lng']) ? (float) $payload['check_in_lng'] : null,
+                    'check_in_feedback'      => $payload['check_in_feedback'] ?? null,
+                    'check_in_mood'          => $payload['check_in_mood'] ?? null,
                     'check_in_document_path' => $payload['check_in_document_path'] ?? null,
                     'check_in_document_mime' => $payload['check_in_document_mime'] ?? null,
                 ]);
             } else {
                 $attendance->update([
-                    'status' => 'present',
-                    'check_in_at' => now(),
-                    'check_in_feedback' => $payload['check_in_feedback'] ?? null,
-                    'check_in_mood' => $payload['check_in_mood'] ?? null,
+                    'status'                 => 'present',
+                    'check_in_at'            => now(),
+                    'check_in_lat'           => isset($payload['check_in_lat']) ? (float) $payload['check_in_lat'] : null,
+                    'check_in_lng'           => isset($payload['check_in_lng']) ? (float) $payload['check_in_lng'] : null,
+                    'check_in_feedback'      => $payload['check_in_feedback'] ?? null,
+                    'check_in_mood'          => $payload['check_in_mood'] ?? null,
                     'check_in_document_path' => $payload['check_in_document_path'] ?? $attendance->check_in_document_path,
                     'check_in_document_mime' => $payload['check_in_document_mime'] ?? $attendance->check_in_document_mime,
                 ]);
@@ -358,9 +599,11 @@ class AttendanceController extends Controller
         }
 
         $attendance->update([
-            'check_out_at' => now(),
-            'athlete_feedback' => $payload['athlete_feedback'] ?? null,
-            'athlete_mood' => $payload['athlete_mood'] ?? null,
+            'check_out_at'      => now(),
+            'check_out_lat'     => isset($payload['check_out_lat']) ? (float) $payload['check_out_lat'] : null,
+            'check_out_lng'     => isset($payload['check_out_lng']) ? (float) $payload['check_out_lng'] : null,
+            'athlete_feedback'  => $payload['athlete_feedback'] ?? null,
+            'athlete_mood'      => $payload['athlete_mood'] ?? null,
         ]);
 
         return $attendance;
@@ -390,16 +633,16 @@ class AttendanceController extends Controller
 
         if (!$dojo) {
             return [
-                'payload' => null,
+                'payload'    => null,
                 'expires_in' => null,
-                'dojo_name' => null,
+                'dojo_name'  => null,
             ];
         }
 
         return [
-            'payload' => "ATHLIX-DOJO|{$dojo->id}",
-            'expires_in' => null,
-            'dojo_name' => $dojo->name,
+            'payload'      => "ATHLIX-DOJO|{$dojo->id}",
+            'expires_in'   => null,
+            'dojo_name'    => $dojo->name,
             'generated_at' => null,
         ];
     }
@@ -495,4 +738,3 @@ class AttendanceController extends Controller
             ->update(['check_out_at' => \DB::raw('check_in_at')]);
     }
 }
-

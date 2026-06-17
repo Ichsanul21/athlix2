@@ -55,6 +55,8 @@ class SuperAdminController extends Controller
             if ($athlete && !empty($validated['phone_number'])) {
                 $athlete->update(['phone_number' => $validated['phone_number']]);
             }
+        } elseif (in_array($validated['role'] ?? null, ['sensei', 'head_coach', 'assistant'], true)) {
+            unset($validated['athlete_id']);
         } else {
             $validated['athlete_id'] = null;
         }
@@ -115,6 +117,8 @@ class SuperAdminController extends Controller
             if ($athlete && !empty($validated['phone_number'])) {
                 $athlete->update(['phone_number' => $validated['phone_number']]);
             }
+        } elseif (in_array($validated['role'] ?? null, ['sensei', 'head_coach', 'assistant'], true)) {
+            unset($validated['athlete_id']);
         } else {
             $validated['athlete_id'] = null;
         }

@@ -2,7 +2,7 @@ import PwaLayout from '@/Layouts/PwaLayout';
 import { Head, router } from '@inertiajs/react';
 import { Card } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
-import { ScanLine, Camera, Loader2, AlertTriangle, Upload, X, FileText, Thermometer } from 'lucide-react';
+import { ScanLine, Camera, Loader2, AlertTriangle, Upload, X, FileText, Thermometer, MapPin, MapPinOff } from 'lucide-react';
 import { Skeleton } from '@/Components/ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -72,6 +72,25 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
         }
     }, [flash]);
 
+    const [gpsStatus, setGpsStatus] = useState(null); // null | 'fetching' | 'ok' | 'denied'
+    const [gpsCoords, setGpsCoords] = useState(null);  // { lat, lng }
+
+    const getGeolocation = () =>
+        new Promise((resolve) => {
+            if (!navigator.geolocation) { resolve(null); return; }
+            setGpsStatus('fetching');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    setGpsCoords(coords);
+                    setGpsStatus('ok');
+                    resolve(coords);
+                },
+                () => { setGpsStatus('denied'); resolve(null); },
+                { timeout: 8000, maximumAge: 60000 }
+            );
+        });
+
     const killVideoStreams = () => {
         const container = document.getElementById('qr-reader-dojo');
         if (container) {
@@ -108,6 +127,9 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
         setPermissionDenied(false);
         setScanning(true);
 
+        // Capture GPS first (non-blocking — scan proceeds even if denied)
+        const coords = await getGeolocation();
+
         try {
             await navigator.mediaDevices.getUserMedia({ video: true });
             killVideoStreams();
@@ -119,6 +141,11 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                 (decodedText) => {
                     stopScanner().then(() => {
                         const action = selectedAction;
+                        const geoPayload = coords
+                            ? action === 'checkin'
+                                ? { check_in_lat: coords.lat, check_in_lng: coords.lng }
+                                : { check_out_lat: coords.lat, check_out_lng: coords.lng }
+                            : {};
 
                         router.post(route('attendance.scan-dojo'), {
                             athlete_code: athlete?.athlete_code,
@@ -129,11 +156,12 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                             check_in_document: null,
                             athlete_feedback: '',
                             athlete_mood: '',
+                            ...geoPayload,
                         }, {
                             preserveScroll: true,
                             onSuccess: () => {
                                 if (action === 'checkin') {
-                                    setScanSuccessMsg('Check-in berhasil!');
+                                    setScanSuccessMsg('Check-in berhasil!' + (coords ? ' 📍 Lokasi tersimpan.' : ''));
                                 } else {
                                     setScanSuccessMsg('Check-out berhasil!');
                                     setTimeout(() => setShowFeedbackModal(true), 600);
@@ -244,9 +272,14 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
     if (!athlete) {
         return (
             <PwaLayout user={auth?.user} header="Scan Absensi">
-                <div className="space-y-6 pb-24">
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="h-80 w-full" />
+                <div className="space-y-4 pb-24 text-center py-12 px-4">
+                    <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertTriangle className="text-neutral-400" size={32} />
+                    </div>
+                    <h3 className="text-base font-black uppercase tracking-tight">Akun Belum Terhubung</h3>
+                    <p className="text-sm text-neutral-500 max-w-xs mx-auto mt-2">
+                        Akun Anda belum terhubung dengan profil atlet/absensi. Silakan hubungi Administrator untuk menghubungkan akun Anda.
+                    </p>
                 </div>
             </PwaLayout>
         );
@@ -386,6 +419,27 @@ export default function Index({ auth, athlete, attendanceLog = [], todayAttendan
                             <Button onClick={stopScanner} variant="outline" className="w-full h-12 rounded-2xl">Batal</Button>
                         </div>
                     )
+                )}
+
+                {/* GPS Status Indicator */}
+                {gpsStatus === 'fetching' && (
+                    <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Mengambil lokasi GPS...</span>
+                    </div>
+                )}
+                {gpsStatus === 'ok' && gpsCoords && (
+                    <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                        <MapPin size={14} />
+                        <span className="font-medium">Lokasi tersimpan</span>
+                        <span className="text-xs text-green-600 ml-auto font-mono">{gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}</span>
+                    </div>
+                )}
+                {gpsStatus === 'denied' && (
+                    <div className="flex items-center gap-2 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
+                        <MapPinOff size={14} />
+                        <span>GPS tidak tersedia — absensi tetap dicatat tanpa lokasi.</span>
+                    </div>
                 )}
 
                 {/* ===== TOMBOL IZIN & SAKIT DI BAWAH KAMERA ===== */}

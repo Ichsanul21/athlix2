@@ -20,7 +20,28 @@ class PwaController extends Controller
         $user = auth()->user();
 
         $targetAthleteId = null;
-        if ($user?->athlete_id) {
+        if ($user && in_array($user->role, ['sensei', 'head_coach', 'assistant'], true)) {
+            if (!$user->athlete_id) {
+                $athlete = Athlete::query()
+                    ->where('athlete_code', 'COACH-' . $user->id)
+                    ->first();
+
+                if (!$athlete) {
+                    $athlete = Athlete::create([
+                        'dojo_id' => $user->dojo_id ?? Dojo::query()->value('id') ?? 1,
+                        'athlete_code' => 'COACH-' . $user->id,
+                        'full_name' => $user->name,
+                        'phone_number' => $user->phone_number ?? null,
+                        'dob' => '1990-01-01',
+                        'gender' => 'M',
+                    ]);
+                }
+
+                $user->update(['athlete_id' => $athlete->id]);
+                $user->refresh();
+            }
+            $targetAthleteId = (int) $user->athlete_id;
+        } elseif ($user?->athlete_id) {
             $targetAthleteId = (int) $user->athlete_id;
         } elseif ($user?->isParent()) {
             $linkedAthletes = $user->guardianAthletes()
@@ -343,7 +364,7 @@ class PwaController extends Controller
                     'athlete_reports.strength',
                     'athlete_reports.agility',
                 ]),
-                'physicalMetrics' => fn ($query) => $query->latest('recorded_at')->limit(1),
+                'latestPhysicalMetric',
             ])
             ->withCount([
                 'attendances as attendance_total_count',
@@ -363,7 +384,7 @@ class PwaController extends Controller
                 ? (int) round(($athlete->attendance_present_count / $athlete->attendance_total_count) * 100)
                 : 0;
 
-            $latestMetric = $athlete->physicalMetrics->first();
+            $latestMetric = $athlete->latestPhysicalMetric;
             $bmi = $latestMetric?->bmi;
             $bmiScore = 0;
             if ($bmi) {

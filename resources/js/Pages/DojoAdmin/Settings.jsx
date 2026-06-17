@@ -8,7 +8,7 @@ import DbSelect from '@/Components/DbSelect';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '@/Components/Modal';
 
-export default function Settings({ auth, dojo }) {
+export default function Settings({ auth, dojo, priceLists = [] }) {
     const fileInputRef = useRef(null);
     const [previewLogo, setPreviewLogo] = useState(null);
 
@@ -23,11 +23,94 @@ export default function Settings({ auth, dojo }) {
     const [loadingDist, setLoadingDist] = useState(false);
     const [loadingVill, setLoadingVill] = useState(false);
     const [planModal, setPlanModal] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState(dojo?.saas_plan_name || 'Basic');
+    const [selectedCycle, setSelectedCycle] = useState(1);
+    const [loadingPay, setLoadingPay] = useState(false);
 
-    const planForm = useForm({
-        requested_plan_name: dojo?.saas_plan_name || 'Basic',
-        reason: '',
-    });
+    const activePriceLists = priceLists && priceLists.length > 0
+        ? priceLists.map(p => ({
+            name: p.title,
+            price: Number(p.price),
+            desc: p.description || ''
+        }))
+        : [];
+
+    const getPlanPrice = (plan) => {
+        const found = activePriceLists.find(p => p.name === plan);
+        return found ? found.price : 0;
+    };
+
+    useEffect(() => {
+        if (activePriceLists.length > 0) {
+            const exists = activePriceLists.some(p => p.name === selectedPlan);
+            if (!exists) {
+                const matched = activePriceLists.find(p => p.name.toLowerCase() === (dojo?.saas_plan_name || '').toLowerCase());
+                if (matched) {
+                    setSelectedPlan(matched.name);
+                } else {
+                    setSelectedPlan(activePriceLists[0].name);
+                }
+            }
+        }
+    }, [priceLists, dojo]);
+
+    const formatPrice = (value) => {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0
+        }).format(value);
+    };
+
+    const handlePayRenewal = async (e) => {
+        e.preventDefault();
+        setLoadingPay(true);
+        try {
+            const response = await fetch(route('saas.payment.renew'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                },
+                body: JSON.stringify({
+                    requested_plan_name: selectedPlan,
+                    billing_cycle_months: selectedCycle,
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.message || 'Gagal memulai transaksi.');
+                setLoadingPay(false);
+                return;
+            }
+
+            // Trigger Midtrans Snap
+            window.snap.pay(data.snap_token, {
+                onSuccess: function (result) {
+                    alert('Pembayaran sukses! Halaman akan dimuat ulang.');
+                    window.location.reload();
+                },
+                onPending: function (result) {
+                    alert('Pembayaran tertunda. Silakan selesaikan pembayaran Anda.');
+                    window.location.reload();
+                },
+                onError: function (result) {
+                    alert('Pembayaran gagal. Silakan coba lagi.');
+                    setLoadingPay(false);
+                },
+                onClose: function () {
+                    alert('Anda menutup popup pembayaran.');
+                    setLoadingPay(false);
+                }
+            });
+
+        } catch (error) {
+            console.error(error);
+            alert('Terjadi kesalahan koneksi.');
+            setLoadingPay(false);
+        }
+    };
 
     const form = useForm({
         name: '',
@@ -176,10 +259,10 @@ export default function Settings({ auth, dojo }) {
                                     <p className="text-[10px] font-bold text-neutral-400">Exp: {dojo?.subscription_expires_at ? new Date(dojo.subscription_expires_at).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</p>
                                 </div>
                             </div>
-                            <Button 
-                                type="button" 
-                                size="sm" 
-                                variant="outline" 
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
                                 className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-[10px] font-black uppercase tracking-widest px-3 h-8 rounded-lg"
                                 onClick={() => setPlanModal(true)}
                             >
@@ -364,11 +447,11 @@ export default function Settings({ auth, dojo }) {
                                     <p className="text-xs text-neutral-500 mt-1 uppercase font-bold tracking-tighter">{dojo?.subscription_type ?? 'Trial'}</p>
                                 </div>
                             </div>
-                            
+
                             <div className="pt-2">
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
+                                <Button
+                                    type="button"
+                                    variant="outline"
                                     className="w-full sm:w-auto rounded-xl border-athlix-red text-athlix-red hover:bg-athlix-red hover:text-white font-bold"
                                     onClick={() => setPlanModal(true)}
                                 >
@@ -487,72 +570,104 @@ export default function Settings({ auth, dojo }) {
             </div>
 
             {/* Change Plan Modal */}
-            <Modal show={planModal} onClose={() => setPlanModal(false)} maxWidth="md">
+            <Modal show={planModal} onClose={() => setPlanModal(false)} maxWidth="lg">
                 <div className="p-6 space-y-6">
                     <div>
-                        <h3 className="text-xl font-black tracking-tight">Ajukan Ubah Paket</h3>
-                        <p className="text-sm text-neutral-500">Permintaan ini akan diproses oleh Super Admin.</p>
+                        <h3 className="text-xl font-black tracking-tight uppercase">Pilih Paket & Perpanjang Langganan</h3>
+                        <p className="text-sm text-neutral-500">Selesaikan pembayaran secara instan menggunakan Midtrans Snap.</p>
                     </div>
 
-                    <form onSubmit={(e) => {
-                        e.preventDefault();
-                        planForm.post(route('dojo-admin.request-plan-change'), {
-                            onSuccess: () => { setPlanModal(false); planForm.reset(); },
-                        });
-                    }} className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Paket Baru Pilihan</label>
-                            <div className="grid grid-cols-1 gap-2">
-                                {['Basic', 'Pro', 'Advance'].map((plan) => (
+                    <form onSubmit={handlePayRenewal} className="space-y-5">
+                        {/* Plan selection */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-widest text-neutral-500">Pilih Paket Membership</label>
+                            <div className="grid grid-cols-1 gap-2.5">
+                                {activePriceLists.map((item) => (
                                     <button
-                                        key={plan}
+                                        key={item.name}
                                         type="button"
-                                        onClick={() => planForm.setData('requested_plan_name', plan)}
-                                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
-                                            planForm.data.requested_plan_name === plan
-                                            ? 'bg-athlix-red/5 border-athlix-red font-bold text-athlix-red'
-                                            : 'bg-white border-neutral-200 hover:border-neutral-300'
-                                        }`}
+                                        onClick={() => setSelectedPlan(item.name)}
+                                        className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 text-left transition-all ${selectedPlan === item.name
+                                                ? 'bg-athlix-red/5 border-athlix-red shadow-sm'
+                                                : 'bg-white border-neutral-200 hover:border-neutral-300'
+                                            }`}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`p-1.5 rounded-lg ${planForm.data.requested_plan_name === plan ? 'bg-athlix-red text-white' : 'bg-neutral-100'}`}>
-                                                {planForm.data.requested_plan_name === plan ? <CheckCircle2 size={14} /> : <div className="w-3.5 h-3.5" />}
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedPlan === item.name ? 'border-athlix-red' : 'border-neutral-300'}`}>
+                                                    {selectedPlan === item.name && <div className="w-2.5 h-2.5 rounded-full bg-athlix-red" />}
+                                                </div>
+                                                <span className={`font-bold ${selectedPlan === item.name ? 'text-athlix-red font-black' : 'text-neutral-800'}`}>{item.name}</span>
                                             </div>
-                                            {plan}
+                                            <span className="text-sm font-black text-neutral-800">{formatPrice(item.price)}<span className="text-[10px] font-normal text-neutral-500">/bln</span></span>
                                         </div>
-                                        {dojo?.saas_plan_name === plan && (
-                                            <span className="text-[10px] uppercase font-black bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full">Paket Sekarang</span>
-                                        )}
+                                        <p className="text-xs text-neutral-500 pl-6">{item.desc}</p>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Alasan Perubahan (Opsional)</label>
-                            <textarea
-                                value={planForm.data.reason}
-                                onChange={(e) => planForm.setData('reason', e.target.value)}
-                                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm min-h-[100px]"
-                                placeholder="Contoh: Menambah jumlah atlet, perlu fitur advanced, dsb."
-                            ></textarea>
+                        {/* Duration selection */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-widest text-neutral-500">Durasi Berlangganan</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {[
+                                    { value: 1, label: '1 Bulan' },
+                                    { value: 3, label: '3 Bulan' },
+                                    { value: 6, label: '6 Bulan' },
+                                    { value: 12, label: '12 Bulan' },
+                                ].map((cycle) => (
+                                    <button
+                                        key={cycle.value}
+                                        type="button"
+                                        onClick={() => setSelectedCycle(cycle.value)}
+                                        className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${selectedCycle === cycle.value
+                                                ? 'bg-neutral-900 border-neutral-900 text-white font-black'
+                                                : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-700'
+                                            }`}
+                                    >
+                                        {cycle.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
+                        {/* Pricing Summary */}
+                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-950/20 border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-2 text-sm">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Ringkasan Pembayaran</p>
+                            <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                                <span>Paket Pilihan</span>
+                                <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedPlan}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                                <span>Durasi Langganan</span>
+                                <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedCycle} Bulan</span>
+                            </div>
+                            <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                                <span>Biaya per Bulan</span>
+                                <span className="font-bold text-neutral-800 dark:text-neutral-200">{formatPrice(getPlanPrice(selectedPlan))}</span>
+                            </div>
+                            <div className="border-t border-neutral-200 dark:border-neutral-800 pt-2 flex justify-between items-center text-base">
+                                <span className="font-black text-neutral-800 dark:text-neutral-200">Total Pembayaran</span>
+                                <span className="font-black text-athlix-red">{formatPrice(getPlanPrice(selectedPlan) * selectedCycle)}</span>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
                             <AlertCircle className="text-amber-600 shrink-0" size={18} />
-                            <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                                Setelah dikirim, Anda tidak dapat mengubah proposal ini sampai diproses oleh Super Admin. Tagihan akan menyesuaikan di siklus berikutnya setelah disetujui.
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
+                                Pembayaran diproses secara otomatis dan instan oleh Midtrans. Setelah pembayaran berhasil dilakukan, akses sistem Anda akan diperpanjang atau dipulihkan seketika.
                             </p>
                         </div>
 
                         <div className="flex justify-end gap-3 pt-2">
                             <Button variant="outline" type="button" onClick={() => setPlanModal(false)}>Batal</Button>
-                            <Button 
-                                type="submit" 
-                                disabled={planForm.processing || dojo?.saas_plan_name === planForm.data.requested_plan_name}
-                                className="bg-athlix-black text-white hover:bg-neutral-800"
+                            <Button
+                                type="submit"
+                                disabled={loadingPay}
+                                className="bg-athlix-black text-white hover:bg-neutral-800 uppercase tracking-widest font-black text-xs gap-2"
                             >
-                                Kirim Pengajuan
+                                {loadingPay ? 'Memproses...' : 'Bayar Sekarang'}
                             </Button>
                         </div>
                     </form>

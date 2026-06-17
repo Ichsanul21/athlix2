@@ -6,9 +6,11 @@ use App\Http\Controllers\Api\V1\NotificationDeviceController;
 use App\Http\Controllers\Api\V1\Wellness\DashboardController;
 use App\Http\Controllers\Api\V1\Wellness\ReadinessController;
 use App\Http\Controllers\Api\V1\Wellness\RpeLogController;
+use App\Http\Controllers\SaasPaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
+Route::post('/saas/payment/callback', [SaasPaymentController::class, 'midtransCallback'])->name('saas.payment.callback');
 Route::post('/v1/localization/translate', [LocalizationController::class, 'translate'])
     ->middleware('throttle:600,1')
     ->name('api.v1.localization.translate');
