@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Palette, Image as ImageIcon, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Palette, Image as ImageIcon, Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import DbSelect from '@/Components/DbSelect';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '@/Components/Modal';
@@ -22,10 +22,15 @@ export default function Settings({ auth, dojo, priceLists = [] }) {
     const [loadingReg, setLoadingReg] = useState(false);
     const [loadingDist, setLoadingDist] = useState(false);
     const [loadingVill, setLoadingVill] = useState(false);
+    
+    // Modal & Payment States
     const [planModal, setPlanModal] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(dojo?.saas_plan_name || 'Basic');
     const [selectedCycle, setSelectedCycle] = useState(1);
     const [loadingPay, setLoadingPay] = useState(false);
+    
+    // State untuk menampilkan status pembayaran (sukses/gagal) di dalam modal
+    const [paymentStatus, setPaymentStatus] = useState(null); // null, 'success', 'error', 'pending'
 
     const activePriceLists = priceLists && priceLists.length > 0
         ? priceLists.map(p => ({
@@ -65,6 +70,8 @@ export default function Settings({ auth, dojo, priceLists = [] }) {
     const handlePayRenewal = async (e) => {
         e.preventDefault();
         setLoadingPay(true);
+        setPaymentStatus(null); // Reset status saat mencoba bayar lagi
+
         try {
             const response = await fetch(route('saas.payment.renew'), {
                 method: 'POST',
@@ -80,35 +87,39 @@ export default function Settings({ auth, dojo, priceLists = [] }) {
 
             const data = await response.json();
             if (!response.ok) {
-                alert(data.message || 'Gagal memulai transaksi.');
-                setLoadingPay(false);
+                setPaymentStatus('error');
+                // Tetap reload halaman setelah delay agar user tau ada error
+                setTimeout(() => window.location.reload(), 3000);
                 return;
             }
 
             // Trigger Midtrans Snap
             window.snap.pay(data.snap_token, {
                 onSuccess: function (result) {
-                    alert('Pembayaran sukses! Halaman akan dimuat ulang.');
-                    window.location.reload();
+                    setPaymentStatus('success');
+                    // Reload halaman setelah user membaca pesan sukses (1.5 detik)
+                    setTimeout(() => window.location.reload(), 1500);
                 },
                 onPending: function (result) {
-                    alert('Pembayaran tertunda. Silakan selesaikan pembayaran Anda.');
-                    window.location.reload();
+                    setPaymentStatus('pending');
+                    // Reload untuk cek status terbaru
+                    setTimeout(() => window.location.reload(), 2000);
                 },
                 onError: function (result) {
-                    alert('Pembayaran gagal. Silakan coba lagi.');
-                    setLoadingPay(false);
+                    setPaymentStatus('error');
+                    // Reload halaman setelah user membaca pesan error (2 detik)
+                    setTimeout(() => window.location.reload(), 2000);
                 },
                 onClose: function () {
-                    alert('Anda menutup popup pembayaran.');
+                    // Jika user menutup popup manual, kita hanya stop loading dan biarkan form tetap terbuka
                     setLoadingPay(false);
                 }
             });
 
         } catch (error) {
             console.error(error);
-            alert('Terjadi kesalahan koneksi.');
-            setLoadingPay(false);
+            setPaymentStatus('error');
+            setTimeout(() => window.location.reload(), 3000);
         }
     };
 
@@ -572,105 +583,142 @@ export default function Settings({ auth, dojo, priceLists = [] }) {
             {/* Change Plan Modal */}
             <Modal show={planModal} onClose={() => setPlanModal(false)} maxWidth="lg">
                 <div className="p-6 space-y-6">
-                    <div>
-                        <h3 className="text-xl font-black tracking-tight uppercase">Pilih Paket & Perpanjang Langganan</h3>
-                        <p className="text-sm text-neutral-500">Selesaikan pembayaran secara instan menggunakan Midtrans Snap.</p>
-                    </div>
+                    
+                    {/* Tampilan Header Modal */}
+                    {!paymentStatus && (
+                        <div>
+                            <h3 className="text-xl font-black tracking-tight uppercase">Pilih Paket & Perpanjang Langganan</h3>
+                            <p className="text-sm text-neutral-500">Selesaikan pembayaran secara instan menggunakan Midtrans Snap.</p>
+                        </div>
+                    )}
 
-                    <form onSubmit={handlePayRenewal} className="space-y-5">
-                        {/* Plan selection */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-neutral-500">Pilih Paket Membership</label>
-                            <div className="grid grid-cols-1 gap-2.5">
-                                {activePriceLists.map((item) => (
-                                    <button
-                                        key={item.name}
-                                        type="button"
-                                        onClick={() => setSelectedPlan(item.name)}
-                                        className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 text-left transition-all ${selectedPlan === item.name
-                                                ? 'bg-athlix-red/5 border-athlix-red shadow-sm'
-                                                : 'bg-white border-neutral-200 hover:border-neutral-300'
-                                            }`}
-                                    >
-                                        <div className="flex items-center justify-between w-full">
-                                            <div className="flex items-center gap-2.5">
-                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedPlan === item.name ? 'border-athlix-red' : 'border-neutral-300'}`}>
-                                                    {selectedPlan === item.name && <div className="w-2.5 h-2.5 rounded-full bg-athlix-red" />}
+                    {/* Tampilan Feedback Pembayaran (Sukses/Gagal) */}
+                    {paymentStatus && (
+                        <div className="flex flex-col items-center justify-center py-8 text-center space-y-4 animate-in fade-in zoom-in duration-200">
+                            <div className={`p-4 rounded-full flex items-center justify-center ${
+                                paymentStatus === 'success' ? 'bg-emerald-100 text-emerald-600' : 
+                                paymentStatus === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
+                            }`}>
+                                {paymentStatus === 'success' ? <CheckCircle2 size={64} /> : 
+                                 paymentStatus === 'pending' ? <Loader2 size={64} className="animate-spin" /> : 
+                                 <AlertCircle size={64} />}
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-2xl font-black uppercase tracking-wide">
+                                    {paymentStatus === 'success' ? 'Pembayaran Berhasil!' :
+                                     paymentStatus === 'pending' ? 'Menunggu Pembayaran' : 'Pembayaran Gagal'}
+                                </h3>
+                                <p className="text-neutral-500 mt-2 max-w-xs mx-auto">
+                                    {paymentStatus === 'success' ? 'Akses sistem Anda sedang diperbarui.' :
+                                     paymentStatus === 'pending' ? 'Sedang memverifikasi status pembayaran Anda.' : 
+                                     'Terjadi kesalahan saat memproses pembayaran.'}
+                                </p>
+                            </div>
+                            
+                            <div className="text-xs font-bold text-neutral-400 animate-pulse">
+                                Halaman akan dimuat ulang otomatis...
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Form Pembayaran (Hanya muncul jika tidak ada paymentStatus) */}
+                    {!paymentStatus && (
+                        <form onSubmit={handlePayRenewal} className="space-y-5">
+                            {/* Plan selection */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-neutral-500">Pilih Paket Membership</label>
+                                <div className="grid grid-cols-1 gap-2.5">
+                                    {activePriceLists.map((item) => (
+                                        <button
+                                            key={item.name}
+                                            type="button"
+                                            onClick={() => setSelectedPlan(item.name)}
+                                            className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 text-left transition-all ${selectedPlan === item.name
+                                                    ? 'bg-athlix-red/5 border-athlix-red shadow-sm'
+                                                    : 'bg-white border-neutral-200 hover:border-neutral-300'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedPlan === item.name ? 'border-athlix-red' : 'border-neutral-300'}`}>
+                                                        {selectedPlan === item.name && <div className="w-2.5 h-2.5 rounded-full bg-athlix-red" />}
+                                                    </div>
+                                                    <span className={`font-bold ${selectedPlan === item.name ? 'text-athlix-red font-black' : 'text-neutral-800'}`}>{item.name}</span>
                                                 </div>
-                                                <span className={`font-bold ${selectedPlan === item.name ? 'text-athlix-red font-black' : 'text-neutral-800'}`}>{item.name}</span>
+                                                <span className="text-sm font-black text-neutral-800">{formatPrice(item.price)}<span className="text-[10px] font-normal text-neutral-500">/bln</span></span>
                                             </div>
-                                            <span className="text-sm font-black text-neutral-800">{formatPrice(item.price)}<span className="text-[10px] font-normal text-neutral-500">/bln</span></span>
-                                        </div>
-                                        <p className="text-xs text-neutral-500 pl-6">{item.desc}</p>
-                                    </button>
-                                ))}
+                                            <p className="text-xs text-neutral-500 pl-6">{item.desc}</p>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Duration selection */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-neutral-500">Durasi Berlangganan</label>
-                            <div className="grid grid-cols-4 gap-2">
-                                {[
-                                    { value: 1, label: '1 Bulan' },
-                                    { value: 3, label: '3 Bulan' },
-                                    { value: 6, label: '6 Bulan' },
-                                    { value: 12, label: '12 Bulan' },
-                                ].map((cycle) => (
-                                    <button
-                                        key={cycle.value}
-                                        type="button"
-                                        onClick={() => setSelectedCycle(cycle.value)}
-                                        className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${selectedCycle === cycle.value
-                                                ? 'bg-neutral-900 border-neutral-900 text-white font-black'
-                                                : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-700'
-                                            }`}
-                                    >
-                                        {cycle.label}
-                                    </button>
-                                ))}
+                            {/* Duration selection */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-neutral-500">Durasi Berlangganan</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {[
+                                        { value: 1, label: '1 Bulan' },
+                                        { value: 3, label: '3 Bulan' },
+                                        { value: 6, label: '6 Bulan' },
+                                        { value: 12, label: '12 Bulan' },
+                                    ].map((cycle) => (
+                                        <button
+                                            key={cycle.value}
+                                            type="button"
+                                            onClick={() => setSelectedCycle(cycle.value)}
+                                            className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${selectedCycle === cycle.value
+                                                    ? 'bg-neutral-900 border-neutral-900 text-white font-black'
+                                                    : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-700'
+                                                }`}
+                                        >
+                                            {cycle.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Pricing Summary */}
-                        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-950/20 border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-2 text-sm">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Ringkasan Pembayaran</p>
-                            <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                                <span>Paket Pilihan</span>
-                                <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedPlan}</span>
+                            {/* Pricing Summary */}
+                            <div className="rounded-xl bg-neutral-50 dark:bg-neutral-950/20 border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-2 text-sm">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Ringkasan Pembayaran</p>
+                                <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                                    <span>Paket Pilihan</span>
+                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedPlan}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                                    <span>Durasi Langganan</span>
+                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedCycle} Bulan</span>
+                                </div>
+                                <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                                    <span>Biaya per Bulan</span>
+                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{formatPrice(getPlanPrice(selectedPlan))}</span>
+                                </div>
+                                <div className="border-t border-neutral-200 dark:border-neutral-800 pt-2 flex justify-between items-center text-base">
+                                    <span className="font-black text-neutral-800 dark:text-neutral-200">Total Pembayaran</span>
+                                    <span className="font-black text-athlix-red">{formatPrice(getPlanPrice(selectedPlan) * selectedCycle)}</span>
+                                </div>
                             </div>
-                            <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                                <span>Durasi Langganan</span>
-                                <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedCycle} Bulan</span>
-                            </div>
-                            <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                                <span>Biaya per Bulan</span>
-                                <span className="font-bold text-neutral-800 dark:text-neutral-200">{formatPrice(getPlanPrice(selectedPlan))}</span>
-                            </div>
-                            <div className="border-t border-neutral-200 dark:border-neutral-800 pt-2 flex justify-between items-center text-base">
-                                <span className="font-black text-neutral-800 dark:text-neutral-200">Total Pembayaran</span>
-                                <span className="font-black text-athlix-red">{formatPrice(getPlanPrice(selectedPlan) * selectedCycle)}</span>
-                            </div>
-                        </div>
 
-                        <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
-                            <AlertCircle className="text-amber-600 shrink-0" size={18} />
-                            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
-                                Pembayaran diproses secara otomatis dan instan oleh Midtrans. Setelah pembayaran berhasil dilakukan, akses sistem Anda akan diperpanjang atau dipulihkan seketika.
-                            </p>
-                        </div>
+                            <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
+                                <AlertCircle className="text-amber-600 shrink-0" size={18} />
+                                <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
+                                    Pembayaran diproses secara otomatis dan instan oleh Midtrans. Setelah pembayaran berhasil dilakukan, akses sistem Anda akan diperpanjang atau dipulihkan seketika.
+                                </p>
+                            </div>
 
-                        <div className="flex justify-end gap-3 pt-2">
-                            <Button variant="outline" type="button" onClick={() => setPlanModal(false)}>Batal</Button>
-                            <Button
-                                type="submit"
-                                disabled={loadingPay}
-                                className="bg-athlix-black text-white hover:bg-neutral-800 uppercase tracking-widest font-black text-xs gap-2"
-                            >
-                                {loadingPay ? 'Memproses...' : 'Bayar Sekarang'}
-                            </Button>
-                        </div>
-                    </form>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <Button variant="outline" type="button" onClick={() => setPlanModal(false)}>Batal</Button>
+                                <Button
+                                    type="submit"
+                                    disabled={loadingPay}
+                                    className="bg-athlix-black text-white hover:bg-neutral-800 uppercase tracking-widest font-black text-xs gap-2"
+                                >
+                                    {loadingPay ? 'Memproses...' : 'Bayar Sekarang'}
+                                </Button>
+                            </div>
+                        </form>
+                    )}
                 </div>
             </Modal>
         </AdminLayout>
